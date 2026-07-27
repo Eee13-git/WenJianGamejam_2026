@@ -16,9 +16,16 @@ public class PlayerController : MonoBehaviour
     [Header("碰撞检测")]
     [SerializeField] private float colliderRadius = 0.4f;
 
+    // ---------- 新增：射击设置 ----------
+    [Header("射击设置")]
+    [SerializeField] private GameObject bulletPrefab;      // 子弹预制体
+    [SerializeField] private float bulletSpeed = 10f;     // 子弹飞行速度
+    [SerializeField] private float shootCooldown = 0.2f;  // 射击冷却（秒）
+
     private Rigidbody2D rb;
     private Vector2 moveInput;
-    private bool isDead = false;  // 新增死亡状态
+    private bool isDead = false;
+    private float lastShootTime = -10f;  // 上次射击时间
 
     void Start()
     {
@@ -34,17 +41,30 @@ public class PlayerController : MonoBehaviour
         {
             colliderRadius = circle.radius * Mathf.Max(transform.localScale.x, transform.localScale.y);
         }
+
+        // 检查子弹预制体是否赋值
+        if (bulletPrefab == null)
+        {
+            Debug.LogWarning("PlayerController: 未指定子弹预制体！");
+        }
     }
 
     void Update()
     {
         if (isDead) return; // 死亡后不响应输入
 
+        // ---- 移动输入 ----
         float horizontal = Input.GetAxisRaw("Horizontal");
         float vertical = Input.GetAxisRaw("Vertical");
         moveInput = new Vector2(horizontal, vertical);
-        // 保留手柄轻推手感，同时防止键盘斜向超速
         moveInput = Vector2.ClampMagnitude(moveInput, 1f);
+
+        // ---- 射击输入（鼠标左键） ----
+        if (Input.GetMouseButtonDown(0) && Time.time >= lastShootTime + shootCooldown)
+        {
+            Shoot();
+            lastShootTime = Time.time;
+        }
     }
 
     void FixedUpdate()
@@ -62,11 +82,9 @@ public class PlayerController : MonoBehaviour
         bool canMove = true;
         if (MapManager.Instance != null)
         {
-            // 检测时考虑角色半径：检测目标位置的圆形范围内是否有障碍物
-            // 方法：在目标位置周围取多个点检测（简单起见，我们只检测中心点和4个方向偏移点）
             Vector2[] checkPoints = new Vector2[]
             {
-                nextPos, // 中心
+                nextPos,
                 nextPos + Vector3.right * colliderRadius,
                 nextPos + Vector3.left * colliderRadius,
                 nextPos + Vector3.up * colliderRadius,
@@ -87,13 +105,10 @@ public class PlayerController : MonoBehaviour
         if (canMove)
         {
             rb.MovePosition(nextPos);
-            // 或者用 rb.velocity = targetVelocity;（但 MovePosition 更平滑）
-            // 这里推荐使用 MovePosition 避免物理穿透
         }
         else
         {
-            // 5. 如果不可通行，尝试“逐轴滑动”：
-            // 先尝试单独沿 X 轴移动，再尝试单独沿 Y 轴
+            // 5. 逐轴滑动
             Vector3 nextPosX = currentPos + new Vector3(targetVelocity.x * Time.fixedDeltaTime, 0, 0);
             Vector3 nextPosY = currentPos + new Vector3(0, targetVelocity.y * Time.fixedDeltaTime, 0);
 
@@ -102,7 +117,6 @@ public class PlayerController : MonoBehaviour
 
             if (MapManager.Instance != null)
             {
-                // 检查 X 轴方向（同样考虑半径）
                 Vector2[] checkPointsX = new Vector2[]
                 {
                     nextPosX,
@@ -116,7 +130,6 @@ public class PlayerController : MonoBehaviour
                     if (!MapManager.Instance.IsWalkable(point)) { canMoveX = false; break; }
                 }
 
-                // 检查 Y 轴方向
                 Vector2[] checkPointsY = new Vector2[]
                 {
                     nextPosY,
@@ -131,12 +144,36 @@ public class PlayerController : MonoBehaviour
                 }
             }
 
-            // 分别应用可移动的轴
             Vector3 finalPos = currentPos;
             if (canMoveX) finalPos.x = nextPosX.x;
             if (canMoveY) finalPos.y = nextPosY.y;
-
             rb.MovePosition(finalPos);
+        }
+    }
+
+    // ---------- 射击方法 ----------
+    private void Shoot()
+    {
+        if (bulletPrefab == null) return;
+
+        // 1. 获取鼠标在游戏世界中的位置（Z轴设为0）
+        Vector3 mouseWorldPos = Camera.main.ScreenToWorldPoint(Input.mousePosition);
+        mouseWorldPos.z = 0f;
+
+        // 2. 计算从玩家指向鼠标的方向
+        Vector2 direction = (mouseWorldPos - transform.position).normalized;
+
+        // 3. 生成子弹
+        GameObject bullet = Instantiate(bulletPrefab, transform.position, Quaternion.identity);
+        Projectile proj = bullet.GetComponent<Projectile>();
+        if (proj != null)
+        {
+            // 使用角色的攻击力和子弹速度初始化
+            proj.Initialize(direction, bulletSpeed, attackStrength, Projectile.OwnerType.Player);
+        }
+        else
+        {
+            Debug.LogWarning("子弹预制体缺少 Projectile 组件！");
         }
     }
 
@@ -183,5 +220,7 @@ public class PlayerController : MonoBehaviour
         attackStrength = Mathf.Max(attackStrength, 0);
         moveSpeed = Mathf.Max(moveSpeed, 0);
         colliderRadius = Mathf.Max(colliderRadius, 0.01f);
+        bulletSpeed = Mathf.Max(bulletSpeed, 0f);
+        shootCooldown = Mathf.Max(shootCooldown, 0f);
     }
 }
