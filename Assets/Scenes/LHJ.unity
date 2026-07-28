@@ -484,7 +484,7 @@ MonoBehaviour:
   - keyBinding: 114
     isUnlocked: 1
   _skillLibrary: {fileID: 11400000, guid: 25b940d240ce07f4dbf92087a21c017a, type: 2}
-  _initialSkillId: test_01
+  _initialSkillId: test_02
 --- !u!1001 &3026972340066390984
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -630,6 +630,14 @@ PrefabInstance:
     - target: {fileID: 4083669918242499819, guid: 3791de1fd4e226349806b57f02b315ac, type: 3}
       propertyPath: m_TagString
       value: Obstacles
+      objectReference: {fileID: 0}
+    - target: {fileID: 6797599393813860858, guid: 3791de1fd4e226349806b57f02b315ac, type: 3}
+      propertyPath: m_SortingOrder
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 7781348952840418130, guid: 3791de1fd4e226349806b57f02b315ac, type: 3}
+      propertyPath: m_SortingOrder
+      value: -1
       objectReference: {fileID: 0}
     - target: {fileID: 9137552329488641665, guid: 3791de1fd4e226349806b57f02b315ac, type: 3}
       propertyPath: m_LocalPosition.x
