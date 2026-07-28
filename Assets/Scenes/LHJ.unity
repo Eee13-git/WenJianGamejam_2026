@@ -191,6 +191,9 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 1667234661070689864, guid: 46297f80f9596964db6a3e8c42aa8193, type: 3}
       insertIndex: -1
       addedObject: {fileID: 1618668800}
+    - targetCorrespondingSourceObject: {fileID: 1667234661070689864, guid: 46297f80f9596964db6a3e8c42aa8193, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1618668802}
   m_SourcePrefab: {fileID: 100100000, guid: 46297f80f9596964db6a3e8c42aa8193, type: 3}
 --- !u!1 &519420028
 GameObject:
@@ -459,6 +462,29 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   bulletPrefab: {fileID: 617213607}
+--- !u!114 &1618668802
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1618668790}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 20251f40817251244b4620639db4f57c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _slots:
+  - keyBinding: 113
+    isUnlocked: 1
+  - keyBinding: 102
+    isUnlocked: 1
+  - keyBinding: 101
+    isUnlocked: 1
+  - keyBinding: 114
+    isUnlocked: 1
+  _skillLibrary: {fileID: 11400000, guid: 25b940d240ce07f4dbf92087a21c017a, type: 2}
+  _initialSkillId: test_01
 --- !u!1001 &3026972340066390984
 PrefabInstance:
   m_ObjectHideFlags: 0

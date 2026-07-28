@@ -1,7 +1,8 @@
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 
-public abstract class BaseEnemy : MonoBehaviour, IDamageable
+public abstract class BaseEnemy : MonoBehaviour, IDamageable, ISkillCaster
 {
     [Header("基础属性")]
     [SerializeField] protected float health = 30f;
@@ -9,14 +10,33 @@ public abstract class BaseEnemy : MonoBehaviour, IDamageable
     [SerializeField] protected float moveSpeed = 2f;
     [SerializeField] protected float detectionRange = 5f;
     [SerializeField] protected float colliderRadius = 0.35f;
+    [SerializeField] protected float attackStrength = 10f;
+
+    [Header("技能配置")]
+    [SerializeField] protected SkillLibrary _skillLibrary;          // 技能库引用
+    [SerializeField] protected List<SkillData> _skillDataList;      // 敌人使用的技能数据
 
     protected Rigidbody2D rb;
     protected Transform playerTarget;
     protected MapManager mapManager;
     protected bool isDead = false;
 
-    // 子类可以访问的受击冷却（防止高频伤害）
     protected float lastHitTime = -10f;
+
+    /// <summary>敌人持有的技能实例（运行时创建）</summary>
+    protected List<SkillInstance> _skillInstances = new();
+
+    // ---------- ISkillCaster ----------
+    public Transform CasterTransform => transform;
+
+    /// <summary>敌人目标方向：指向玩家</summary>
+    public virtual Vector2 GetTargetDirection()
+    {
+        if (playerTarget == null) return Vector2.down;
+        return (playerTarget.position - transform.position).normalized;
+    }
+
+    public float GetAttackStrength() => attackStrength;
 
     protected virtual void Start()
     {
@@ -27,9 +47,37 @@ public abstract class BaseEnemy : MonoBehaviour, IDamageable
 
         CircleCollider2D circle = GetComponent<CircleCollider2D>();
         if (circle != null) colliderRadius = circle.radius * transform.localScale.x;
+
+        // 通过 SkillLibrary 工厂创建技能实例
+        _skillInstances.Clear();
+        if (_skillLibrary != null)
+        {
+            foreach (var data in _skillDataList)
+            {
+                if (data == null) continue;
+                SkillInstance instance = _skillLibrary.CreateSkillInstance(data.skillId);
+                if (instance != null)
+                    _skillInstances.Add(instance);
+            }
+        }
     }
 
-    // 通用的移动逻辑（带障碍物滑动）
+    /// <summary>AI 驱动释放技能，子类在 FixedUpdate 中调用</summary>
+    protected void TryCastSkill(int index)
+    {
+        if (index < 0 || index >= _skillInstances.Count) return;
+        _skillInstances[index].TryCast(this, GetTargetDirection());
+    }
+
+    /// <summary>驱动所有技能的冷却</summary>
+    protected void TickSkillCooldowns(float deltaTime)
+    {
+        foreach (var skill in _skillInstances)
+        {
+            skill.TickCooldown(deltaTime);
+        }
+    }
+
     protected void MoveTowardsPlayer()
     {
         if (isDead || playerTarget == null) return;
@@ -39,7 +87,6 @@ public abstract class BaseEnemy : MonoBehaviour, IDamageable
         Vector3 currentPos = rb.position;
         Vector3 nextPos = currentPos + (Vector3)targetVelocity * Time.fixedDeltaTime;
 
-        // 障碍物检测（多点检测，防止卡墙）
         bool canMove = true;
         if (mapManager != null)
         {
@@ -49,7 +96,7 @@ public abstract class BaseEnemy : MonoBehaviour, IDamageable
 
         if (canMove) { rb.MovePosition(nextPos); }
         else
-        { /* 逐轴滑动（简化版） */
+        {
             Vector3 finalPos = currentPos;
             Vector3 nextX = currentPos + new Vector3(targetVelocity.x * Time.fixedDeltaTime, 0, 0);
             Vector3 nextY = currentPos + new Vector3(0, targetVelocity.y * Time.fixedDeltaTime, 0);
@@ -59,20 +106,19 @@ public abstract class BaseEnemy : MonoBehaviour, IDamageable
         }
     }
 
-    // --- 对外公共接口（供玩家攻击调用） ---
     public virtual void TakeDamage(float damage)
     {
         if (isDead) return;
         health -= damage;
         if (health <= 0) Die();
-        else StartCoroutine(FlashWhite()); // 受击闪白
+        else StartCoroutine(FlashWhite());
     }
 
     protected virtual void Die()
     {
         isDead = true;
         rb.velocity = Vector2.zero;
-        Destroy(gameObject, 0.5f); // 简单销毁，可换为死亡动画
+        Destroy(gameObject, 0.5f);
     }
 
     private IEnumerator FlashWhite()
@@ -81,6 +127,5 @@ public abstract class BaseEnemy : MonoBehaviour, IDamageable
         if (sr != null) { Color c = sr.color; sr.color = Color.white; yield return new WaitForSeconds(0.1f); sr.color = c; }
     }
 
-    // 子类必须实现自己的行为逻辑
     protected abstract void FixedUpdate();
 }
