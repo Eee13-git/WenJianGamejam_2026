@@ -1,87 +1,300 @@
-using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Tilemaps;
 
 public class MapManager : MonoBehaviour
 {
-    [Header("µØÍ¼ÒıÓÃ")]
-    [SerializeField] private Grid grid;                 // Íø¸ñ
-    [SerializeField] private Tilemap groundTilemap;    // µØÃæ²ã£¨¹©ÊÓ¾õ²Î¿¼£©
-    [SerializeField] private Tilemap obstacleTilemap;  // ÕÏ°­Îï²ã£¨Ç½±Ú/Ê¯Í·£©
+    [Header("åœ°å›¾å¼•ç”¨")]
+    [SerializeField] private Grid grid;                 // ç½‘æ ¼
+    [SerializeField] private Tilemap groundTilemap;    // åœ°é¢å±‚ï¼ˆä¾›è§†è§‰å‚è€ƒï¼‰
+    [SerializeField] private Tilemap obstacleTilemap;  // éšœç¢ç‰©å±‚ï¼ˆå¢™å£/çŸ³å¤´ï¼‰
 
-    // µ¥ÀıÄ£Ê½£¬·½±ãÆäËû½Å±¾Ö±½Óµ÷ÓÃ MapManager.Instance
+    // å•ä¾‹æ¨¡å¼ï¼Œæ–¹ä¾¿å…¶ä»–è„šæœ¬ç›´æ¥è°ƒç”¨ MapManager.Instance
     public static MapManager Instance { get; private set; }
 
-    private BoundsInt bounds; // µØÍ¼±ß½ç
+    // ========== é€»è¾‘ç½‘æ ¼ï¼ˆäºŒç»´æ•°ç»„ï¼‰==========
+    // ä»¥ Ground å·¦ä¸Šè§’ä¸º (0,0)ï¼Œ1=æœ‰éšœç¢ç‰©ï¼Œ0=æ— éšœç¢ç‰©
+    private int[,] walkableGrid;
+    public int Width { get; private set; }
+    public int Height { get; private set; }
+    // Ground å·¦ä¸Šè§’å¯¹åº”çš„ Tilemap åæ ‡ï¼ˆç”¨äºç´¢å¼• â†” åæ ‡è½¬æ¢ï¼‰
+    private Vector3Int gridOrigin;
 
     private void Awake()
     {
-        // µ¥Àı³õÊ¼»¯
-        if (Instance == null)
-            Instance = this;
-        else
-            Destroy(gameObject);
+        if (Instance == null) Instance = this;
+        else Destroy(gameObject);
 
-        // ×Ô¶¯»ñÈ¡×é¼ş£¨Èç¹ûÃ»ÊÖ¶¯ÍÏ×§£©
         if (grid == null) grid = GetComponent<Grid>();
-        if (obstacleTilemap != null)
+        if (groundTilemap != null)
+            BuildWalkableGrid();
+        else
+            Debug.LogWarning("MapManager: æœªæŒ‡å®š Ground Tilemapï¼Œæ— æ³•æ„å»ºç½‘æ ¼");
+    }
+
+    /// <summary> æ‰«æ Tilemap æ„å»ºé€»è¾‘ç½‘æ ¼ï¼ˆä»¥ Ground å·¦ä¸Šè§’ä¸ºåŸç‚¹ï¼‰ </summary>
+    private void BuildWalkableGrid()
+    {
+        BoundsInt bounds = groundTilemap.cellBounds;
+        Width = bounds.size.x;
+        Height = bounds.size.y;
+        // å·¦ä¸Šè§’æ ¼å­ = (minX, maxY - 1)
+        gridOrigin = new Vector3Int(bounds.min.x, bounds.max.y - 1, 0);
+
+        walkableGrid = new int[Width, Height];
+
+        for (int x = 0; x < Width; x++)
         {
-            bounds = obstacleTilemap.cellBounds; // »ñÈ¡ÕÏ°­ÎïµØÍ¼µÄ±ß½ç
+            for (int y = 0; y < Height; y++)
+            {
+                // ç½‘æ ¼ç´¢å¼• (x, y) å¯¹åº” Tilemap åæ ‡ (gridOrigin.x + x, gridOrigin.y - y)
+                Vector3Int cellPos = new Vector3Int(gridOrigin.x + x, gridOrigin.y - y, 0);
+                walkableGrid[x, y] = (obstacleTilemap != null && obstacleTilemap.GetTile(cellPos) != null) ? 1 : 0;
+            }
         }
     }
 
-    // ---------- ºËĞÄ×ª»»·½·¨ ----------
-
-    /// <summary> ÊÀ½ç×ø±ê -> ¸ñ×Ó×ø±ê </summary>
-    public Vector3Int WorldToCell(Vector3 worldPosition)
+    // ========== åæ ‡è½¬æ¢ ==========
+    // ä¸–ç•Œåæ ‡ â†’ ç½‘æ ¼ç´¢å¼•ï¼ˆ0,0 åœ¨å·¦ä¸Šè§’ï¼‰
+    public Vector2Int WorldToGridIndex(Vector3 worldPos)
     {
-        return grid.WorldToCell(worldPosition);
+        Vector3Int cell = grid.WorldToCell(worldPos);
+        return new Vector2Int(cell.x - gridOrigin.x, gridOrigin.y - cell.y);
     }
 
-    /// <summary> ¸ñ×Ó×ø±ê -> ÊÀ½ç×ø±ê£¨¸ñ×ÓÖĞĞÄµã£© </summary>
-    public Vector3 CellToWorld(Vector3Int cellPosition)
+    // ç½‘æ ¼ç´¢å¼• â†’ ä¸–ç•Œåæ ‡ï¼ˆæ ¼å­ä¸­å¿ƒç‚¹ï¼‰
+    public Vector3 GridIndexToWorld(Vector2Int gridIndex)
     {
-        return grid.GetCellCenterWorld(cellPosition);
+        Vector3Int cell = new Vector3Int(gridOrigin.x + gridIndex.x, gridOrigin.y - gridIndex.y, 0);
+        return grid.GetCellCenterWorld(cell);
     }
 
-    // ---------- Âß¼­ÅĞ¶¨·½·¨ ----------
+    /// <summary> ä¸–ç•Œåæ ‡ -> æ ¼å­åæ ‡ï¼ˆå…¼å®¹æ—§ä»£ç ï¼‰ </summary>
+    public Vector3Int WorldToCell(Vector3 worldPosition) => grid.WorldToCell(worldPosition);
 
-    /// <summary> ÅĞ¶ÏÄ³¸öÊÀ½ç×ø±êÊÇ·ñ¿ÉÍ¨ĞĞ£¨Ã»ÓĞÕÏ°­Îï£© </summary>
-    public bool IsWalkable(Vector3 worldPosition)
+    /// <summary> æ ¼å­åæ ‡ -> ä¸–ç•Œåæ ‡ï¼ˆæ ¼å­ä¸­å¿ƒç‚¹ï¼Œå…¼å®¹æ—§ä»£ç ï¼‰ </summary>
+    public Vector3 CellToWorld(Vector3Int cellPosition) => grid.GetCellCenterWorld(cellPosition);
+
+    // ========== é€šè¡Œæ£€æµ‹ ==========
+    // ç½‘æ ¼ç´¢å¼•ç‰ˆæœ¬ï¼š0=å¯é€šè¡Œï¼Œ1=æœ‰éšœç¢ç‰©
+    public bool IsWalkable(Vector2Int gridIndex) => IsWalkable(gridIndex.x, gridIndex.y);
+
+    public bool IsWalkable(int x, int y)
     {
-        Vector3Int cellPos = WorldToCell(worldPosition);
+        if (x < 0 || y < 0 || x >= Width || y >= Height) return false;
+        return walkableGrid[x, y] == 0;
+    }
 
-        // 1. ¼ì²éÊÇ·ñÓĞÕÏ°­Îï Tile
-        if (obstacleTilemap != null)
+    // ä¸–ç•Œåæ ‡ç‰ˆæœ¬ï¼ˆå…¼å®¹ PlayerControllerï¼‰
+    public bool IsWalkable(Vector3 worldPos) => IsWalkable(WorldToGridIndex(worldPos));
+
+    // ========== è§†çº¿æ£€æµ‹ ==========
+    /// <summary>
+    /// æ£€æŸ¥ä» from åˆ° to é—´æ˜¯å¦æœ‰éšœç¢ç‰©é˜»æŒ¡ï¼ˆå¸ƒé›·æ£®æ±‰å§†ç›´çº¿ç®—æ³•ï¼‰
+    /// è¿”å› true = è§†çº¿ç•…é€šï¼ˆæ— éšœç¢ç‰©ï¼‰ï¼›è¿”å› false = è§†çº¿è¢«é˜»ï¼ˆæœ‰éšœç¢ç‰©ï¼‰
+    /// </summary>
+    /// 
+    public bool HasLineOfSight(Vector2Int from, Vector2Int to)
+    {
+        return HasLineOfSight(from, to, 0f);
+    }
+
+    public bool HasLineOfSight(Vector2Int from, Vector2Int to, float radius)
+    {
+        if (!IsWalkable(from) || !IsWalkable(to)) return false;
+
+        // å°†åŠå¾„è½¬æ¢ä¸ºæ ¼å­æ•°ï¼ˆè‡³å°‘ä¸º1ï¼Œä¿è¯è‡³å°‘æ£€æµ‹ä¸­å¿ƒæ ¼å­æœ¬èº«ï¼‰
+        int checkRadius = Mathf.Max(1, Mathf.CeilToInt(radius));
+
+        int x0 = from.x, y0 = from.y;
+        int x1 = to.x, y1 = to.y;
+
+        int dx = Mathf.Abs(x1 - x0);
+        int dy = Mathf.Abs(y1 - y0);
+        int sx = x0 < x1 ? 1 : -1;
+        int sy = y0 < y1 ? 1 : -1;
+        int err = dx - dy;
+
+        while (true)
         {
-            TileBase tile = obstacleTilemap.GetTile(cellPos);
-            if (tile != null)
-                return false; // ÓĞ×©¿é = ²»¿ÉÍ¨ĞĞ
+            // æ£€æŸ¥ä»¥ (x0, y0) ä¸ºä¸­å¿ƒï¼Œè¾¹é•¿ä¸º (2*checkRadius+1) çš„æ­£æ–¹å½¢åŒºåŸŸ
+            bool blocked = false;
+            for (int ox = -checkRadius; ox <= checkRadius; ox++)
+            {
+                for (int oy = -checkRadius; oy <= checkRadius; oy++)
+                {
+                    int checkX = x0 + ox;
+                    int checkY = y0 + oy;
+                    if (!IsWalkable(checkX, checkY))
+                    {
+                        blocked = true;
+                        break;
+                    }
+                }
+                if (blocked) break;
+            }
+            if (blocked) return false;
+
+            // åˆ°è¾¾ç»ˆç‚¹
+            if (x0 == x1 && y0 == y1) break;
+
+            // Bresenham æ­¥è¿›
+            int oldX = x0, oldY = y0;
+            int e2 = 2 * err;
+            bool changedX = false, changedY = false;
+
+            if (e2 > -dy) { err -= dy; x0 += sx; changedX = true; }
+            if (e2 < dx) { err += dx; y0 += sy; changedY = true; }
+
+            // æ–œè§’é˜»å¡æ£€æµ‹ï¼ˆé˜²æ­¢ç©¿å¢™è§’ï¼‰
+            if (changedX && changedY)
+            {
+                if (!IsWalkable(oldX + sx, oldY) || !IsWalkable(oldX, oldY + sy))
+                    return false;
+            }
         }
-
-        // 2. (¿ÉÑ¡) ¼ì²éÊÇ·ñ³¬³öµØÍ¼±ß½ç£¬·ÀÖ¹½ÇÉ«ÅÜµ½µØÍ¼ÍâÃæ
-        // ×¢Òâ£ºÈç¹ûµØÍ¼ºÜ´ó£¬Äã¿ÉÒÔÈ¡Ïû×¢ÊÍÏÂÃæµÄ±ß½ç¼ì²é
-        // if (!bounds.Contains(cellPos)) return false;
-
         return true;
     }
-
-    /// <summary> ÅĞ¶ÏÄ³¸ö¸ñ×Ó×ø±êÊÇ·ñ±»ÕÏ°­ÎïÕ¼¾İ </summary>
-    public bool IsCellBlocked(Vector3Int cellPos)
+    // ========== A* å¯»è·¯ï¼ˆ8æ–¹å‘ï¼Œå«å¯¹è§’çº¿ï¼‰==========
+    private class Node
     {
-        if (obstacleTilemap == null) return false;
-        return obstacleTilemap.GetTile(cellPos) != null;
+        public Vector2Int pos;
+        public Node parent;
+        public int gCost;
+        public int hCost;
+        public int FCost => gCost + hCost;
     }
 
-    // ---------- ¹¤¾ß·½·¨ ----------
+    // 8 æ–¹å‘ï¼šä¸Š/ä¸‹/å·¦/å³ ä»£ä»· 10ï¼Œå¯¹è§’çº¿ ä»£ä»· 14ï¼ˆâ‰ˆ10âˆš2ï¼‰
+    private static readonly Vector2Int[] Directions = {
+        new Vector2Int(0, 1),   new Vector2Int(0, -1),
+        new Vector2Int(-1, 0),  new Vector2Int(1, 0),
+        new Vector2Int(-1, 1),  new Vector2Int(1, 1),
+        new Vector2Int(-1, -1), new Vector2Int(1, -1),
+    };
+    private static readonly int[] DirectionCosts = { 10, 10, 10, 10, 14, 14, 14, 14 };
 
-    /// <summary> »ñÈ¡Ä³¸ö¸ñ×ÓÉÏµÄ Tile ÒıÓÃ£¨¿ÉÓÃÀ´×öÏİÚå¡¢µÀ¾ßÊ¶±ğ£© </summary>
-    public TileBase GetTileAtWorld(Vector3 worldPosition)
+    // å¯¹è§’çº¿å¯å‘å‡½æ•°ï¼ˆOctile è·ç¦»ï¼‰
+    private static int Heuristic(Vector2Int a, Vector2Int b)
     {
-        Vector3Int cellPos = WorldToCell(worldPosition);
-        if (groundTilemap != null)
-            return groundTilemap.GetTile(cellPos);
-        return null;
+        int dx = Mathf.Abs(a.x - b.x);
+        int dy = Mathf.Abs(a.y - b.y);
+        return 10 * Mathf.Max(dx, dy) + 4 * Mathf.Min(dx, dy);
+    }
+
+    /// <summary> A* å¯»è·¯ï¼Œè¿”å›ä¸–ç•Œåæ ‡è·¯å¾„ç‚¹åˆ—è¡¨ </summary>
+    public List<Vector3> FindPath(Vector3 startWorld, Vector3 targetWorld)
+    {
+        Vector2Int start = WorldToGridIndex(startWorld);
+        Vector2Int target = WorldToGridIndex(targetWorld);
+
+        // èµ·ç‚¹æˆ–ç»ˆç‚¹ä¸å¯é€šè¡Œæ—¶ï¼Œæ‰¾æœ€è¿‘å¯é€šè¡Œç‚¹
+        if (!IsWalkable(start)) start = FindNearestWalkable(start);
+        if (!IsWalkable(target)) target = FindNearestWalkable(target);
+        if (!IsWalkable(start) || !IsWalkable(target)) return null;
+        if (start == target) return new List<Vector3> { GridIndexToWorld(start) };
+
+        var openList = new List<Node>();
+        var openDict = new Dictionary<Vector2Int, Node>(); // O(1) æŸ¥æ‰¾
+        var closedSet = new HashSet<Vector2Int>();
+
+        Node startNode = new Node { pos = start, gCost = 0, hCost = Heuristic(start, target) };
+        openList.Add(startNode);
+        openDict[start] = startNode;
+
+        while (openList.Count > 0)
+        {
+            // å– F å€¼æœ€å°çš„èŠ‚ç‚¹
+            int currentIndex = 0;
+            Node current = openList[0];
+            for (int i = 1; i < openList.Count; i++)
+            {
+                if (openList[i].FCost < current.FCost ||
+                    (openList[i].FCost == current.FCost && openList[i].hCost < current.hCost))
+                {
+                    current = openList[i];
+                    currentIndex = i;
+                }
+            }
+
+            openList.RemoveAt(currentIndex);
+            openDict.Remove(current.pos);
+            closedSet.Add(current.pos);
+
+            // åˆ°è¾¾ç›®æ ‡ï¼Œå›æº¯è·¯å¾„
+            if (current.pos == target)
+            {
+                List<Vector3> path = new List<Vector3>();
+                Node node = current;
+                while (node != null)
+                {
+                    path.Add(GridIndexToWorld(node.pos));
+                    node = node.parent;
+                }
+                path.Reverse();
+                return path;
+            }
+
+            // éå† 8 ä¸ªæ–¹å‘
+            for (int i = 0; i < 8; i++)
+            {
+                Vector2Int neighborPos = current.pos + Directions[i];
+
+                if (closedSet.Contains(neighborPos) || !IsWalkable(neighborPos)) continue;
+
+                // å¯¹è§’çº¿ç§»åŠ¨æ—¶ï¼Œæ£€æŸ¥ä¸¤ä¾§æ ¼å­æ˜¯å¦å¯é€šè¡Œï¼ˆé˜²æ­¢ç©¿å¢™è§’ï¼‰
+                if (i >= 4)
+                {
+                    Vector2Int side1 = new Vector2Int(current.pos.x + Directions[i].x, current.pos.y);
+                    Vector2Int side2 = new Vector2Int(current.pos.x, current.pos.y + Directions[i].y);
+                    if (!IsWalkable(side1) || !IsWalkable(side2)) continue;
+                }
+
+                int newGCost = current.gCost + DirectionCosts[i];
+
+                if (openDict.TryGetValue(neighborPos, out Node existing))
+                {
+                    if (newGCost < existing.gCost)
+                    {
+                        existing.gCost = newGCost;
+                        existing.parent = current;
+                    }
+                }
+                else
+                {
+                    Node neighbor = new Node
+                    {
+                        pos = neighborPos,
+                        parent = current,
+                        gCost = newGCost,
+                        hCost = Heuristic(neighborPos, target)
+                    };
+                    openList.Add(neighbor);
+                    openDict[neighborPos] = neighbor;
+                }
+            }
+        }
+
+        return null; // æ‰¾ä¸åˆ°è·¯å¾„
+    }
+
+    // ========== æœ€è¿‘å¯è¾¾ç‚¹ï¼ˆA* æ‰¾ä¸åˆ°è·¯æ—¶çš„å¤‡é€‰ï¼‰==========
+    public Vector2Int FindNearestWalkable(Vector2Int target)
+    {
+        if (IsWalkable(target)) return target;
+
+        for (int radius = 1; radius < 20; radius++)
+        {
+            for (int dx = -radius; dx <= radius; dx++)
+            {
+                for (int dy = -radius; dy <= radius; dy++)
+                {
+                    if (Mathf.Abs(dx) != radius && Mathf.Abs(dy) != radius) continue;
+                    Vector2Int checkPos = target + new Vector2Int(dx, dy);
+                    if (IsWalkable(checkPos)) return checkPos;
+                }
+            }
+        }
+        return target; // ä¿åº•
     }
 }
