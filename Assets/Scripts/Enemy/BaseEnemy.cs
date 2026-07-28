@@ -1,9 +1,9 @@
 using System.Collections;
 using UnityEngine;
 
-public abstract class BaseEnemy : MonoBehaviour
+public abstract class BaseEnemy : MonoBehaviour, IDamageable
 {
-    [Header("»ù´¡ÊôĞÔ")]
+    [Header("åŸºç¡€å±æ€§")]
     [SerializeField] protected float health = 30f;
     [SerializeField] protected float MaxHealth = 30f;
     [SerializeField] protected float moveSpeed = 2f;
@@ -15,7 +15,7 @@ public abstract class BaseEnemy : MonoBehaviour
     protected MapManager mapManager;
     protected bool isDead = false;
 
-    // ×ÓÀà¿ÉÒÔ·ÃÎÊµÄÊÜ»÷ÀäÈ´£¨·ÀÖ¹¸ßÆµÉËº¦£©
+    // å­ç±»å¯ä»¥è®¿é—®çš„å—å‡»å†·å´ï¼ˆé˜²æ­¢é«˜é¢‘ä¼¤å®³ï¼‰
     protected float lastHitTime = -10f;
 
     protected virtual void Start()
@@ -29,7 +29,7 @@ public abstract class BaseEnemy : MonoBehaviour
         if (circle != null) colliderRadius = circle.radius * transform.localScale.x;
     }
 
-    // Í¨ÓÃµÄÒÆ¶¯Âß¼­£¨´øÕÏ°­Îï»¬¶¯£©
+    // é€šç”¨çš„ç§»åŠ¨é€»è¾‘ï¼ˆå¸¦éšœç¢ç‰©æ»‘åŠ¨ï¼‰
     protected void MoveTowardsPlayer()
     {
         if (isDead || playerTarget == null) return;
@@ -39,7 +39,7 @@ public abstract class BaseEnemy : MonoBehaviour
         Vector3 currentPos = rb.position;
         Vector3 nextPos = currentPos + (Vector3)targetVelocity * Time.fixedDeltaTime;
 
-        // ÕÏ°­Îï¼ì²â£¨¶àµã¼ì²â£¬·ÀÖ¹¿¨Ç½£©
+        // éšœç¢ç‰©æ£€æµ‹ï¼ˆå¤šç‚¹æ£€æµ‹ï¼Œé˜²æ­¢å¡å¢™ï¼‰
         bool canMove = true;
         if (mapManager != null)
         {
@@ -49,7 +49,7 @@ public abstract class BaseEnemy : MonoBehaviour
 
         if (canMove) { rb.MovePosition(nextPos); }
         else
-        { /* ÖğÖá»¬¶¯£¨¼ò»¯°æ£© */
+        { /* é€è½´æ»‘åŠ¨ï¼ˆç®€åŒ–ç‰ˆï¼‰ */
             Vector3 finalPos = currentPos;
             Vector3 nextX = currentPos + new Vector3(targetVelocity.x * Time.fixedDeltaTime, 0, 0);
             Vector3 nextY = currentPos + new Vector3(0, targetVelocity.y * Time.fixedDeltaTime, 0);
@@ -59,20 +59,20 @@ public abstract class BaseEnemy : MonoBehaviour
         }
     }
 
-    // --- ¶ÔÍâ¹«¹²½Ó¿Ú£¨¹©Íæ¼Ò¹¥»÷µ÷ÓÃ£© ---
+    // --- å¯¹å¤–å…¬å…±æ¥å£ï¼ˆä¾›ç©å®¶æ”»å‡»è°ƒç”¨ï¼‰ ---
     public virtual void TakeDamage(float damage)
     {
         if (isDead) return;
         health -= damage;
         if (health <= 0) Die();
-        else StartCoroutine(FlashWhite()); // ÊÜ»÷ÉÁ°×
+        else StartCoroutine(FlashWhite()); // å—å‡»é—ªç™½
     }
 
     protected virtual void Die()
     {
         isDead = true;
         rb.velocity = Vector2.zero;
-        Destroy(gameObject, 0.5f); // ¼òµ¥Ïú»Ù£¬¿É»»ÎªËÀÍö¶¯»­
+        Destroy(gameObject, 0.5f); // ç®€å•é”€æ¯ï¼Œå¯æ¢ä¸ºæ­»äº¡åŠ¨ç”»
     }
 
     private IEnumerator FlashWhite()
@@ -81,6 +81,6 @@ public abstract class BaseEnemy : MonoBehaviour
         if (sr != null) { Color c = sr.color; sr.color = Color.white; yield return new WaitForSeconds(0.1f); sr.color = c; }
     }
 
-    // ×ÓÀà±ØĞëÊµÏÖ×Ô¼ºµÄĞĞÎªÂß¼­
+    // å­ç±»å¿…é¡»å®ç°è‡ªå·±çš„è¡Œä¸ºé€»è¾‘
     protected abstract void FixedUpdate();
 }

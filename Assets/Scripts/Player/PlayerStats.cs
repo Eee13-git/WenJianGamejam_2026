@@ -1,0 +1,112 @@
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+
+/// <summary>
+/// 玩家所有数值属性的唯一数据源。
+/// PlayerController 和 PlayerCombat 通过引用读取所需属性。
+/// </summary>
+public class PlayerStats : MonoBehaviour, IDamageable, IHealable
+{
+    [Header("生命属性")]
+    [SerializeField] private float maxHealth = 100f;
+    [SerializeField] private float health = 100f;
+
+    [Header("移动属性")]
+    [SerializeField] private float moveSpeed = 5f;
+
+    [Header("攻击属性")]
+    [SerializeField] private float attackStrength = 10f;
+
+    [Header("射击属性")]
+    [SerializeField] private float bulletSpeed = 10f;
+    [SerializeField] private float shootCooldown = 0.2f;
+
+    [Header("碰撞属性")]
+    [SerializeField] private float colliderRadius = 0.4f;
+
+    private bool _isDead = false;
+
+    // ---------- 只读属性 ----------
+    public float CurrentHealth => health;
+    public float MaxHealth => maxHealth;
+    public bool IsDead => _isDead;
+    public float MoveSpeed => moveSpeed;
+    public float AttackStrength => attackStrength;
+    public float BulletSpeed => bulletSpeed;
+    public float ShootCooldown => shootCooldown;
+    public float ColliderRadius
+    {
+        get => colliderRadius;
+        set => colliderRadius = Mathf.Max(value, 0.01f);
+    }
+
+    // ---------- 委托 ----------
+    /// <summary>生命变化委托：参数为 (当前生命, 最大生命)</summary>
+    public event System.Action<float, float> OnHealthChanged;
+    /// <summary>死亡委托</summary>
+    public event System.Action OnDied;
+    /// <summary>属性变化委托：参数为 (属性名)</summary>
+    public event System.Action<string> OnStatChanged;
+
+    private void Awake()
+    {
+        health = maxHealth;
+    }
+
+    // ---------- IDamageable ----------
+    public void TakeDamage(float damage)
+    {
+        if (_isDead) return;
+
+        health -= damage;
+        health = Mathf.Max(health, 0);
+
+#if UNITY_EDITOR
+        Debug.Log($"玩家受击！剩余生命：{health}");
+#endif
+
+        OnHealthChanged?.Invoke(health, maxHealth);
+        OnStatChanged?.Invoke("Health");
+
+        if (health <= 0f)
+        {
+            Die();
+        }
+    }
+
+    // ---------- IHealable ----------
+    public void Heal(float amount)
+    {
+        if (_isDead) return;
+
+        health = Mathf.Min(health + amount, maxHealth);
+
+#if UNITY_EDITOR
+        Debug.Log($"玩家治疗！当前生命：{health}");
+#endif
+
+        OnHealthChanged?.Invoke(health, maxHealth);
+        OnStatChanged?.Invoke("Health");
+    }
+
+    private void Die()
+    {
+        _isDead = true;
+        Debug.Log("玩家死亡");
+
+        OnDied?.Invoke();
+    }
+
+    // ---------- 数值修正 ----------
+    private void OnValidate()
+    {
+        health = Mathf.Clamp(health, 0, maxHealth);
+        maxHealth = Mathf.Max(maxHealth, 1f);
+        moveSpeed = Mathf.Max(moveSpeed, 0);
+        attackStrength = Mathf.Max(attackStrength, 0);
+        bulletSpeed = Mathf.Max(bulletSpeed, 0f);
+        shootCooldown = Mathf.Max(shootCooldown, 0f);
+        colliderRadius = Mathf.Max(colliderRadius, 0.01f);
+    }
+}

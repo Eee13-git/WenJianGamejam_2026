@@ -2,28 +2,28 @@ using UnityEngine;
 
 public class Enemy1 : BaseEnemy
 {
-    [Header("½üÕ½¹¥»÷")]
+    [Header("è¿‘æˆ˜å±žæ€§")]
     [SerializeField] private float damageToPlayer = 10f;
     [SerializeField] private float attackCooldown = 1.5f;
 
     protected override void FixedUpdate()
     {
         if (isDead) return;
-        // ¿¿½üÍæ¼Ò£¨¼ì²â·¶Î§ÄÚ²Å×·£©
+        // æ£€æµ‹çŽ©å®¶ï¼Œåœ¨æ£€æµ‹èŒƒå›´å†…åˆ™è¿½å‡»
         if (Vector2.Distance(transform.position, playerTarget.position) <= detectionRange)
         {
             MoveTowardsPlayer();
         }
     }
 
-    // Åö×²³ÖÐø´¥·¢£¨ÀàËÆÒÔÈöµÄÅö´¥ÉËº¦£©
+    // ç¢°æ’žæŽ¥è§¦æ—¶ç»™çŽ©å®¶é€ æˆä¼¤å®³ï¼ˆé€šè¿‡ IDamageable æŽ¥å£è§£è€¦ï¼‰
     private void OnCollisionStay2D(Collision2D collision)
     {
         if (isDead || Time.time < lastHitTime + attackCooldown) return;
-        PlayerController player = collision.gameObject.GetComponent<PlayerController>();
-        if (player != null)
+        IDamageable damageable = collision.gameObject.GetComponent<IDamageable>();
+        if (damageable != null)
         {
-            player.TakeDamage(damageToPlayer);
+            damageable.TakeDamage(damageToPlayer);
             lastHitTime = Time.time;
         }
     }
