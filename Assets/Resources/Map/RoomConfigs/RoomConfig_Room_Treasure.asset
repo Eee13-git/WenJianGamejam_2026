@@ -1,0 +1,37 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 22b1d282c0213c24fbac9c767b4c1132, type: 3}
+  m_Name: RoomConfig_Room_Treasure
+  m_EditorClassIdentifier: 
+  roomType: 2
+  roomPrefabs:
+  - {fileID: 7007804875911104412, guid: 0ced67f3f1b07344584fc19534f25209, type: 3}
+  difficultyLevel: 1
+  hasTopDoor: 0
+  hasBottomDoor: 1
+  hasLeftDoor: 1
+  hasRightDoor: 0
+  roomSize: {x: 20, y: 12}
+  topDoorOffset: {x: 0, y: 6}
+  bottomDoorOffset: {x: 0, y: -6}
+  leftDoorOffset: {x: -10, y: 0}
+  rightDoorOffset: {x: 10, y: 0}
+  enemyPool:
+  - enemyPrefab: {fileID: 2633800766284816993, guid: f164b6a17b3542a4ca28580a82e33f3f, type: 3}
+    minCount: 1
+    maxCount: 3
+    weight: 1
+  minEnemies: 1
+  maxEnemies: 2
+  itemPool: []
+  minItems: 2
+  maxItems: 4

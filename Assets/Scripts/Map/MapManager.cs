@@ -1,300 +1,347 @@
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.Tilemaps;
 
+/// <summary>
+/// 地图管理器 (单例) — 新地图系统的核心管理器。
+/// 替代旧的 TileManager。
+/// 负责: 地图生成、房间实例化、房间切换、玩家追踪。
+/// </summary>
 public class MapManager : MonoBehaviour
 {
-    [Header("地图引用")]
-    [SerializeField] private Grid grid;                 // 网格
-    [SerializeField] private Tilemap groundTilemap;    // 地面层（供视觉参考）
-    [SerializeField] private Tilemap obstacleTilemap;  // 障碍物层（墙壁/石头）
-
-    // 单例模式，方便其他脚本直接调用 MapManager.Instance
     public static MapManager Instance { get; private set; }
 
-    // ========== 逻辑网格（二维数组）==========
-    // 以 Ground 左上角为 (0,0)，1=有障碍物，0=无障碍物
-    private int[,] walkableGrid;
-    public int Width { get; private set; }
-    public int Height { get; private set; }
-    // Ground 左上角对应的 Tilemap 坐标（用于索引 ↔ 坐标转换）
-    private Vector3Int gridOrigin;
+    [Header("地图配置")]
+    [SerializeField] private MapConfig _mapConfig;
+
+    [Header("运行时")]
+    [SerializeField] private int _currentRoomId;
+    [SerializeField] private bool _isSwitchingRoom;
+
+    // 内部状态
+    private RoomGraph _roomGraph;
+    private MapGenerator _generator;
+    private Dictionary<int, RoomRoot> _roomInstances = new();
+    private RoomRoot _currentRoom;
+    private Coroutine _switchCoroutine;
+    private Transform _playerTransform;
+
+    /// <summary>玩家从门进入新房间时的内缩距离 (避免立刻再次触发门)</summary>
+    [SerializeField] private float _doorEntryOffset = 1.5f;
+
+    // 事件
+    public event System.Action<int, int> OnRoomChanged; // (fromRoomId, toRoomId)
+    public event System.Action<int, int> OnRoomSwitchStarted;
+    public event System.Action<int> OnRoomSwitchCompleted; // (newRoomId)
+
+    // 属性
+    public RoomRoot CurrentRoom => _currentRoom;
+    public int CurrentRoomId => _currentRoomId;
+    public bool IsSwitchingRoom => _isSwitchingRoom;
+    public RoomGraph RoomGraph => _roomGraph;
 
     private void Awake()
     {
-        if (Instance == null) Instance = this;
-        else Destroy(gameObject);
-
-        if (grid == null) grid = GetComponent<Grid>();
-        if (groundTilemap != null)
-            BuildWalkableGrid();
-        else
-            Debug.LogWarning("MapManager: 未指定 Ground Tilemap，无法构建网格");
+        if (Instance != null && Instance != this)
+        {
+            Destroy(gameObject);
+            return;
+        }
+        Instance = this;
     }
 
-    /// <summary> 扫描 Tilemap 构建逻辑网格（以 Ground 左上角为原点） </summary>
-    private void BuildWalkableGrid()
+    private void Start()
     {
-        BoundsInt bounds = groundTilemap.cellBounds;
-        Width = bounds.size.x;
-        Height = bounds.size.y;
-        // 左上角格子 = (minX, maxY - 1)
-        gridOrigin = new Vector3Int(bounds.min.x, bounds.max.y - 1, 0);
+        // 缓存玩家 Transform
+        var playerGo = GameObject.FindGameObjectWithTag("Player");
+        if (playerGo != null)
+            _playerTransform = playerGo.transform;
 
-        walkableGrid = new int[Width, Height];
-
-        for (int x = 0; x < Width; x++)
+        if (_mapConfig != null)
         {
-            for (int y = 0; y < Height; y++)
-            {
-                // 网格索引 (x, y) 对应 Tilemap 坐标 (gridOrigin.x + x, gridOrigin.y - y)
-                Vector3Int cellPos = new Vector3Int(gridOrigin.x + x, gridOrigin.y - y, 0);
-                walkableGrid[x, y] = (obstacleTilemap != null && obstacleTilemap.GetTile(cellPos) != null) ? 1 : 0;
-            }
+            GenerateMap();
+        }
+        else
+        {
+            Debug.LogError("MapManager: MapConfig 未配置!");
         }
     }
 
-    // ========== 坐标转换 ==========
-    // 世界坐标 → 网格索引（0,0 在左上角）
-    public Vector2Int WorldToGridIndex(Vector3 worldPos)
+    // ==================== 地图生成 ====================
+
+    /// <summary>生成并实例化地图</summary>
+    public void GenerateMap()
     {
-        Vector3Int cell = grid.WorldToCell(worldPos);
-        return new Vector2Int(cell.x - gridOrigin.x, gridOrigin.y - cell.y);
-    }
-
-    // 网格索引 → 世界坐标（格子中心点）
-    public Vector3 GridIndexToWorld(Vector2Int gridIndex)
-    {
-        Vector3Int cell = new Vector3Int(gridOrigin.x + gridIndex.x, gridOrigin.y - gridIndex.y, 0);
-        return grid.GetCellCenterWorld(cell);
-    }
-
-    /// <summary> 世界坐标 -> 格子坐标（兼容旧代码） </summary>
-    public Vector3Int WorldToCell(Vector3 worldPosition) => grid.WorldToCell(worldPosition);
-
-    /// <summary> 格子坐标 -> 世界坐标（格子中心点，兼容旧代码） </summary>
-    public Vector3 CellToWorld(Vector3Int cellPosition) => grid.GetCellCenterWorld(cellPosition);
-
-    // ========== 通行检测 ==========
-    // 网格索引版本：0=可通行，1=有障碍物
-    public bool IsWalkable(Vector2Int gridIndex) => IsWalkable(gridIndex.x, gridIndex.y);
-
-    public bool IsWalkable(int x, int y)
-    {
-        if (x < 0 || y < 0 || x >= Width || y >= Height) return false;
-        return walkableGrid[x, y] == 0;
-    }
-
-    // 世界坐标版本（兼容 PlayerController）
-    public bool IsWalkable(Vector3 worldPos) => IsWalkable(WorldToGridIndex(worldPos));
-
-    // ========== 视线检测 ==========
-    /// <summary>
-    /// 检查从 from 到 to 间是否有障碍物阻挡（布雷森汉姆直线算法）
-    /// 返回 true = 视线畅通（无障碍物）；返回 false = 视线被阻（有障碍物）
-    /// </summary>
-    /// 
-    public bool HasLineOfSight(Vector2Int from, Vector2Int to)
-    {
-        return HasLineOfSight(from, to, 0f);
-    }
-
-    public bool HasLineOfSight(Vector2Int from, Vector2Int to, float radius)
-    {
-        if (!IsWalkable(from) || !IsWalkable(to)) return false;
-
-        // 将半径转换为格子数（至少为1，保证至少检测中心格子本身）
-        int checkRadius = Mathf.Max(1, Mathf.CeilToInt(radius));
-
-        int x0 = from.x, y0 = from.y;
-        int x1 = to.x, y1 = to.y;
-
-        int dx = Mathf.Abs(x1 - x0);
-        int dy = Mathf.Abs(y1 - y0);
-        int sx = x0 < x1 ? 1 : -1;
-        int sy = y0 < y1 ? 1 : -1;
-        int err = dx - dy;
-
-        while (true)
+        if (_mapConfig == null)
         {
-            // 检查以 (x0, y0) 为中心，边长为 (2*checkRadius+1) 的正方形区域
-            bool blocked = false;
-            for (int ox = -checkRadius; ox <= checkRadius; ox++)
+            Debug.LogError("MapManager: MapConfig 为空，无法生成地图");
+            return;
+        }
+
+        // 清理旧实例
+        ClearExistingRooms();
+
+        // 设置随机种子
+        int seed = _mapConfig.useRandomSeed ? Random.Range(0, int.MaxValue) : _mapConfig.seed;
+
+        // 生成房间图
+        _generator = new MapGenerator(_mapConfig);
+        _roomGraph = _generator.Generate(seed);
+
+        // 实例化所有房间
+        foreach (var node in _roomGraph.nodes)
+        {
+            InstantiateRoom(node);
+        }
+
+        // 设置所有 RoomPortal 的目标房间
+        SetupPortals();
+
+        // 先隐藏所有房间
+        foreach (var room in _roomInstances.Values)
+        {
+            room.Deactivate();
+        }
+
+        // 激活起始房间
+        var startNode = _roomGraph.GetNode(_roomGraph.startRoomId);
+        if (startNode != null && _roomInstances.TryGetValue(_roomGraph.startRoomId, out var startRoom))
+        {
+            startRoom.Activate();
+            _currentRoomId = startRoom.roomId;
+            _currentRoom = startRoom;
+
+            // 通知 RoomManager 玩家进入
+            var roomMgr = startRoom.GetComponent<RoomManager>();
+            if (roomMgr != null)
+                roomMgr.OnPlayerEnter();
+        }
+
+        Debug.Log($"MapManager: 地图生成完成 — {_roomGraph.nodes.Count} 个房间, Start={_roomGraph.startRoomId}");
+    }
+
+    /// <summary>实例化单个房间</summary>
+    private void InstantiateRoom(RoomNode node)
+    {
+        var prefab = node.config.GetRandomPrefab();
+        if (prefab == null)
+        {
+            Debug.LogError($"MapManager: RoomConfig '{node.config.name}' 没有预制体!");
+            return;
+        }
+
+        var go = Instantiate(prefab, node.worldPosition, Quaternion.identity, transform);
+        go.name = $"Room_{node.roomId}_{node.roomType}";
+
+        var root = go.GetComponent<RoomRoot>();
+        if (root == null)
+        {
+            root = go.AddComponent<RoomRoot>();
+        }
+
+        root.config = node.config;
+        root.roomId = node.roomId;
+
+        // 确保有 RoomManager
+        var roomMgr = go.GetComponent<RoomManager>();
+        if (roomMgr == null)
+            go.AddComponent<RoomManager>();
+
+        _roomInstances[node.roomId] = root;
+    }
+
+    /// <summary>设置所有门的连接目标；无连接的门伪装为墙壁。</summary>
+    private void SetupPortals()
+    {
+        foreach (var node in _roomGraph.nodes)
+        {
+            if (!_roomInstances.TryGetValue(node.roomId, out var root))
+                continue;
+
+            var portals = root.GetComponentsInChildren<RoomPortal>(true);
+            foreach (var portal in portals)
             {
-                for (int oy = -checkRadius; oy <= checkRadius; oy++)
+                // 查找匹配的连接
+                bool connected = false;
+                foreach (var conn in node.connections)
                 {
-                    int checkX = x0 + ox;
-                    int checkY = y0 + oy;
-                    if (!IsWalkable(checkX, checkY))
+                    if (conn.Value == portal.direction)
                     {
-                        blocked = true;
+                        portal.targetRoomId = conn.Key;
+                        connected = true;
                         break;
                     }
                 }
-                if (blocked) break;
-            }
-            if (blocked) return false;
 
-            // 到达终点
-            if (x0 == x1 && y0 == y1) break;
-
-            // Bresenham 步进
-            int oldX = x0, oldY = y0;
-            int e2 = 2 * err;
-            bool changedX = false, changedY = false;
-
-            if (e2 > -dy) { err -= dy; x0 += sx; changedX = true; }
-            if (e2 < dx) { err += dx; y0 += sy; changedY = true; }
-
-            // 斜角阻塞检测（防止穿墙角）
-            if (changedX && changedY)
-            {
-                if (!IsWalkable(oldX + sx, oldY) || !IsWalkable(oldX, oldY + sy))
-                    return false;
+                if (!connected)
+                {
+                    portal.HideAsWall();
+                }
             }
         }
-        return true;
-    }
-    // ========== A* 寻路（8方向，含对角线）==========
-    private class Node
-    {
-        public Vector2Int pos;
-        public Node parent;
-        public int gCost;
-        public int hCost;
-        public int FCost => gCost + hCost;
     }
 
-    // 8 方向：上/下/左/右 代价 10，对角线 代价 14（≈10√2）
-    private static readonly Vector2Int[] Directions = {
-        new Vector2Int(0, 1),   new Vector2Int(0, -1),
-        new Vector2Int(-1, 0),  new Vector2Int(1, 0),
-        new Vector2Int(-1, 1),  new Vector2Int(1, 1),
-        new Vector2Int(-1, -1), new Vector2Int(1, -1),
-    };
-    private static readonly int[] DirectionCosts = { 10, 10, 10, 10, 14, 14, 14, 14 };
+    // ==================== 房间切换 ====================
 
-    // 对角线启发函数（Octile 距离）
-    private static int Heuristic(Vector2Int a, Vector2Int b)
+    /// <summary>切换到目标房间，玩家从指定方向的门进入</summary>
+    public void SwitchRoom(int targetRoomId, DoorDirection entryDir)
     {
-        int dx = Mathf.Abs(a.x - b.x);
-        int dy = Mathf.Abs(a.y - b.y);
-        return 10 * Mathf.Max(dx, dy) + 4 * Mathf.Min(dx, dy);
+        if (_isSwitchingRoom) return;
+        if (targetRoomId == _currentRoomId) return;
+        if (!_roomInstances.TryGetValue(targetRoomId, out var targetRoom)) return;
+
+        StartCoroutine(SwitchRoomRoutine(targetRoomId, targetRoom, entryDir));
     }
 
-    /// <summary> A* 寻路，返回世界坐标路径点列表 </summary>
-    public List<Vector3> FindPath(Vector3 startWorld, Vector3 targetWorld)
+    private IEnumerator SwitchRoomRoutine(int targetRoomId, RoomRoot targetRoom, DoorDirection entryDir)
     {
-        Vector2Int start = WorldToGridIndex(startWorld);
-        Vector2Int target = WorldToGridIndex(targetWorld);
+        _isSwitchingRoom = true;
+        int fromRoomId = _currentRoomId;
 
-        // 起点或终点不可通行时，找最近可通行点
-        if (!IsWalkable(start)) start = FindNearestWalkable(start);
-        if (!IsWalkable(target)) target = FindNearestWalkable(target);
-        if (!IsWalkable(start) || !IsWalkable(target)) return null;
-        if (start == target) return new List<Vector3> { GridIndexToWorld(start) };
+        OnRoomSwitchStarted?.Invoke(fromRoomId, targetRoomId);
 
-        var openList = new List<Node>();
-        var openDict = new Dictionary<Vector2Int, Node>(); // O(1) 查找
-        var closedSet = new HashSet<Vector2Int>();
-
-        Node startNode = new Node { pos = start, gCost = 0, hCost = Heuristic(start, target) };
-        openList.Add(startNode);
-        openDict[start] = startNode;
-
-        while (openList.Count > 0)
+        // 通知旧房间玩家离开
+        if (_currentRoom != null)
         {
-            // 取 F 值最小的节点
-            int currentIndex = 0;
-            Node current = openList[0];
-            for (int i = 1; i < openList.Count; i++)
-            {
-                if (openList[i].FCost < current.FCost ||
-                    (openList[i].FCost == current.FCost && openList[i].hCost < current.hCost))
-                {
-                    current = openList[i];
-                    currentIndex = i;
-                }
-            }
-
-            openList.RemoveAt(currentIndex);
-            openDict.Remove(current.pos);
-            closedSet.Add(current.pos);
-
-            // 到达目标，回溯路径
-            if (current.pos == target)
-            {
-                List<Vector3> path = new List<Vector3>();
-                Node node = current;
-                while (node != null)
-                {
-                    path.Add(GridIndexToWorld(node.pos));
-                    node = node.parent;
-                }
-                path.Reverse();
-                return path;
-            }
-
-            // 遍历 8 个方向
-            for (int i = 0; i < 8; i++)
-            {
-                Vector2Int neighborPos = current.pos + Directions[i];
-
-                if (closedSet.Contains(neighborPos) || !IsWalkable(neighborPos)) continue;
-
-                // 对角线移动时，检查两侧格子是否可通行（防止穿墙角）
-                if (i >= 4)
-                {
-                    Vector2Int side1 = new Vector2Int(current.pos.x + Directions[i].x, current.pos.y);
-                    Vector2Int side2 = new Vector2Int(current.pos.x, current.pos.y + Directions[i].y);
-                    if (!IsWalkable(side1) || !IsWalkable(side2)) continue;
-                }
-
-                int newGCost = current.gCost + DirectionCosts[i];
-
-                if (openDict.TryGetValue(neighborPos, out Node existing))
-                {
-                    if (newGCost < existing.gCost)
-                    {
-                        existing.gCost = newGCost;
-                        existing.parent = current;
-                    }
-                }
-                else
-                {
-                    Node neighbor = new Node
-                    {
-                        pos = neighborPos,
-                        parent = current,
-                        gCost = newGCost,
-                        hCost = Heuristic(neighborPos, target)
-                    };
-                    openList.Add(neighbor);
-                    openDict[neighborPos] = neighbor;
-                }
-            }
+            var oldMgr = _currentRoom.GetComponent<RoomManager>();
+            oldMgr?.OnPlayerExit();
         }
 
-        return null; // 找不到路径
+        // 激活新房间
+        targetRoom.Activate();
+
+        // 传送玩家到目标房间入口 (反方向门的内侧)
+        DoorDirection targetEntryDir = RoomConfig.OppositeDir(entryDir);
+        TeleportPlayerToDoor(targetRoom, targetEntryDir);
+
+        // 通知新房间玩家进入
+        var newMgr = targetRoom.GetComponent<RoomManager>();
+        newMgr?.OnPlayerEnter();
+
+        // 更新状态
+        _currentRoom = targetRoom;
+        _currentRoomId = targetRoomId;
+
+        // 等待摄像机过渡完成
+        var cameraCtrl = Camera.main != null ? Camera.main.GetComponent<RoomCameraController>() : null;
+        if (cameraCtrl != null)
+        {
+            bool transitionDone = false;
+            cameraCtrl.MoveToRoom(targetRoom, () => transitionDone = true);
+            yield return new WaitUntil(() => transitionDone);
+        }
+
+        // 隐藏旧房间
+        foreach (var kvp in _roomInstances)
+        {
+            if (kvp.Key != _currentRoomId)
+                kvp.Value.Deactivate();
+        }
+
+        _isSwitchingRoom = false;
+        OnRoomChanged?.Invoke(fromRoomId, targetRoomId);
+        OnRoomSwitchCompleted?.Invoke(targetRoomId);
+
+        Debug.Log($"MapManager: 切换到房间 {targetRoomId} ({targetRoom.config.roomType})");
     }
 
-    // ========== 最近可达点（A* 找不到路时的备选）==========
-    public Vector2Int FindNearestWalkable(Vector2Int target)
+    /// <summary>将玩家传送到目标房间的门内侧</summary>
+    private void TeleportPlayerToDoor(RoomRoot room, DoorDirection entryDir)
     {
-        if (IsWalkable(target)) return target;
-
-        for (int radius = 1; radius < 20; radius++)
+        if (_playerTransform == null)
         {
-            for (int dx = -radius; dx <= radius; dx++)
-            {
-                for (int dy = -radius; dy <= radius; dy++)
-                {
-                    if (Mathf.Abs(dx) != radius && Mathf.Abs(dy) != radius) continue;
-                    Vector2Int checkPos = target + new Vector2Int(dx, dy);
-                    if (IsWalkable(checkPos)) return checkPos;
-                }
-            }
+            var playerGo = GameObject.FindGameObjectWithTag("Player");
+            if (playerGo != null) _playerTransform = playerGo.transform;
         }
-        return target; // 保底
+        if (_playerTransform == null) return;
+
+        Vector2 doorLocal = room.config.GetDoorOffset(entryDir);
+        Vector2 worldPos = room.Center + doorLocal;
+
+        // 向外侧偏移内缩距离，防止立刻再次触发门
+        Vector2 inwardDir = entryDir switch
+        {
+            DoorDirection.Top => Vector2.down,
+            DoorDirection.Bottom => Vector2.up,
+            DoorDirection.Left => Vector2.right,
+            DoorDirection.Right => Vector2.left,
+            _ => Vector2.zero
+        };
+
+        Vector2 targetPos = worldPos + inwardDir * _doorEntryOffset;
+
+        // 使用 Rigidbody2D.position 来正确通知物理引擎位置变化
+        var rb = _playerTransform.GetComponent<Rigidbody2D>();
+        if (rb != null)
+        {
+            rb.velocity = Vector2.zero;
+            rb.position = targetPos;
+        }
+        else
+        {
+            _playerTransform.position = targetPos;
+        }
+    }
+
+    // ==================== 查询 API ====================
+
+    /// <summary>根据 ID 获取房间</summary>
+    public RoomRoot GetRoom(int roomId)
+    {
+        _roomInstances.TryGetValue(roomId, out var room);
+        return room;
+    }
+
+    /// <summary>获取相邻房间列表</summary>
+    public List<RoomRoot> GetAdjacentRooms(int roomId)
+    {
+        var result = new List<RoomRoot>();
+        var node = _roomGraph?.GetNode(roomId);
+        if (node == null) return result;
+
+        foreach (var conn in node.connections)
+        {
+            if (_roomInstances.TryGetValue(conn.Key, out var room))
+                result.Add(room);
+        }
+        return result;
+    }
+
+    /// <summary>确保所有门的连接正确 (在编辑器修改后调用)</summary>
+    public void RefreshPortals()
+    {
+        SetupPortals();
+    }
+
+    // ==================== 辅助 ====================
+
+    private void ClearExistingRooms()
+    {
+        // 1. 清理已追踪的房间
+        foreach (var kvp in _roomInstances)
+        {
+            if (kvp.Value != null)
+                DestroyImmediate(kvp.Value.gameObject);
+        }
+        _roomInstances.Clear();
+
+        // 2. 清理残余子物体 (场景中保存的旧房间)
+        for (int i = transform.childCount - 1; i >= 0; i--)
+        {
+            var child = transform.GetChild(i).gameObject;
+            if (child.GetComponent<RoomRoot>() != null)
+                DestroyImmediate(child);
+        }
+
+        _roomGraph = null;
+        _currentRoom = null;
+    }
+
+    /// <summary>在编辑器中重新生成 (通过 Context Menu 调用)</summary>
+    [ContextMenu("Regenerate Map")]
+    public void RegenerateMap()
+    {
+        ClearExistingRooms();
+        GenerateMap();
     }
 }

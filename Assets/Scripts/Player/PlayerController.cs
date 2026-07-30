@@ -12,11 +12,17 @@ public class PlayerController : MonoBehaviour
     /// <summary>攻击输入委托，由 PlayerCombat 订阅</summary>
     public event System.Action OnAttackInput;
 
+    /// <summary>输入是否被锁定 (房间切换期间)</summary>
+    public bool InputLocked { get; set; }
+
     void Awake()
     {
         _rb = GetComponent<Rigidbody2D>();
         _combat = GetComponent<PlayerCombat>();
         _stats = GetComponent<PlayerStats>();
+
+        if (_combat != null)
+            OnAttackInput += _combat.TryShoot;
 
 #if UNITY_EDITOR
         if (_rb == null)
@@ -26,35 +32,40 @@ public class PlayerController : MonoBehaviour
         if (_stats == null)
             Debug.LogWarning("PlayerController: 未找到 PlayerStats 组件！");
 #endif
-
-        // 委托绑定：攻击输入 -> PlayerCombat.TryShoot
-        if (_combat != null)
-            OnAttackInput += _combat.TryShoot;
     }
 
     void Start()
     {
         if (_stats == null) return;
 
-        // 自动从 CircleCollider2D 获取半径写入 PlayerStats
         CircleCollider2D circle = GetComponent<CircleCollider2D>();
         if (circle != null)
         {
             _stats.ColliderRadius = circle.radius * Mathf.Max(transform.localScale.x, transform.localScale.y);
+        }
+
+        // Start 时 MapManager.Instance 已经初始化 (Awake 时序保证)
+        if (MapManager.Instance != null)
+        {
+            MapManager.Instance.OnRoomSwitchStarted += (f, t) => InputLocked = true;
+            MapManager.Instance.OnRoomSwitchCompleted += (t) => InputLocked = false;
         }
     }
 
     void Update()
     {
         if (_stats != null && _stats.IsDead) return;
+        if (InputLocked)
+        {
+            _moveInput = Vector2.zero;
+            return;
+        }
 
-        // 移动输入
         float horizontal = Input.GetAxisRaw("Horizontal");
         float vertical = Input.GetAxisRaw("Vertical");
         _moveInput = new Vector2(horizontal, vertical);
         _moveInput = Vector2.ClampMagnitude(_moveInput, 1f);
 
-        // 攻击输入：通过委托转发
         if (Input.GetMouseButtonDown(0))
         {
             OnAttackInput?.Invoke();
@@ -65,82 +76,9 @@ public class PlayerController : MonoBehaviour
     {
         if (_rb == null || _stats == null) return;
         if (_stats.IsDead) return;
+        if (InputLocked) return;
 
-        float moveSpeed = _stats.MoveSpeed;
-        float colliderRadius = _stats.ColliderRadius;
-
-        Vector2 targetVelocity = _moveInput * moveSpeed;
-        Vector3 currentPos = _rb.position;
-        Vector3 nextPos = currentPos + (Vector3)targetVelocity * Time.fixedDeltaTime;
-
-        bool canMove = true;
-        if (MapManager.Instance != null)
-        {
-            Vector2[] checkPoints = new Vector2[]
-            {
-                nextPos,
-                nextPos + Vector3.right * colliderRadius,
-                nextPos + Vector3.left * colliderRadius,
-                nextPos + Vector3.up * colliderRadius,
-                nextPos + Vector3.down * colliderRadius
-            };
-
-            foreach (Vector3 point in checkPoints)
-            {
-                if (!MapManager.Instance.IsWalkable(point))
-                {
-                    canMove = false;
-                    break;
-                }
-            }
-        }
-
-        if (canMove)
-        {
-            _rb.MovePosition(nextPos);
-        }
-        else
-        {
-            // 分轴滑动，防止卡墙
-            Vector3 nextPosX = currentPos + new Vector3(targetVelocity.x * Time.fixedDeltaTime, 0, 0);
-            Vector3 nextPosY = currentPos + new Vector3(0, targetVelocity.y * Time.fixedDeltaTime, 0);
-
-            bool canMoveX = true;
-            bool canMoveY = true;
-
-            if (MapManager.Instance != null)
-            {
-                Vector2[] checkPointsX = new Vector2[]
-                {
-                    nextPosX,
-                    nextPosX + Vector3.right * colliderRadius,
-                    nextPosX + Vector3.left * colliderRadius,
-                    nextPosX + Vector3.up * colliderRadius,
-                    nextPosX + Vector3.down * colliderRadius
-                };
-                foreach (Vector3 point in checkPointsX)
-                {
-                    if (!MapManager.Instance.IsWalkable(point)) { canMoveX = false; break; }
-                }
-
-                Vector2[] checkPointsY = new Vector2[]
-                {
-                    nextPosY,
-                    nextPosY + Vector3.right * colliderRadius,
-                    nextPosY + Vector3.left * colliderRadius,
-                    nextPosY + Vector3.up * colliderRadius,
-                    nextPosY + Vector3.down * colliderRadius
-                };
-                foreach (Vector3 point in checkPointsY)
-                {
-                    if (!MapManager.Instance.IsWalkable(point)) { canMoveY = false; break; }
-                }
-            }
-
-            Vector3 finalPos = currentPos;
-            if (canMoveX) finalPos.x = nextPosX.x;
-            if (canMoveY) finalPos.y = nextPosY.y;
-            _rb.MovePosition(finalPos);
-        }
+        // 使用 Rigidbody2D 物理驱动，墙壁碰撞由 Collider2D 处理
+        _rb.velocity = _moveInput * _stats.MoveSpeed;
     }
 }
