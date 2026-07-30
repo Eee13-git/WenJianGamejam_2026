@@ -36,7 +36,10 @@ public class SkillSlotView : MonoBehaviour
 
         // 快捷键
         if (_keyLabel != null)
+        {
             _keyLabel.text = data.KeyLabel;
+            _keyLabel.gameObject.SetActive(data.ShowKeyLabel);
+        }
 
         // 等级
         if (_levelText != null)

@@ -84,6 +84,7 @@ public class SkillUIController : MonoBehaviour
 
         data.IsUnlocked = _skillManager.IsSlotUnlocked(index);
         data.IsEquipped = skill != null;
+        data.ShowKeyLabel = true;
 
         // 快捷键标签
         KeyCode key = _skillManager.GetKeyCode(index);

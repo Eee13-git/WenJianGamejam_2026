@@ -29,6 +29,9 @@ public abstract class BaseEnemy : MonoBehaviour, IDamageable, ISkillCaster
     /// <summary>敌人持有的技能实例（运行时创建）</summary>
     protected List<SkillInstance> _skillInstances = new();
 
+    /// <summary>技能实例列表（供外部读取，如侵蚀技能弹窗）</summary>
+    public System.Collections.Generic.IReadOnlyList<SkillInstance> SkillInstances => _skillInstances;
+
     // ---------- ISkillCaster ----------
     public Transform CasterTransform => transform;
 

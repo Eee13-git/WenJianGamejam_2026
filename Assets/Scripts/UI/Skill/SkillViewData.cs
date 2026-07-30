@@ -9,6 +9,7 @@ public struct SkillViewData : IEquatable<SkillViewData>
 {
     public Sprite Icon;
     public string KeyLabel;
+    public bool ShowKeyLabel;
     public int Level;
     public int MaxLevel;
     public bool IsEquipped;
@@ -26,6 +27,7 @@ public struct SkillViewData : IEquatable<SkillViewData>
             && IsEquipped == other.IsEquipped
             && IsUnlocked == other.IsUnlocked
             && IsCoolingDown == other.IsCoolingDown
+            && ShowKeyLabel == other.ShowKeyLabel
             && Mathf.Approximately(CooldownPercent, other.CooldownPercent)
             && Mathf.Approximately(CooldownRemaining, other.CooldownRemaining);
     }
