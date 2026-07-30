@@ -28,6 +28,12 @@ public abstract class BaseEnemy : MonoBehaviour, IDamageable, ISkillCaster
 
     protected float lastHitTime = -10f;
 
+    // 视线检测缓存（降低 Physics2D.Linecast 调用频率）
+    private float _sightCheckInterval = 0.2f;
+    private float _nextSightCheckTime;
+    private bool _cachedHasLineOfSight;
+    private bool _wasInDetectionRange;
+
     /// <summary>敌人持有的技能实例（运行时创建）</summary>
     protected List<SkillInstance> _skillInstances = new();
 
@@ -48,10 +54,17 @@ public abstract class BaseEnemy : MonoBehaviour, IDamageable, ISkillCaster
 
     public float GetAttackStrength() => attackStrength;
 
+    protected SpriteRenderer _spriteRenderer;
+    private Coroutine _flashCoroutine;
+
     protected virtual void Start()
     {
         rb = GetComponent<Rigidbody2D>();
         rb.freezeRotation = true;
+
+        health = MaxHealth;
+
+        _spriteRenderer = GetComponent<SpriteRenderer>();
 
         GameObject player = GameObject.FindGameObjectWithTag("Player");
         if (player != null) playerTarget = player.transform;
@@ -110,31 +123,43 @@ public abstract class BaseEnemy : MonoBehaviour, IDamageable, ISkillCaster
 
     // ========== 简化移动逻辑 (不再依赖 TileManager/A*) ==========
 
-    /// <summary>朝玩家移动：视线通畅→直追，被遮挡→原地待命</summary>
+    /// <summary>朝玩家移动：带间隔的视线检测，被遮挡时原地待命</summary>
     protected void MoveTowardsPlayer()
     {
         if (isDead || playerTarget == null) return;
 
-        float distance = Vector2.Distance(transform.position, playerTarget.position);
-        if (distance > detectionRange)
+        float sqrDistance = (playerTarget.position - transform.position).sqrMagnitude;
+        bool inRange = sqrDistance <= detectionRange * detectionRange;
+
+        if (!inRange)
         {
             rb.velocity = Vector2.zero;
+            _wasInDetectionRange = false;
             return;
         }
 
-        // 使用 Physics2D.Linecast 做简单的视线检测
-        Vector2 dir = (playerTarget.position - transform.position).normalized;
-        RaycastHit2D hit = Physics2D.Linecast(transform.position, playerTarget.position);
-
-        if (hit.collider != null && hit.collider.CompareTag("Wall"))
+        // 刚进入探测范围时立即做一次视线检测，消除间隔延迟
+        if (!_wasInDetectionRange)
         {
-            // 被墙壁遮挡，停止移动
-            rb.velocity = Vector2.zero;
+            _nextSightCheckTime = 0f;
+            _wasInDetectionRange = true;
+        }
+
+        if (Time.time >= _nextSightCheckTime)
+        {
+            _nextSightCheckTime = Time.time + _sightCheckInterval;
+            RaycastHit2D hit = Physics2D.Linecast(transform.position, playerTarget.position);
+            _cachedHasLineOfSight = hit.collider == null || !hit.collider.CompareTag("Wall");
+        }
+
+        if (_cachedHasLineOfSight)
+        {
+            Vector2 dir = (playerTarget.position - transform.position).normalized;
+            rb.velocity = dir * moveSpeed;
         }
         else
         {
-            // 有视线，直接移动
-            rb.velocity = dir * moveSpeed;
+            rb.velocity = Vector2.zero;
         }
     }
 
@@ -150,8 +175,16 @@ public abstract class BaseEnemy : MonoBehaviour, IDamageable, ISkillCaster
     {
         if (isDead) return;
         health -= damage;
-        if (health <= 0) Die();
-        else StartCoroutine(FlashWhite());
+        if (health <= 0)
+        {
+            Die();
+        }
+        else
+        {
+            if (_flashCoroutine != null)
+                StopCoroutine(_flashCoroutine);
+            _flashCoroutine = StartCoroutine(FlashWhite());
+        }
     }
 
     protected virtual void Die()
@@ -164,8 +197,16 @@ public abstract class BaseEnemy : MonoBehaviour, IDamageable, ISkillCaster
 
     private IEnumerator FlashWhite()
     {
-        SpriteRenderer sr = GetComponent<SpriteRenderer>();
-        if (sr != null) { Color c = sr.color; sr.color = Color.white; yield return new WaitForSeconds(0.1f); sr.color = c; }
+        if (_spriteRenderer == null)
+            _spriteRenderer = GetComponent<SpriteRenderer>();
+
+        if (_spriteRenderer == null)
+            yield break;
+
+        Color original = _spriteRenderer.color;
+        _spriteRenderer.color = Color.white;
+        yield return new WaitForSeconds(0.1f);
+        _spriteRenderer.color = original;
     }
 
     protected abstract void FixedUpdate();

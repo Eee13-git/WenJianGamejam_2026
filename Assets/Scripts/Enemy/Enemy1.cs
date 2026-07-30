@@ -6,6 +6,8 @@ public class Enemy1 : BaseEnemy
     [SerializeField] private float damageToPlayer = 10f;
     [SerializeField] private float attackCooldown = 1.5f;
 
+    private PlayerStats _cachedPlayerStats;
+
     protected override void FixedUpdate()
     {
         if (isDead) return;
@@ -24,10 +26,13 @@ public class Enemy1 : BaseEnemy
     private void OnCollisionStay2D(Collision2D collision)
     {
         if (isDead || Time.time < lastHitTime + attackCooldown) return;
-        PlayerStats player = collision.gameObject.GetComponent<PlayerStats>();
-        if (player != null)
+
+        if (_cachedPlayerStats == null)
+            _cachedPlayerStats = collision.gameObject.GetComponent<PlayerStats>();
+
+        if (_cachedPlayerStats != null)
         {
-            player.TakeDamage(damageToPlayer);
+            _cachedPlayerStats.TakeDamage(damageToPlayer);
             lastHitTime = Time.time;
         }
     }
