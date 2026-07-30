@@ -15,6 +15,19 @@ public class SkillInstance
 
     private float _cooldownRemaining;
 
+    /// <summary>剩余冷却秒数（供 UI 读取）</summary>
+    public float CooldownRemaining => _cooldownRemaining;
+
+    /// <summary>冷却进度 0~1，1=满冷却（刚释放），0=冷却完毕（供 UI 读取）</summary>
+    public float CooldownPercent
+    {
+        get
+        {
+            float total = CurrentCooldown;
+            return total > 0f ? Mathf.Clamp01(_cooldownRemaining / total) : 0f;
+        }
+    }
+
     /// <summary>当前等级冷却时间（每级减少10%）</summary>
     public float CurrentCooldown => Data.cooldown * (1f - (Level - 1) * 0.1f);
 

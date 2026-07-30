@@ -1,3 +1,11 @@
 {
-  "model": "codely-core"
+  "model": "deepseek-v4-pro",
+  "contentGenerator": {
+    "overrides": {
+      "model": {
+        "authType": "openai"
+      }
+    }
+  },
+  "selectedAuthType": "openai"
 }

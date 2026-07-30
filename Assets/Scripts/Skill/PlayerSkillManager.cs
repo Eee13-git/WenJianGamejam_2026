@@ -167,5 +167,18 @@ public class PlayerSkillManager : MonoBehaviour, ISkillCaster
         return (index >= 0 && index < _slots.Count) ? _slots[index].Skill : null;
     }
 
+    /// <summary>查询槽位是否解锁（供 UI Controller 读取）</summary>
+    public bool IsSlotUnlocked(int index)
+    {
+        return index >= 0 && index < _slots.Count && _slots[index].isUnlocked;
+    }
+
+    /// <summary>获取槽位绑定的快捷键（供 UI Controller 读取）</summary>
+    public KeyCode GetKeyCode(int index)
+    {
+        if (index < 0 || index >= _slots.Count) return KeyCode.None;
+        return _slots[index].keyBinding;
+    }
+
     public int SlotCount => _slots.Count;
 }

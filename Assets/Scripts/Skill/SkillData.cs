@@ -11,6 +11,7 @@ public class SkillData : ScriptableObject
     public string skillId;          // 唯一标识，如 "fireball"
     public string skillName;        // 显示名称
     [TextArea] public string description;
+    public Sprite icon;
 
     [Header("数值")]
     public float cooldown = 2f;           // 基础冷却时间（秒）
