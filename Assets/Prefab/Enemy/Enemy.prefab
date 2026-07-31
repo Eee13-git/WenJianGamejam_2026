@@ -12,7 +12,12 @@ GameObject:
   - component: {fileID: 1935912664683039391}
   - component: {fileID: 8269277102049366313}
   - component: {fileID: 5707327081535020278}
-  - component: {fileID: 1081797758114524228}
+  - component: {fileID: 6450747566545139565}
+  - component: {fileID: 5684893595642856022}
+  - component: {fileID: 9220474632920854745}
+  - component: {fileID: -1835988335155249550}
+  - component: {fileID: 8251191102875698079}
+  - component: {fileID: -7519626331256482733}
   m_Layer: 0
   m_Name: Enemy
   m_TagString: Enemy
@@ -113,7 +118,7 @@ Rigidbody2D:
   m_Interpolate: 0
   m_SleepingMode: 1
   m_CollisionDetection: 0
-  m_Constraints: 0
+  m_Constraints: 4
 --- !u!58 &5707327081535020278
 CircleCollider2D:
   m_ObjectHideFlags: 0
@@ -149,7 +154,7 @@ CircleCollider2D:
   m_Offset: {x: 0, y: 0}
   serializedVersion: 2
   m_Radius: 0.5
---- !u!114 &1081797758114524228
+--- !u!114 &6450747566545139565
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -158,19 +163,71 @@ MonoBehaviour:
   m_GameObject: {fileID: 2633800766284816993}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: a0ea9aa03e7bf9c44854da3f252c7c18, type: 3}
+  m_Script: {fileID: 11500000, guid: 3174571a06cfd6d479d850b02fc70d44, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  health: 30
+  config: {fileID: 11400000, guid: 67d528c9840e98a4781b43e2b0de16eb, type: 2}
+--- !u!114 &5684893595642856022
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2633800766284816993}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 77137bc241bf52745bd1b6349bdfdeca, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
   MaxHealth: 30
-  moveSpeed: 2
-  detectionRange: 15
-  colliderRadius: 0.35
-  attackStrength: 10
-  _skillLibrary: {fileID: 11400000, guid: cc88abea7715f7d4fab56ea5a0594ded, type: 2}
-  _enemySkillLibrary: {fileID: 11400000, guid: cc88abea7715f7d4fab56ea5a0594ded, type: 2}
-  _skillDataList: []
-  _randomSkillMinCount: 1
-  _randomSkillMaxCount: 2
-  damageToPlayer: 10
+--- !u!114 &9220474632920854745
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2633800766284816993}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3eccd900d9a8d9242b21aeec5605f086, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  MoveSpeed: 2
+--- !u!114 &-1835988335155249550
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2633800766284816993}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5a3510e4dc403174fb2cff2dacfc59e6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+--- !u!114 &8251191102875698079
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2633800766284816993}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ef3e4266df813a249b74f5c05bbcbb26, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+--- !u!114 &-7519626331256482733
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2633800766284816993}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1f1381f90ca9ae3498c6012da836b2ef, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  damage: 10
   attackCooldown: 1.5

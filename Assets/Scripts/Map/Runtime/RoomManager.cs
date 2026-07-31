@@ -125,20 +125,10 @@ public class RoomManager : MonoBehaviour
             var enemy = Instantiate(entry.enemyPrefab, spawnPoint.position, Quaternion.identity, transform);
             _aliveEnemies.Add(enemy);
 
-            // 监听敌人死亡
-            var damageable = enemy.GetComponent<IDamageable>();
-            if (damageable != null)
+            // 监听敌人死亡，使用 IEnemy 接口
+            if (enemy.TryGetComponent<IEnemy>(out var ienemy))
             {
-                // 简单方式：注册死亡回调
-                if (enemy.TryGetComponent<BaseEnemy>(out var baseEnemy))
-                {
-                    baseEnemy.OnEnemyDied += () => OnEnemyDied(enemy);
-                }
-                else
-                {
-                    // 通用方式：延迟检查
-                    StartCoroutine(WatchEnemyDeath(enemy));
-                }
+                ienemy.OnDied += () => OnEnemyDied(enemy);
             }
         }
 

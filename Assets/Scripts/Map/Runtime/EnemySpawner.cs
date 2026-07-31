@@ -62,10 +62,10 @@ public class EnemySpawner : MonoBehaviour
 
             _aliveCount++;
 
-            // 监听死亡
-            if (enemy.TryGetComponent<BaseEnemy>(out var baseEnemy))
+            // 监听死亡（使用 IEnemy 接口以便兼容重构后的敌人）
+            if (enemy.TryGetComponent<IEnemy>(out var ienemy))
             {
-                baseEnemy.OnEnemyDied += () =>
+                ienemy.OnDied += () =>
                 {
                     _aliveCount--;
                     if (_aliveCount <= 0)
