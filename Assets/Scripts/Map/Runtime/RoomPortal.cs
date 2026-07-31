@@ -25,6 +25,7 @@ public class RoomPortal : MonoBehaviour
     public string targetTag = "Player";
 
     private bool _locked;
+    private bool _isPermanentWall = false; // 是否是永久墙壁（没有门的房间边界）
 
     private void Awake()
     {
@@ -46,6 +47,8 @@ public class RoomPortal : MonoBehaviour
     /// <summary>锁定/解锁门。locked=true: 启用 Blocker、禁用 Trigger + 隐藏门贴图。</summary>
     public void SetLocked(bool locked)
     {
+        if (_isPermanentWall) return;
+
         _locked = locked;
 
         if (openTrigger != null)
@@ -62,6 +65,7 @@ public class RoomPortal : MonoBehaviour
     public void HideAsWall()
     {
         targetRoomId = -1;
+        _isPermanentWall = true;  // 标记为永久墙壁
 
         // 隐藏门的 Trigger + Sprite
         if (openTrigger != null) openTrigger.enabled = false;

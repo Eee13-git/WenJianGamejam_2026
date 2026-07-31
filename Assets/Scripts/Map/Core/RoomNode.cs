@@ -18,9 +18,6 @@ public class RoomNode
     /// <summary>房间在世界空间中的位置 (中心点)</summary>
     public Vector2 worldPosition;
 
-    /// <summary>该房间已激活使用的门</summary>
-    public List<DoorConnection> activeDoors = new();
-
     /// <summary>图连接: targetRoomId -> 通过哪个方向的门连接</summary>
     public Dictionary<int, DoorDirection> connections = new();
 
