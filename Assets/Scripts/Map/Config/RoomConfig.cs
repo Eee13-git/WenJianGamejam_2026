@@ -28,10 +28,10 @@ public class RoomConfig : ScriptableObject
     public Vector2 roomSize = new Vector2(20f, 12f);
 
     [Header("门在房间内的本地坐标偏移")]
-    public Vector2 topDoorOffset = new Vector2(0f, 6f);
-    public Vector2 bottomDoorOffset = new Vector2(0f, -6f);
-    public Vector2 leftDoorOffset = new Vector2(-10f, 0f);
-    public Vector2 rightDoorOffset = new Vector2(10f, 0f);
+    public Vector2 topDoorOffset = new Vector2(0f, 6.5f);
+    public Vector2 bottomDoorOffset = new Vector2(0f, -6.5f);
+    public Vector2 leftDoorOffset = new Vector2(-10.5f, 0f);
+    public Vector2 rightDoorOffset = new Vector2(10.5f, 0f);
 
     [Header("怪物生成")]
     [Tooltip("可选怪物池")]
@@ -52,6 +52,10 @@ public class RoomConfig : ScriptableObject
 
     [Tooltip("最多道具数")]
     public int maxItems = 2;
+
+    [Header("隐藏墙")]
+    [Tooltip("隐藏墙血量 (需要攻击次数)，0=普通门")]
+    public int hiddenWallHP = 0;
 
     /// <summary>获取指定方向门的本地坐标偏移</summary>
     public Vector2 GetDoorOffset(DoorDirection dir)

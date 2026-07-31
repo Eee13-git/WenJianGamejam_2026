@@ -26,9 +26,12 @@ public class MinimapUI : MonoBehaviour
     [SerializeField] private Color _bossColor = new(0.8f, 0.2f, 0.2f);
     [SerializeField] private Color _shopColor = new(0.3f, 0.6f, 1f);
     [SerializeField] private Color _exitColor = new(0.6f, 0.2f, 0.8f);
-    [SerializeField] private Color _unvisitedAlpha = new(0.3f, 0.3f, 0.3f, 0.35f);
+    [SerializeField] private Color _hiddenColor = new(0.85f, 0.5f, 0.1f);
+    [SerializeField] private Color _explorableColor = new(0.25f, 0.25f, 0.25f, 0.45f);
+    [SerializeField] private Color _explorableBorderColor = new(0.18f, 0.18f, 0.18f, 0.55f);
+    [SerializeField] private Color _explorableCorridorColor = new(0.18f, 0.18f, 0.18f, 0.35f);
     [SerializeField] private Color _currentBorderColor = Color.white;
-    [SerializeField] private Color _corridorColor = new(0.25f, 0.25f, 0.25f, 0.7f);
+    [SerializeField] private Color _corridorColor = new(0.28f, 0.28f, 0.28f, 0.7f);
     [SerializeField] private Color _bgColor = new(0f, 0f, 0f, 0.6f);
 
     private RawImage _rawImage;
@@ -165,30 +168,82 @@ public class MinimapUI : MonoBehaviour
         for (int i = 0; i < pixels.Length; i++)
             pixels[i] = _bgColor;
 
-        // 4. 先画走廊 — 只连接两个都已探索的房间
+        // 4. 计算"可探索"房间: 未访问但与已探索房间相邻的房间 (隐藏房除外)
+        var explorableIds = new System.Collections.Generic.HashSet<int>();
         foreach (var node in graph.nodes)
         {
-            if (!_visitedRoomIds.Contains(node.roomId)) continue;
-
+            if (_visitedRoomIds.Contains(node.roomId)) continue;
+            if (node.roomType == RoomType.Hidden) continue;
             foreach (var conn in node.connections)
             {
-                if (node.roomId >= conn.Key) continue;
-                if (!_visitedRoomIds.Contains(conn.Key)) continue;
-
-                var neighbor = graph.GetNode(conn.Key);
-                if (neighbor == null) continue;
-
-                Vector2 centerA = node.worldPosition;
-                Vector2 centerB = neighbor.worldPosition;
-
-                DrawThickLine(pixels,
-                    WorldToPixelX(centerA.x), WorldToPixelY(centerA.y),
-                    WorldToPixelX(centerB.x), WorldToPixelY(centerB.y),
-                    _corridorColor, _corridorWidth);
+                if (_visitedRoomIds.Contains(conn.Key))
+                {
+                    explorableIds.Add(node.roomId);
+                    break;
+                }
             }
         }
 
-        // 5. 画房间 — 只显示已探索的房间
+        // 5. 画走廊 (隐藏房不参与可探索连线)
+        foreach (var node in graph.nodes)
+        {
+            foreach (var conn in node.connections)
+            {
+                if (node.roomId >= conn.Key) continue;
+                var neighbor = graph.GetNode(conn.Key);
+                if (neighbor == null) continue;
+
+                // 隐藏房不显示在可探索状态
+                if (!_visitedRoomIds.Contains(node.roomId) && node.roomType == RoomType.Hidden) continue;
+                if (!_visitedRoomIds.Contains(neighbor.roomId) && neighbor.roomType == RoomType.Hidden) continue;
+
+                bool aVisited = _visitedRoomIds.Contains(node.roomId);
+                bool bVisited = _visitedRoomIds.Contains(neighbor.roomId);
+                bool aExplorable = explorableIds.Contains(node.roomId);
+                bool bExplorable = explorableIds.Contains(neighbor.roomId);
+
+                bool draw = (aVisited || bVisited) && (aVisited || bVisited || aExplorable || bExplorable);
+                if (!draw) continue;
+
+                Color lineColor = (aVisited && bVisited) ? _corridorColor : _explorableCorridorColor;
+
+                Vector2 centerA = node.worldPosition;
+                Vector2 centerB = neighbor.worldPosition;
+                DrawThickLine(pixels,
+                    WorldToPixelX(centerA.x), WorldToPixelY(centerA.y),
+                    WorldToPixelX(centerB.x), WorldToPixelY(centerB.y),
+                    lineColor, _corridorWidth);
+            }
+        }
+
+        // 6. 画可探索房间: Boss/Exit 用真实颜色，其余用灰色
+        foreach (var node in graph.nodes)
+        {
+            if (!explorableIds.Contains(node.roomId)) continue;
+
+            bool isBossOrExit = node.roomType == RoomType.Boss || node.roomType == RoomType.Exit;
+            Color fillColor = isBossOrExit ? GetRoomColor(node.roomType) : _explorableColor;
+            Color borderColor = isBossOrExit
+                ? Color.Lerp(GetRoomColor(node.roomType), Color.black, 0.3f)
+                : _explorableBorderColor;
+
+            Vector2 half = node.config.roomSize * 0.5f * _roomDisplayScale;
+            int px1 = ClampPixel(WorldToPixelX(node.worldPosition.x - half.x));
+            int py1 = ClampPixel(WorldToPixelY(node.worldPosition.y - half.y));
+            int px2 = ClampPixel(WorldToPixelX(node.worldPosition.x + half.x));
+            int py2 = ClampPixel(WorldToPixelY(node.worldPosition.y + half.y));
+
+            for (int y = py1; y <= py2; y++)
+            {
+                for (int x = px1; x <= px2; x++)
+                {
+                    bool isBorder = (x == px1 || x == px2 || y == py1 || y == py2);
+                    pixels[y * _textureSize + x] = isBorder ? borderColor : fillColor;
+                }
+            }
+        }
+
+        // 7. 画已探索房间
         foreach (var node in graph.nodes)
         {
             if (!_visitedRoomIds.Contains(node.roomId)) continue;
@@ -218,7 +273,7 @@ public class MinimapUI : MonoBehaviour
                 }
             }
 
-            // 6. 高亮当前房间边框
+            // 8. 高亮当前房间边框
             if (node.roomId == _currentRoomId)
             {
                 for (int y = py1; y <= py2; y++)
@@ -283,6 +338,7 @@ public class MinimapUI : MonoBehaviour
             RoomType.Boss => _bossColor,
             RoomType.Shop => _shopColor,
             RoomType.Exit => _exitColor,
+            RoomType.Hidden => _hiddenColor,
             _ => Color.gray
         };
     }

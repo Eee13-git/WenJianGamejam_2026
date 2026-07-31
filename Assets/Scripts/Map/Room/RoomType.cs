@@ -6,5 +6,6 @@ public enum RoomType
     Treasure,  // 宝箱房间
     Boss,      // Boss房间
     Shop,      // 商店
-    Exit       // 出口/楼梯
+    Exit,      // 出口/楼梯
+    Hidden     // 隐藏房
 }

@@ -20,14 +20,18 @@ public class MapConfig : ScriptableObject
     [Tooltip("宝藏房间数量")]
     public int treasureRoomCount = 1;
 
-    [Tooltip("Boss 房间数量")]
-    public int bossRoomCount = 1;
-
     [Tooltip("商店房间数量")]
     public int shopRoomCount = 1;
 
-    /// <summary>总房间数 (不含 Start/Exit)</summary>
-    public int TotalRooms => normalRoomCount + treasureRoomCount + bossRoomCount + shopRoomCount + 2; // +2 for Start + Exit
+    [Header("最终房间")]
+    [Tooltip("是否有 Boss 房间。true=Boss, false=Exit (二选一)")]
+    public bool hasBoss = true;
+
+    [Tooltip("Boss 房间数量 (hasBoss=true 时生效)")]
+    public int bossRoomCount = 1;
+
+    /// <summary>总房间数 (Start + 普通/宝藏/商店 + 最终Boss或Exit + 隐藏房)</summary>
+    public int TotalRooms => normalRoomCount + treasureRoomCount + shopRoomCount + (hasBoss ? bossRoomCount : 1) + hiddenRoomCount + 1; // +1 for Start
 
     [Header("各类型可选房间预制体池")]
     [Tooltip("普通房间池")]
@@ -41,6 +45,12 @@ public class MapConfig : ScriptableObject
 
     [Tooltip("商店房间池")]
     public RoomConfig[] shopRoomPool;
+
+    [Tooltip("隐藏房间池")]
+    public RoomConfig[] hiddenRoomPool;
+
+    [Tooltip("隐藏房数量")]
+    public int hiddenRoomCount = 1;
 
     [Tooltip("起始房间 (固定)")]
     public RoomConfig startRoom;
@@ -61,6 +71,7 @@ public class MapConfig : ScriptableObject
             RoomType.Treasure => treasureRoomPool,
             RoomType.Boss => bossRoomPool,
             RoomType.Shop => shopRoomPool,
+            RoomType.Hidden => hiddenRoomPool,
             _ => null
         };
     }
