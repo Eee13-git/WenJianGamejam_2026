@@ -12,7 +12,7 @@ public class ErodeProjectile : MonoBehaviour
         // 只命中敌人
         if (!other.CompareTag("Enemy")) return;
 
-        BaseEnemy enemy = other.GetComponent<BaseEnemy>();
+        IEnemy enemy = other.GetComponent<IEnemy>();
         if (enemy == null) return;
 
         // 检查敌人是否有技能
