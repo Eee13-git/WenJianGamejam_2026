@@ -43,6 +43,20 @@ public class EnemyMovement : MonoBehaviour
         _rb.velocity = vel;
     }
 
+    /// <summary>直接传送到目标位置（通过 Rigidbody2D.position）</summary>
+    public void Teleport(Vector2 targetPos)
+    {
+        if (_rb != null)
+        {
+            _rb.velocity = Vector2.zero;
+            _rb.position = targetPos;
+        }
+        else
+        {
+            transform.position = targetPos;
+        }
+    }
+
     /// <summary>
     /// 带缓存的视线检测。调用时会基于 interval 减少 Linecast 次数。
     /// </summary>

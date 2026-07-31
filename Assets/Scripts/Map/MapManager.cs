@@ -270,8 +270,18 @@ public class MapManager : MonoBehaviour
 
         Vector2 targetPos = worldPos + inwardDir * _doorEntryOffset;
 
-        // 使用 Rigidbody2D.position 来正确通知物理引擎位置变化
-        var rb = _playerTransform.GetComponent<Rigidbody2D>();
+        // 传送玩家
+        TeleportRigidbody(_playerTransform, targetPos);
+
+        // 传送所有随从到玩家周围（阵型跟随玩家面朝方向）
+        TeleportFollowers(targetPos, inwardDir, room.transform);
+    }
+
+    /// <summary>安全传送 Transform（优先通过 Rigidbody2D.position）</summary>
+    private static void TeleportRigidbody(Transform t, Vector2 targetPos)
+    {
+        if (t == null) return;
+        var rb = t.GetComponent<Rigidbody2D>();
         if (rb != null)
         {
             rb.velocity = Vector2.zero;
@@ -279,7 +289,55 @@ public class MapManager : MonoBehaviour
         }
         else
         {
-            _playerTransform.position = targetPos;
+            t.position = targetPos;
+        }
+    }
+
+    /// <summary>将所有活跃随从传送到玩家两侧和侧前方（正前方留空不挡路），阵型跟随面朝方向旋转</summary>
+    private static void TeleportFollowers(Vector2 playerPos, Vector2 playerForward, Transform newParent)
+    {
+        var followers = EnemyFollower.ActiveFollowers;
+        int count = followers.Count;
+        if (count == 0) return;
+
+        float angle = Mathf.Atan2(playerForward.y, playerForward.x) - Mathf.PI / 2f;
+        float cos = Mathf.Cos(angle);
+        float sin = Mathf.Sin(angle);
+
+        float halfPi = Mathf.PI / 2f;
+        float gapAngle = 0.25f; // 正前方留空约 14°，不挡玩家视线和移动
+
+        for (int i = 0; i < count; i++)
+        {
+            float t = count > 1 ? (float)i / (count - 1) : -0.5f;
+
+            // 在 -90°~90° 之间分布，但跳过正前方 ±gap 区域
+            float rad;
+            if (count == 1)
+            {
+                rad = -halfPi + gapAngle; // 单个随从放左侧
+            }
+            else if (t <= 0.5f)
+            {
+                rad = Mathf.Lerp(-halfPi, -gapAngle, t * 2f);   // 左侧到左前方
+            }
+            else
+            {
+                rad = Mathf.Lerp(gapAngle, halfPi, (t - 0.5f) * 2f); // 右前方到右侧
+            }
+
+            float sideX = Mathf.Sin(rad);
+            float forwardY = Mathf.Cos(rad);
+            Vector2 localOffset = new Vector2(sideX, forwardY) * 1.2f;
+
+            Vector2 rotatedOffset = new Vector2(
+                localOffset.x * cos - localOffset.y * sin,
+                localOffset.x * sin + localOffset.y * cos
+            );
+
+            Vector2 targetPos = playerPos + rotatedOffset;
+            followers[i].transform.SetParent(newParent, true);
+            TeleportRigidbody(followers[i].transform, targetPos);
         }
     }
 

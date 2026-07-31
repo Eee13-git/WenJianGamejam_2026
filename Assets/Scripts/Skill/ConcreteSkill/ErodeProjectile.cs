@@ -1,7 +1,7 @@
 using UnityEngine;
 
 /// <summary>
-/// 侵蚀投射物命中逻辑 — 仅处理命中敌人后的夺取弹窗。
+/// 侵蚀投射物命中逻辑 — 命中敌人后弹出二选一弹窗（吞噬 / 同化）。
 /// 飞行由 Projectile 组件（ProjectileSkillEffect 自动添加）负责。
 /// 挂载在 ErodeProjectile 预制体上，与 Projectile 组件共存。
 /// </summary>
@@ -15,21 +15,21 @@ public class ErodeProjectile : MonoBehaviour
         IEnemy enemy = other.GetComponent<IEnemy>();
         if (enemy == null) return;
 
-        // 检查敌人是否有技能
-        var enemySkills = enemy.SkillInstances;
-        if (enemySkills == null || enemySkills.Count == 0) return;
-
         // 获取玩家技能管理器
         PlayerSkillManager player = FindPlayerSkillManager();
         if (player == null) return;
 
+        var enemySkills = enemy.SkillInstances;
+        bool hasSkills = enemySkills != null && enemySkills.Count > 0;
+
         // 暂停 + 弹窗
         Time.timeScale = 0f;
 
-        SkillStealPopupManager popup = SkillStealPopupManager.Instance;
-        if (popup != null)
+        EnemyCore core = enemy as EnemyCore;
+        ErodeChoicePopupManager popup = ErodeChoicePopupManager.Instance;
+        if (popup != null && core != null)
         {
-            popup.ShowPopup(enemySkills, player, () => Time.timeScale = 1f);
+            popup.ShowPopup(core, hasSkills, enemySkills, player, () => Time.timeScale = 1f);
         }
         else
         {

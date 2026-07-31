@@ -16,6 +16,8 @@ public class RangedAttack : MonoBehaviour, IAttackBehavior
     [Tooltip("投射物生成偏移（相对敌人位置）")]
     public Vector2 spawnOffset = Vector2.up * 0.5f;
     public float projectileLifetime = 3f;
+    [Tooltip("投射物阵营：Enemy=命中Player / Player=命中Enemy（随从同化后应为Player）")]
+    public Projectile.OwnerType projectileOwnerType = Projectile.OwnerType.Enemy;
 
     private float _lastAttackTime = -10f;
 
@@ -32,7 +34,7 @@ public class RangedAttack : MonoBehaviour, IAttackBehavior
         Projectile proj = obj.GetComponent<Projectile>();
         if (proj != null)
         {
-            proj.Initialize(dir, projectileSpeed, damage, Projectile.OwnerType.Enemy);
+            proj.Initialize(dir, projectileSpeed, damage, projectileOwnerType);
         }
         else
         {
