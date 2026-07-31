@@ -40,6 +40,9 @@ public class RoomPortal : MonoBehaviour
         if (!other.CompareTag(targetTag)) return;
         if (MapManager.Instance == null) return;
 
+        // 只有真正的主角才能触发传送（随从也是 Player tag，但不应该切换房间）
+        if (other.GetComponent<PlayerStats>() == null) return;
+
         MapManager.Instance.SwitchRoom(targetRoomId, direction);
     }
 

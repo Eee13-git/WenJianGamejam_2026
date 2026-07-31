@@ -36,6 +36,8 @@ public class PlayerSkillManager : MonoBehaviour, ISkillCaster
 
     public float GetAttackStrength() => _stats != null ? _stats.AttackStrength : 10f;
 
+    public Projectile.OwnerType GetOwnerType() => Projectile.OwnerType.Player;
+
     // ---------- 委托 ----------
     /// <summary>技能释放事件：参数为 (槽位索引, 技能数据)</summary>
     public event System.Action<int, SkillData> OnSkillCast;

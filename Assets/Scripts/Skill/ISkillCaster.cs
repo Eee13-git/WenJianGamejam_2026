@@ -13,4 +13,7 @@ public interface ISkillCaster
 
     /// <summary>获取攻击力，用于技能伤害计算</summary>
     float GetAttackStrength();
+
+    /// <summary>施法者阵营：Player=玩家方（打Enemy） / Enemy=敌方（打Player）</summary>
+    Projectile.OwnerType GetOwnerType();
 }

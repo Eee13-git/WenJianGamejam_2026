@@ -7,6 +7,13 @@ public class MeleeAttack : MonoBehaviour, IAttackBehavior
     public float damage = 10f;
     public float attackCooldown = 1.0f;
 
+    /// <summary>
+    /// 攻击阵营：Enemy=命中Player / Player=命中Enemy。
+    /// 随从同化后 EnemyFollower 会将其设为 Player，避免误伤玩家和友军。
+    /// </summary>
+    [Tooltip("攻击阵营：Enemy=命中Player / Player=命中Enemy")]
+    public Projectile.OwnerType ownerType = Projectile.OwnerType.Enemy;
+
     private float _lastAttackTime = -10f;
 
     public bool TryAttack(Transform target)
@@ -27,7 +34,10 @@ public class MeleeAttack : MonoBehaviour, IAttackBehavior
 
     private void OnTriggerStay2D(Collider2D other)
     {
-        if (!other.CompareTag("Player")) return;
+        // 根据阵营确定命中 Tag
+        string targetTag = ownerType == Projectile.OwnerType.Player ? "Enemy" : "Player";
+        if (!other.CompareTag(targetTag)) return;
+
         if (Time.time < _lastAttackTime + attackCooldown) return;
 
         var damageable = other.GetComponent<IDamageable>();

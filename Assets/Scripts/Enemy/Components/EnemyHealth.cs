@@ -71,4 +71,12 @@ public class EnemyHealth : MonoBehaviour, IDamageable
         _isDead = true;
         OnDied?.Invoke();
     }
+
+    /// <summary>
+    /// 清除 OnDied 事件的所有订阅者（用于同化时切换死亡处理逻辑）。
+    /// </summary>
+    public void ClearOnDied()
+    {
+        OnDied = null;
+    }
 }

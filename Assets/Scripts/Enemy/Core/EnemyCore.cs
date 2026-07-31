@@ -25,8 +25,10 @@ public class EnemyCore : MonoBehaviour, IEnemy
 
     public Transform EnemyTransform => transform;
     public bool IsDead => Health != null && Health.IsDead;
+    public bool IsAssimilated { get; private set; }
     public IReadOnlyList<SkillInstance> SkillInstances => SkillManager != null ? SkillManager.SkillInstances : new List<SkillInstance>();
     public event Action OnDied;
+    public event Action<IEnemy> OnAssimilated;
 
     private void Awake()
     {
@@ -114,5 +116,50 @@ public class EnemyCore : MonoBehaviour, IEnemy
         if (AttackBehavior is RangedAttack ranged)
             return ranged.damage;
         return 10f;
+    }
+
+    /// <summary>
+    /// 施法者阵营：被同化后为 Player（技能命中 Enemy），否则为 Enemy（技能命中 Player）。
+    /// </summary>
+    public Projectile.OwnerType GetOwnerType() =>
+        IsAssimilated ? Projectile.OwnerType.Player : Projectile.OwnerType.Enemy;
+
+    // ---------- 同化 ----------
+    /// <summary>
+    /// 将被侵蚀的敌人转化为玩家的随从。
+    /// - 改 tag 为 Player（让其他敌人的攻击能命中此随从）
+    /// - 禁用原状态机，由 EnemyFollower 接管 AI
+    /// - 清除旧的死亡事件，由 EnemyFollower 处理死亡
+    /// </summary>
+    public void Assimilate(Transform playerTarget)
+    {
+        // 1. 标记已同化（房间/生成器通过 OnAssimilated 事件从存活列表移除）
+        IsAssimilated = true;
+
+        // 2. 清除旧的死亡订阅（由 EnemyFollower 接管死亡处理）
+        if (Health != null)
+            Health.ClearOnDied();
+
+        // 3. 通知外部系统：此敌人不再是敌人
+        OnAssimilated?.Invoke(this);
+
+        // 4. 改 tag，使敌人攻击能命中此随从
+        gameObject.tag = "Player";
+
+        // 5. 禁用原有状态机
+        if (StateMachine != null)
+            StateMachine.enabled = false;
+
+        // 6. 停止当前移动
+        Movement?.Stop();
+
+        // 7. 添加并激活随从组件
+        EnemyFollower follower = GetComponent<EnemyFollower>();
+        if (follower == null)
+            follower = gameObject.AddComponent<EnemyFollower>();
+        follower.Activate(playerTarget);
+
+        // 8. 更新玩家引用（供技能方向等使用）
+        PlayerTarget = playerTarget;
     }
 }

@@ -38,9 +38,7 @@ public class SkillLibrary : ScriptableObject
         // 注入 OnExecute 委托
         instance.OnExecute += (caster, direction) =>
         {
-            Projectile.OwnerType ownerType = caster is PlayerSkillManager
-                ? Projectile.OwnerType.Player
-                : Projectile.OwnerType.Enemy;
+            Projectile.OwnerType ownerType = caster.GetOwnerType();
 
             if (data.skillEffect != null)
             {

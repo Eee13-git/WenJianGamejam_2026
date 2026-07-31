@@ -129,6 +129,7 @@ public class RoomManager : MonoBehaviour
             if (enemy.TryGetComponent<IEnemy>(out var ienemy))
             {
                 ienemy.OnDied += () => OnEnemyDied(enemy);
+                ienemy.OnAssimilated += (_) => OnEnemyAssimilated(enemy);
             }
         }
 
@@ -156,6 +157,17 @@ public class RoomManager : MonoBehaviour
 
     /// <summary>敌人死亡回调</summary>
     private void OnEnemyDied(GameObject enemy)
+    {
+        _aliveEnemies.Remove(enemy);
+
+        if (_aliveEnemies.Count == 0)
+        {
+            OnAllEnemiesDefeated();
+        }
+    }
+
+    /// <summary>敌人被同化为随从（不再计入房间清空判定）</summary>
+    private void OnEnemyAssimilated(GameObject enemy)
     {
         _aliveEnemies.Remove(enemy);
 
