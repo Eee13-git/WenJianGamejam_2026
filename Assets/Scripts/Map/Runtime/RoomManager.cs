@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 /// <summary>
 /// 单房间管理器 — 管理单个房间的运行时状态。
@@ -191,8 +192,40 @@ public class RoomManager : MonoBehaviour
         // 生成道具奖励
         SpawnItems();
 
+        // Boss/Exit 房生成下一层出口
+        TrySpawnNextLevelExit();
+
         Debug.Log($"Room {roomRoot.roomId}: 已清空!");
         OnRoomCleared?.Invoke();
+    }
+
+    /// <summary>Boss/Exit 房清空后在房间中心生成下一层出口</summary>
+    private void TrySpawnNextLevelExit()
+    {
+        if (roomRoot == null || roomRoot.config == null) return;
+        var roomType = roomRoot.config.roomType;
+        if (roomType != RoomType.Boss && roomType != RoomType.Exit) return;
+
+        var mapConfigAsset = MapManager.Instance?.MapConfigAsset;
+        if (mapConfigAsset == null || string.IsNullOrEmpty(mapConfigAsset.nextSceneName)) return;
+        if (mapConfigAsset.nextLevelExitPrefab == null)
+        {
+            Debug.LogWarning("RoomManager: MapConfig.nextLevelExitPrefab 未配置");
+            return;
+        }
+
+        var exitGo = Instantiate(mapConfigAsset.nextLevelExitPrefab, roomRoot.Center, Quaternion.identity, transform);
+        exitGo.name = "NextLevelExit";
+
+        var exitComp = exitGo.GetComponent<NextLevelExit>();
+        if (exitComp == null)
+        {
+            Debug.LogError("RoomManager: nextLevelExitPrefab 上没有挂载 NextLevelExit 组件，请在预制体上添加该脚本");
+            return;
+        }
+        exitComp.nextSceneName = mapConfigAsset.nextSceneName;
+
+        Debug.Log($"RoomManager: 房间 {roomRoot.roomId} 生成下一层出口 -> {mapConfigAsset.nextSceneName}");
     }
 
     /// <summary>激活通往相邻隐藏房的门</summary>

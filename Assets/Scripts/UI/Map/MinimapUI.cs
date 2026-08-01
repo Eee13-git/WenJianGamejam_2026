@@ -15,7 +15,6 @@ public class MinimapUI : MonoBehaviour
     [SerializeField] private float _uiHeight = 200f;
 
     [Header("绘制参数")]
-    [SerializeField] private float _worldPadding = 2f;
     [SerializeField] private int _corridorWidth = 4;
     [SerializeField] [Range(0.2f, 1f)] private float _roomDisplayScale = 0.55f;
 

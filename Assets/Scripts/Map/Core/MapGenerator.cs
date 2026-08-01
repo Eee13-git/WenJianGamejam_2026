@@ -67,6 +67,10 @@ public class MapGenerator
             if (anchorNode == null) continue;
 
             RoomType targetType = roomTypeQueue[typeQueueIndex];
+
+            // Boss/Exit 不与 Start 房间直连，跳过该门
+            if ((targetType == RoomType.Boss || targetType == RoomType.Exit) && anchorNode.roomType == RoomType.Start)
+                continue;
             RoomConfig[] pool = _config.GetPoolForType(targetType);
 
             if (pool == null || pool.Length == 0)

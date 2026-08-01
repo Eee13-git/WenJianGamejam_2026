@@ -58,6 +58,13 @@ public class MapConfig : ScriptableObject
     [Tooltip("出口房间 (固定)")]
     public RoomConfig exitRoom;
 
+    [Header("关卡推进")]
+    [Tooltip("下一层出口预制体 (须挂载 NextLevelExit 脚本)")]
+    public GameObject nextLevelExitPrefab;
+
+    [Tooltip("Boss/Exit 房间清空后跳转的场景名")]
+    public string nextSceneName;
+
     [Header("布局参数")]
     [Tooltip("房间间距 (两房间之间的额外间距)")]
     public float roomSpacing = 0.5f;

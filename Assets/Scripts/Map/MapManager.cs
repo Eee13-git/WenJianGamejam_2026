@@ -39,6 +39,7 @@ public class MapManager : MonoBehaviour
     public int CurrentRoomId => _currentRoomId;
     public bool IsSwitchingRoom => _isSwitchingRoom;
     public RoomGraph RoomGraph => _roomGraph;
+    public MapConfig MapConfigAsset => _mapConfig;
 
     private void Awake()
     {
