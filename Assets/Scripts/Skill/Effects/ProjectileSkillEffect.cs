@@ -34,7 +34,7 @@ public class ProjectileSkillEffect : SkillEffectBase
 
         if (count == 1)
         {
-            SpawnOne(spawnPos, direction, baseDamage, speed, ownerType);
+            SpawnOne(spawnPos, direction, baseDamage, speed, ownerType, caster);
         }
         else
         {
@@ -48,17 +48,17 @@ public class ProjectileSkillEffect : SkillEffectBase
                 Vector2 dir = new Vector2(
                     Mathf.Cos(angle * Mathf.Deg2Rad),
                     Mathf.Sin(angle * Mathf.Deg2Rad));
-                SpawnOne(spawnPos, dir, baseDamage, speed, ownerType);
+                SpawnOne(spawnPos, dir, baseDamage, speed, ownerType, caster);
             }
         }
     }
 
     private void SpawnOne(Vector3 pos, Vector2 dir, float dmg, float spd,
-                                  Projectile.OwnerType owner)
+                                  Projectile.OwnerType owner, ISkillCaster caster)
     {
         GameObject go = Instantiate(projectilePrefab, pos, Quaternion.identity);
         Projectile proj = go.GetComponent<Projectile>();
         if (proj == null) proj = go.AddComponent<Projectile>();
-        proj.Initialize(dir, spd, dmg, owner);
+        proj.Initialize(dir, spd, dmg, owner, caster.CasterTransform.gameObject);
     }
 }

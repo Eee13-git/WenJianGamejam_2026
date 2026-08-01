@@ -98,6 +98,52 @@ public class PlayerStats : MonoBehaviour, IDamageable, IHealable
         OnDied?.Invoke();
     }
 
+    // ---------- Buff 系统属性读写接口 ----------
+
+    /// <summary>通过属性名字符串获取当前值（供 Buff 系统使用）</summary>
+    public float GetStatValue(string statName)
+    {
+        return statName switch
+        {
+            "MaxHealth"      => maxHealth,
+            "MoveSpeed"      => moveSpeed,
+            "AttackStrength"  => attackStrength,
+            "BulletSpeed"    => bulletSpeed,
+            "ShootCooldown"  => shootCooldown,
+            "ColliderRadius" => colliderRadius,
+            _                => throw new System.ArgumentException($"PlayerStats: 未知属性名 '{statName}'")
+        };
+    }
+
+    /// <summary>通过属性名字符串设置值，自动触发 OnStatChanged（供 Buff 系统使用）</summary>
+    public void SetStatValue(string statName, float value)
+    {
+        switch (statName)
+        {
+            case "MaxHealth":
+                maxHealth = Mathf.Max(value, 1f);
+                break;
+            case "MoveSpeed":
+                moveSpeed = Mathf.Max(value, 0f);
+                break;
+            case "AttackStrength":
+                attackStrength = Mathf.Max(value, 0f);
+                break;
+            case "BulletSpeed":
+                bulletSpeed = Mathf.Max(value, 0f);
+                break;
+            case "ShootCooldown":
+                shootCooldown = Mathf.Max(value, 0f);
+                break;
+            case "ColliderRadius":
+                colliderRadius = Mathf.Max(value, 0.01f);
+                break;
+            default:
+                throw new System.ArgumentException($"PlayerStats: 未知属性名 '{statName}'");
+        }
+        OnStatChanged?.Invoke(statName);
+    }
+
     // ---------- 数值修正 ----------
     private void OnValidate()
     {

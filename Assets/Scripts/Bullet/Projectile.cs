@@ -1,24 +1,33 @@
+using System;
 using UnityEngine;
 
 public class Projectile : MonoBehaviour
 {
     public enum OwnerType { Player, Enemy }
 
+    /// <summary>全局投射物命中事件: (projectile, hitTarget)</summary>
+    public static event Action<Projectile, GameObject> OnAnyProjectileHit;
+
     [Header("子弹参数")]
     [SerializeField] private float speed = 8f;
     [SerializeField] private float damage = 10f;
     [SerializeField] private float lifeTime = 3f;
 
+    /// <summary>投射物所属主人GameObject（供Buff系统等使用）</summary>
+    public GameObject Caster { get; private set; }
+
     private Vector2 _direction;
     private OwnerType _owner;
     private bool _isInitialized;
 
-    public void Initialize(Vector2 dir, float spd, float dmg, OwnerType owner)
+    /// <param name="caster">投射物所有者GameObject，可选</param>
+    public void Initialize(Vector2 dir, float spd, float dmg, OwnerType owner, GameObject caster = null)
     {
         _direction = dir.normalized;
         speed = spd;
         damage = dmg;
         _owner = owner;
+        Caster = caster ?? gameObject;
         _isInitialized = true;
 
         Destroy(gameObject, lifeTime);
@@ -49,6 +58,7 @@ public class Projectile : MonoBehaviour
         if (damageable != null)
         {
             damageable.TakeDamage(damage);
+            OnAnyProjectileHit?.Invoke(this, other.gameObject);
             Destroy(gameObject);
         }
     }

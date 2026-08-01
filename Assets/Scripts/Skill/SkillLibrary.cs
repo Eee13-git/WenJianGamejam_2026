@@ -54,7 +54,7 @@ public class SkillLibrary : ScriptableObject
                 if (proj == null) proj = go.AddComponent<Projectile>();
                 proj.Initialize(direction, data.castRange,
                     caster.GetAttackStrength() * instance.CurrentDamageMultiplier,
-                    ownerType);
+                    ownerType, caster.CasterTransform.gameObject);
             }
         };
 

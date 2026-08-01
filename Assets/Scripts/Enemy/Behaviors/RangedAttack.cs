@@ -34,7 +34,7 @@ public class RangedAttack : MonoBehaviour, IAttackBehavior
         Projectile proj = obj.GetComponent<Projectile>();
         if (proj != null)
         {
-            proj.Initialize(dir, projectileSpeed, damage, projectileOwnerType);
+            proj.Initialize(dir, projectileSpeed, damage, projectileOwnerType, gameObject);
         }
         else
         {

@@ -14,7 +14,6 @@ public class EnemyMovement : MonoBehaviour
     public float MoveSpeed = 2f;
 
     private Rigidbody2D _rb;
-    private float _sightCheckInterval = 0.2f;
     private float _nextSightCheckTime;
     private bool _cachedHasLineOfSight;
     private bool _wasInDetectionRange = false;

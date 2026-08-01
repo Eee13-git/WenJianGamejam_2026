@@ -48,7 +48,7 @@ public class PlayerCombat : MonoBehaviour
         Projectile proj = bullet.GetComponent<Projectile>();
         if (proj != null)
         {
-            proj.Initialize(direction, bulletSpeed, attackStrength, Projectile.OwnerType.Player);
+            proj.Initialize(direction, bulletSpeed, attackStrength, Projectile.OwnerType.Player, gameObject);
         }
 #if UNITY_EDITOR
         else
