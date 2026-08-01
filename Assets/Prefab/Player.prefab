@@ -12,6 +12,10 @@ GameObject:
   - component: {fileID: 6707821022466416210}
   - component: {fileID: 7532659181443902993}
   - component: {fileID: 5678290061829878204}
+  - component: {fileID: 694382340607450130}
+  - component: {fileID: 4912658885148182202}
+  - component: {fileID: 6473974774114581604}
+  - component: {fileID: 710153900147107810}
   m_Layer: 0
   m_Name: Player
   m_TagString: Player
@@ -125,3 +129,93 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 71b671edc4b41fa4780c1a73329376c0, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+--- !u!58 &694382340607450130
+CircleCollider2D:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1667234661070689864}
+  m_Enabled: 1
+  m_Density: 1
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_ForceSendLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_ForceReceiveLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_ContactCaptureLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_CallbackLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_IsTrigger: 0
+  m_UsedByEffector: 0
+  m_UsedByComposite: 0
+  m_Offset: {x: 0, y: 0}
+  serializedVersion: 2
+  m_Radius: 0.5
+--- !u!114 &4912658885148182202
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1667234661070689864}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 93e1131364c24c94eb73dc2e3651c040, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  bulletPrefab: {fileID: 7934569598719493114, guid: 7b3a513f3f9f7354e84ced92cd2cf1c2, type: 3}
+--- !u!114 &6473974774114581604
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1667234661070689864}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d78c870aacc96a94fafa8976f0b6aa83, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  maxHealth: 10000
+  health: 10000
+  moveSpeed: 5
+  attackStrength: 1000
+  bulletSpeed: 10
+  shootCooldown: 0.2
+  colliderRadius: 0.4
+--- !u!114 &710153900147107810
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1667234661070689864}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 20251f40817251244b4620639db4f57c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _slots:
+  - keyBinding: 113
+    isUnlocked: 1
+  - keyBinding: 102
+    isUnlocked: 1
+  - keyBinding: 101
+    isUnlocked: 1
+  - keyBinding: 114
+    isUnlocked: 1
+  _skillLibrary: {fileID: 11400000, guid: 25b940d240ce07f4dbf92087a21c017a, type: 2}
+  _initialSkillId: erode
