@@ -18,6 +18,10 @@ public class SkillUIController : MonoBehaviour
 
     private void Start()
     {
+        // 跨场景后序列化引用失效，动态查找 PlayerSkillManager
+        if (_skillManager == null)
+            _skillManager = ResolveSkillManager();
+
         if (_skillManager == null)
         {
             Debug.LogError("SkillUIController: PlayerSkillManager 未赋值", this);
@@ -111,5 +115,17 @@ public class SkillUIController : MonoBehaviour
         if (s.StartsWith("Alpha"))
             return s.Substring(5);
         return s;
+    }
+
+    /// <summary>运行时动态查找 PlayerSkillManager (解决跨场景序列化引用失效问题)</summary>
+    private static PlayerSkillManager ResolveSkillManager()
+    {
+        // 优先从 PlayerManager 获取持久化 Player
+        if (PlayerManager.Instance != null && PlayerManager.Instance.CurrentPlayer != null)
+            return PlayerManager.Instance.CurrentPlayer.GetComponent<PlayerSkillManager>();
+
+        // 兜底: Tag 查找
+        var player = GameObject.FindGameObjectWithTag("Player");
+        return player != null ? player.GetComponent<PlayerSkillManager>() : null;
     }
 }

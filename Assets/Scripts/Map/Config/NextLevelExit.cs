@@ -34,6 +34,9 @@ public class NextLevelExit : MonoBehaviour
             return; // 直接返回，不会触发报错
         }
 
+        // 确保 Player 在跨场景切换时不被销毁 (与 PlayerManager 协同工作)
+        DontDestroyOnLoad(other.gameObject);
+
         SceneManager.LoadScene(nextSceneName);
     }
 }
