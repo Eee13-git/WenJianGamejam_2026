@@ -37,7 +37,7 @@ public class RoomManager : MonoBehaviour
 
         // 确保每次实例化都是首次进入状态 (防止序列化残留)
         _isFirstEnter = true;
-        _isCleared = false;
+        _isCleared = roomRoot.config.maxEnemies == 0? true : false;
     }
 
     /// <summary>玩家进入房间时调用</summary>
@@ -79,12 +79,12 @@ public class RoomManager : MonoBehaviour
         }
     }
 
-    /// <summary>解锁所有门 (启用触发器 + 禁用阻挡物)</summary>
+    /// <summary>解锁所有门 (启用触发器 + 禁用阻挡物)，跳过隐藏墙</summary>
     private void UnlockDoors()
     {
         foreach (var portal in _portals)
         {
-            if (portal != null)
+            if (portal != null && portal.HiddenWallHP <= 0)
                 portal.SetLocked(false);
         }
     }
@@ -185,11 +185,42 @@ public class RoomManager : MonoBehaviour
         // 解锁门
         UnlockDoors();
 
+        // 激活相邻隐藏房的门 (变为可破坏状态)
+        ActivateHiddenWalls();
+
         // 生成道具奖励
         SpawnItems();
 
         Debug.Log($"Room {roomRoot.roomId}: 已清空!");
         OnRoomCleared?.Invoke();
+    }
+
+    /// <summary>激活通往相邻隐藏房的门</summary>
+    private void ActivateHiddenWalls()
+    {
+        if (roomRoot == null) return;
+        var graph = MapManager.Instance?.RoomGraph;
+        if (graph == null) return;
+
+        var node = graph.GetNode(roomRoot.roomId);
+        if (node == null) return;
+
+        foreach (var conn in node.connections)
+        {
+            var targetNode = graph.GetNode(conn.Key);
+            if (targetNode == null || targetNode.roomType != RoomType.Hidden) continue;
+
+            // 找到指向隐藏房的门 Portal
+            var portals = GetComponentsInChildren<RoomPortal>(true);
+            foreach (var portal in portals)
+            {
+                if (portal.targetRoomId == conn.Key && portal.HiddenWallHP > 0)
+                {
+                    portal.SetBreakable();
+                    break;
+                }
+            }
+        }
     }
 
     /// <summary>生成道具</summary>

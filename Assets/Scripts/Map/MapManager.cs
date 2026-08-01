@@ -168,6 +168,15 @@ public class MapManager : MonoBehaviour
                     if (conn.Value == portal.direction)
                     {
                         portal.targetRoomId = conn.Key;
+
+                        // 如果目标房间是隐藏房，设置为可破坏墙壁
+                        var targetNode = _roomGraph.GetNode(conn.Key);
+                        if (targetNode != null && targetNode.roomType == RoomType.Hidden)
+                        {
+                            int hp = targetNode.config.hiddenWallHP > 0 ? targetNode.config.hiddenWallHP : 4;
+                            portal.SetAsBreakableWall(hp);
+                        }
+
                         connected = true;
                         break;
                     }

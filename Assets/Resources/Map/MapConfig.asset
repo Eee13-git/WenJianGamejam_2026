@@ -16,8 +16,9 @@ MonoBehaviour:
   seed: 0
   normalRoomCount: 4
   treasureRoomCount: 1
-  bossRoomCount: 1
   shopRoomCount: 1
+  hasBoss: 0
+  bossRoomCount: 1
   normalRoomPool:
   - {fileID: 11400000, guid: 898c86e09375b6e43b72e322195e5de4, type: 2}
   treasureRoomPool:
@@ -26,6 +27,9 @@ MonoBehaviour:
   - {fileID: 11400000, guid: c2aa86b23bb94d8488946a53ef05569e, type: 2}
   shopRoomPool:
   - {fileID: 11400000, guid: 9f53db9265586f543b1de9389e2a9d22, type: 2}
+  hiddenRoomPool:
+  - {fileID: 11400000, guid: d031146952195d0469e6a716d6771702, type: 2}
+  hiddenRoomCount: 1
   startRoom: {fileID: 11400000, guid: 7fc7aba151af26a41b2ddb1687371e4f, type: 2}
   exitRoom: {fileID: 11400000, guid: d228b3977a0d4704497f5c7b8501e2a1, type: 2}
   roomSpacing: 0.5

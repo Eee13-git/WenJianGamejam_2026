@@ -9,7 +9,7 @@ using UnityEngine;
 /// 2. BFS 扩展: 每次从已放置房间的未占用门出发
 /// 3. 随机选取匹配门方向的房间配置
 /// 4. 根据门的本地坐标对齐相邻房间
-/// 5. Boss 房间放在最远端, Exit 放在 Boss 旁边
+/// 5. Boss/Exit 放最后，隐藏房从非终点的开放门放置
 /// </summary>
 public class MapGenerator
 {
@@ -117,26 +117,24 @@ public class MapGenerator
             // 将新房间的未连接门加入开放列表
             AddOpenDoors(placedOpenDoors, newNode, targetDir);
             
-            // 如果是 Boss 房间，紧挨着放置 Exit
-            if (targetType == RoomType.Boss && _config.exitRoom != null)
-            {
-                typeQueueIndex++;
-                if (typeQueueIndex < roomTypeQueue.Count && roomTypeQueue[typeQueueIndex] == RoomType.Exit)
-                {
-                    if (TryPlaceExitRoom(graph, newNode, placedOpenDoors, placedRoomIds))
-                        typeQueueIndex++;
-                }
-                continue;
-            }
+            // 如果是 Exit 房间，记录
+            if (targetType == RoomType.Exit)
+                graph.exitRoomId = newNode.roomId;
+
+            // 如果是 Boss 房间，记录 (hasBoss=true 时 Exit 不在队列中)
+            // if (targetType == RoomType.Boss) {} // Boss 无需额外处理
 
             typeQueueIndex++;
         }
 
-        // 如果 Exit 还没放置，尝试最后放置
-        if (graph.exitRoomId == 0 && _config.exitRoom != null)
+        // 如果 Exit 还没放置 (hasBoss=false 且 BFS 主循环未成功放置)，兜底放置
+        if (graph.exitRoomId == 0 && !_config.hasBoss && _config.exitRoom != null)
         {
-            PlaceExitRoomAtEnd(graph, placedOpenDoors);
+            PlaceExitRoomFarthest(graph, placedOpenDoors);
         }
+
+        // 放置隐藏房：从非 Boss/Exit 房间的开放门中随机选取
+        PlaceHiddenRooms(graph, placedOpenDoors);
 
         if (failsafe >= maxAttempts)
             Debug.LogWarning("MapGenerator: 达到最大尝试次数，可能未生成全部房间");
@@ -145,7 +143,7 @@ public class MapGenerator
         return graph;
     }
 
-    /// <summary>构建房间类型队列 (打乱)</summary>
+    /// <summary>构建房间类型队列 (打乱，最终Boss/Exit放最后)</summary>
     private List<RoomType> BuildRoomTypeQueue()
     {
         var queue = new List<RoomType>();
@@ -156,19 +154,20 @@ public class MapGenerator
             queue.Add(RoomType.Treasure);
         for (int i = 0; i < _config.shopRoomCount; i++)
             queue.Add(RoomType.Shop);
-        // Boss 放最后，Exit 放 Boss 之后
-        for (int i = 0; i < _config.bossRoomCount; i++)
-            queue.Add(RoomType.Boss);
-        // Exit 在 Boss 之后
-        if (_config.exitRoom != null)
+
+        // 最终房间: Boss 或 Exit 二选一，放最后
+        if (_config.hasBoss)
+        {
+            for (int i = 0; i < _config.bossRoomCount; i++)
+                queue.Add(RoomType.Boss);
+        }
+        else
+        {
             queue.Add(RoomType.Exit);
+        }
 
-        // 洗牌 (但不打乱 Boss 和 Exit 的相对顺序)
-        // 把除了最后两个 (Boss + Exit) 的打乱
-        int shuffleCount = queue.Count;
-        if (_config.bossRoomCount > 0 && _config.exitRoom != null)
-            shuffleCount -= 2;
-
+        // 打乱除最后一个 (Boss/Exit) 之外的所有房间
+        int shuffleCount = queue.Count - 1;
         for (int i = 0; i < shuffleCount; i++)
         {
             int j = Random.Range(i, shuffleCount);
@@ -178,90 +177,50 @@ public class MapGenerator
         return queue;
     }
 
-    /// <summary>尝试在 Boss 房间旁放置 Exit</summary>
-    private bool TryPlaceExitRoom(RoomGraph graph, RoomNode bossNode, 
-        List<(int roomId, DoorDirection dir)> openDoors, List<int> placedRoomIds)
-    {
-        var dirs = new[] { DoorDirection.Top, DoorDirection.Bottom, DoorDirection.Left, DoorDirection.Right };
-        Shuffle(dirs);
-
-        foreach (var dir in dirs)
-        {
-            var oppositeDir = RoomConfig.OppositeDir(dir);
-
-            if (!_config.exitRoom.HasDoor(oppositeDir))
-                continue;
-
-            // 检查 Boss 房间该方向是否已有连接
-            if (bossNode.connections.ContainsValue(dir))
-                continue;
-
-            Vector2 anchorDoorWorld = bossNode.GetDoorWorldPosition(dir);
-            Vector2 targetDoorLocal = _config.exitRoom.GetDoorOffset(oppositeDir);
-            Vector2 newPos = anchorDoorWorld - targetDoorLocal;
-
-            var newBounds = new Rect(newPos - _config.exitRoom.roomSize * 0.5f, _config.exitRoom.roomSize);
-            if (OverlapsAny(graph, newBounds))
-                continue;
-
-            var exitNode = graph.AddNode(_config.exitRoom, RoomType.Exit, newPos);
-            graph.Connect(bossNode.roomId, exitNode.roomId, dir, oppositeDir);
-            graph.exitRoomId = exitNode.roomId;
-            return true;
-        }
-
-        return false;
-    }
-
-    /// <summary>最后放置 Exit 房间</summary>
-    private void PlaceExitRoomAtEnd(RoomGraph graph, 
+    /// <summary>兜底放置 Exit: 从开放门中选距离 Start 最远的那个</summary>
+    private void PlaceExitRoomFarthest(RoomGraph graph, 
         List<(int roomId, DoorDirection dir)> openDoors)
     {
-        if (graph.exitRoomId != 0) return;
+        if (openDoors.Count == 0) return;
 
-        // 找 Boss 房间
-        RoomNode bossNode = null;
-        foreach (var n in graph.nodes)
+        var startNode = graph.GetNode(graph.startRoomId);
+        Vector2 startPos = startNode != null ? startNode.worldPosition : Vector2.zero;
+
+        // 找距离 Start 最远的开放门
+        var candidates = new List<(int roomId, DoorDirection dir, float dist)>();
+        foreach (var od in openDoors)
         {
-            if (n.roomType == RoomType.Boss)
-            {
-                bossNode = n;
-                break;
-            }
+            var node = graph.GetNode(od.roomId);
+            if (node == null) continue;
+            // 估算门位置
+            Vector2 doorPos = node.GetDoorWorldPosition(od.dir);
+            float dist = Vector2.Distance(doorPos, startPos);
+            candidates.Add((od.roomId, od.dir, dist));
         }
+        candidates.Sort((a, b) => b.dist.CompareTo(a.dist)); // 降序
 
-        if (bossNode != null)
+        foreach (var (roomId, dir, _) in candidates)
         {
-            if (TryPlaceExitRoom(graph, bossNode, openDoors, null))
-                return;
-        }
-
-        // 回退: 从任意开放的门放置
-        foreach (var openDoor in openDoors)
-        {
-            var anchorNode = graph.GetNode(openDoor.roomId);
+            var anchorNode = graph.GetNode(roomId);
             if (anchorNode == null) continue;
 
-            var dirs = new[] { DoorDirection.Top, DoorDirection.Bottom, DoorDirection.Left, DoorDirection.Right };
-            Shuffle(dirs);
+            var opp = RoomConfig.OppositeDir(dir);
+            if (!_config.exitRoom.HasDoor(opp)) continue;
 
-            foreach (var dir in dirs)
-            {
-                var opp = RoomConfig.OppositeDir(dir);
-                if (!_config.exitRoom.HasDoor(opp)) continue;
+            Vector2 anchorDoorWorld = anchorNode.GetDoorWorldPosition(dir);
+            Vector2 targetDoorLocal = _config.exitRoom.GetDoorOffset(opp);
+            Vector2 newPos = anchorDoorWorld - targetDoorLocal;
+            var newBounds = new Rect(newPos - _config.exitRoom.roomSize * 0.5f, _config.exitRoom.roomSize);
+            if (OverlapsAny(graph, newBounds)) continue;
 
-                Vector2 anchorDoorWorld = anchorNode.GetDoorWorldPosition(dir);
-                Vector2 targetDoorLocal = _config.exitRoom.GetDoorOffset(opp);
-                Vector2 newPos = anchorDoorWorld - targetDoorLocal;
-                var newBounds = new Rect(newPos - _config.exitRoom.roomSize * 0.5f, _config.exitRoom.roomSize);
-                if (OverlapsAny(graph, newBounds)) continue;
-
-                var exitNode = graph.AddNode(_config.exitRoom, RoomType.Exit, newPos);
-                graph.Connect(anchorNode.roomId, exitNode.roomId, dir, opp);
-                graph.exitRoomId = exitNode.roomId;
-                return;
-            }
+            var exitNode = graph.AddNode(_config.exitRoom, RoomType.Exit, newPos);
+            graph.Connect(roomId, exitNode.roomId, dir, opp);
+            graph.exitRoomId = exitNode.roomId;
+            Debug.Log("MapGenerator: Exit 放置在距离 Start 最远的开放门");
+            return;
         }
+
+        Debug.LogWarning("MapGenerator: 无法为 Exit 找到合适位置");
     }
 
     /// <summary>将房间的未使用门加入开放列表</summary>
@@ -275,6 +234,72 @@ public class MapGenerator
             if (node.config.HasDoor(dir))
                 openDoors.Add((node.roomId, dir));
         }
+    }
+
+    /// <summary>放置隐藏房：从非 Boss/Exit 房间的开放门中随机选取放置</summary>
+    private void PlaceHiddenRooms(RoomGraph graph, 
+        List<(int roomId, DoorDirection dir)> openDoors)
+    {
+        if (_config.hiddenRoomPool == null || _config.hiddenRoomPool.Length == 0) return;
+        int count = _config.hiddenRoomCount;
+        if (count <= 0) return;
+
+        // 收集非 Boss/Exit 房间的开放门
+        var eligibleDoors = new List<(int roomId, DoorDirection dir)>();
+        foreach (var od in openDoors)
+        {
+            var node = graph.GetNode(od.roomId);
+            if (node == null) continue;
+            if (node.roomType == RoomType.Boss || node.roomType == RoomType.Exit) continue;
+            eligibleDoors.Add(od);
+        }
+
+        if (eligibleDoors.Count == 0) return;
+
+        int placed = 0;
+        int failsafe = 0;
+        const int maxAttempts = 50;
+
+        while (placed < count && eligibleDoors.Count > 0 && failsafe < maxAttempts)
+        {
+            failsafe++;
+
+            // 随机选一个可用的开放门
+            int idx = Random.Range(0, eligibleDoors.Count);
+            var (anchorId, anchorDir) = eligibleDoors[idx];
+            eligibleDoors.RemoveAt(idx);
+
+            var anchorNode = graph.GetNode(anchorId);
+            if (anchorNode == null) continue;
+
+            var targetDir = RoomConfig.OppositeDir(anchorDir);
+            
+            // 选取匹配的隐藏房配置
+            var candidates = new List<RoomConfig>();
+            foreach (var rc in _config.hiddenRoomPool)
+            {
+                if (rc != null && rc.HasDoor(targetDir))
+                    candidates.Add(rc);
+            }
+            if (candidates.Count == 0) continue;
+
+            var chosenConfig = candidates[Random.Range(0, candidates.Count)];
+
+            Vector2 anchorDoorWorld = anchorNode.GetDoorWorldPosition(anchorDir);
+            Vector2 targetDoorLocal = chosenConfig.GetDoorOffset(targetDir);
+            Vector2 newPos = anchorDoorWorld - targetDoorLocal;
+
+            var newBounds = new Rect(newPos - chosenConfig.roomSize * 0.5f, chosenConfig.roomSize);
+            if (OverlapsAny(graph, newBounds)) continue;
+
+            var newNode = graph.AddNode(chosenConfig, RoomType.Hidden, newPos);
+            graph.Connect(anchorId, newNode.roomId, anchorDir, targetDir);
+            // 不把隐藏房的门加入开放列表 (保证只有一个连接)
+            placed++;
+        }
+
+        if (placed < count)
+            Debug.LogWarning($"MapGenerator: 只放置了 {placed}/{count} 个隐藏房");
     }
 
     /// <summary>检查矩形是否与已有房间重叠。
@@ -304,14 +329,5 @@ public class MapGenerator
                 return true;
         }
         return false;
-    }
-
-    private static void Shuffle<T>(T[] arr)
-    {
-        for (int i = arr.Length - 1; i > 0; i--)
-        {
-            int j = Random.Range(0, i + 1);
-            (arr[i], arr[j]) = (arr[j], arr[i]);
-        }
     }
 }
