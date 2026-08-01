@@ -20,7 +20,7 @@ namespace TJGenerators
     /// <summary>
     /// TJGenerators 视频生成窗口 - 文生视频 / 图生视频
     /// </summary>
-    public class TJGeneratorsVideoWindow : GenerationWindowBase, IGenerationPipelineHost
+    public class TJGeneratorsVideoWindow : GenerationWindowBase, IGenerationPipelineHost, IGenerationTriggerHost, IMediaAssetPipelineHost
     {
         // ========== 基类抽象属性实现 ==========
         protected override ConfigType WindowConfigType => ConfigType.Video;
@@ -794,7 +794,7 @@ namespace TJGenerators
         }
 
 
-        public void ShowPreviewModel(string assetPath)
+        public void OnGenerationCompleted(string assetPath)
         {
             if (generationHistory != null && !string.IsNullOrEmpty(assetPath))
             {
@@ -883,11 +883,6 @@ namespace TJGenerators
             generationProgress = 1f;
             isGenerating = false;
             RefreshHistory();
-            Repaint();
-        }
-
-        void IGenerationPipelineHost.Repaint()
-        {
             Repaint();
         }
 

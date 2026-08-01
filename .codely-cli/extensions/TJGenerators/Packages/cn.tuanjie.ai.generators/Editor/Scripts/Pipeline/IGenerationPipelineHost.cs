@@ -13,26 +13,23 @@ namespace TJGenerators.Pipeline
         Video,
     }
 
+    /// <summary>
+    /// 生成流水线生命周期回调宿主（由 <see cref="GenerationPipeline"/> 驱动）。
+    /// 媒体路径见 <see cref="IMediaAssetPipelineHost"/>；UI 触发生成见 <see cref="IGenerationTriggerHost"/>。
+    /// </summary>
     public interface IGenerationPipelineHost
     {
         TJGeneratorsAssetReference GetTargetAsset();
         void RefreshHistory();
-        void ShowPreviewModel(string assetPath);
+
+        /// <summary>
+        /// 单次生成任务成功完成后的 Host 回调（选中历史项、刷新预览、更新 Tracker 等）。
+        /// </summary>
+        void OnGenerationCompleted(string assetPath);
+
         void RefreshUserInfo();
         void Repaint();
-        void StartGeneration(ModelGeneratorBase generator);
         void ShowDialog(string title, string message);
-
-        /// <summary>
-        /// 获取指定类型媒体资产的保存路径。
-        /// 返回 null 表示该 Host 不处理此类媒体。
-        /// </summary>
-        string GetAssetSavePath(PipelineMediaType _type, ModelGeneratorBase generator);
-
-        /// <summary>
-        /// 指定类型媒体资产下载保存后的回调（Import Settings、历史刷新、打标签等）。
-        /// </summary>
-        void OnAssetSaved(PipelineMediaType _type, string savePath, ModelGeneratorBase generator);
     }
 }
 #endif

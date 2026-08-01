@@ -286,6 +286,9 @@ namespace TJGenerators.Pipeline
             EnsureTransport(generator);
             TJTaskResponse response = null;
             string transportError = null;
+#if TJGENERATORS_DEBUG
+            int abortEpoch = TJGeneratorsTaskRecovery.GetLocalPollAbortEpoch();
+#endif
 
             if (requestData is MultipartRequestData multipartData)
             {
@@ -310,6 +313,18 @@ namespace TJGenerators.Pipeline
                 byte[] postData = System.Text.Encoding.UTF8.GetBytes(jsonData);
                 yield return _transport.CreateTask(url, postData, r => response = r, e => transportError = e);
             }
+
+#if TJGENERATORS_DEBUG
+            if (TJGeneratorsTaskRecovery.WasLocalPollAborted(abortEpoch))
+            {
+                TJGeneratorsTaskRecovery.RemoveInterruptedTask(generator.CurrentGeneratingTaskId);
+                string abortTaskId = !string.IsNullOrEmpty(response?.taskId)
+                    ? response.taskId
+                    : generator.CurrentGeneratingTaskId;
+                HandleLocalPollAbort(generator, abortTaskId);
+                yield break;
+            }
+#endif
 
             if (!string.IsNullOrEmpty(transportError))
             {
@@ -355,19 +370,39 @@ namespace TJGenerators.Pipeline
         {
             _pipelineSettings = generator.GetPipelineSettings();
             EnsureTransport(generator);
+            _mediaHandlers.TryInitializeMediaSavePaths(generator);
             string url = ConfigManager.GetPollStatusUrl(taskId);
+#if TJGENERATORS_DEBUG
+            int abortEpoch = TJGeneratorsTaskRecovery.GetLocalPollAbortEpoch();
+#endif
             
             bool taskCompleted = false;
             int retryCount = 0;
             
             while (!taskCompleted && retryCount < MAX_POLL_RETRIES)
             {
+#if TJGENERATORS_DEBUG
+                if (TJGeneratorsTaskRecovery.WasLocalPollAborted(abortEpoch))
+                {
+                    HandleLocalPollAbort(generator, taskId);
+                    yield break;
+                }
+#endif
+
                 retryCount++;
                 TJLog.Log($"[GenerationPipeline] 轮询 {retryCount}/{MAX_POLL_RETRIES}");
 
                 TJTaskStatusResponse response = null;
                 string transportError = null;
                 yield return _transport.PollStatus(taskId, url, r => response = r, e => transportError = e);
+
+#if TJGENERATORS_DEBUG
+                if (TJGeneratorsTaskRecovery.WasLocalPollAborted(abortEpoch))
+                {
+                    HandleLocalPollAbort(generator, taskId);
+                    yield break;
+                }
+#endif
 
                 if (!string.IsNullOrEmpty(transportError))
                 {
@@ -376,7 +411,11 @@ namespace TJGenerators.Pipeline
                         HandleError(generator, transportError);
                         yield break;
                     }
+#if TJGENERATORS_DEBUG
+                    yield return WaitSeconds(POLL_INTERVAL, abortEpoch);
+#else
                     yield return WaitSeconds(POLL_INTERVAL);
+#endif
                     continue;
                 }
 
@@ -456,7 +495,11 @@ namespace TJGenerators.Pipeline
                 
                 if (!taskCompleted && retryCount < MAX_POLL_RETRIES)
                 {
+#if TJGENERATORS_DEBUG
+                    yield return WaitSeconds(POLL_INTERVAL, abortEpoch);
+#else
                     yield return WaitSeconds(POLL_INTERVAL);
+#endif
                 }
             }
             
@@ -602,7 +645,6 @@ namespace TJGenerators.Pipeline
 
                     if (isFBX)
                     {
-                        // 如果有动画文件需要下载，主模型不需要导入动画
                         bool hasAnimations = response != null && (
                             !string.IsNullOrEmpty(generator.GetAnimationUrl(response)) ||
                             !string.IsNullOrEmpty(generator.GetWalkingAnimationUrl(response)) ||
@@ -683,16 +725,39 @@ namespace TJGenerators.Pipeline
             outcome.Error = null;
             EnsureTransport(generator);
             string pollUrl = ConfigManager.GetPollStatusUrl(taskId);
+#if TJGENERATORS_DEBUG
+            int abortEpoch = TJGeneratorsTaskRecovery.GetLocalPollAbortEpoch();
+#endif
 
             for (int retry = 0; retry < MAX_POLL_RETRIES; retry++)
             {
+#if TJGENERATORS_DEBUG
+                if (TJGeneratorsTaskRecovery.WasLocalPollAborted(abortEpoch))
+                {
+                    outcome.Error = TJGeneratorsL10n.L("任务已取消");
+                    yield break;
+                }
+#endif
+
                 TJTaskStatusResponse resp = null;
                 string transportError = null;
                 yield return _transport.PollStatus(taskId, pollUrl, r => resp = r, e => transportError = e);
 
+#if TJGENERATORS_DEBUG
+                if (TJGeneratorsTaskRecovery.WasLocalPollAborted(abortEpoch))
+                {
+                    outcome.Error = TJGeneratorsL10n.L("任务已取消");
+                    yield break;
+                }
+#endif
+
                 if (!string.IsNullOrEmpty(transportError))
                 {
+#if TJGENERATORS_DEBUG
+                    yield return WaitSeconds(POLL_INTERVAL, abortEpoch);
+#else
                     yield return WaitSeconds(POLL_INTERVAL);
+#endif
                     continue;
                 }
 
@@ -721,7 +786,11 @@ namespace TJGenerators.Pipeline
                     yield break;
                 }
 
+#if TJGENERATORS_DEBUG
+                yield return WaitSeconds(POLL_INTERVAL, abortEpoch);
+#else
                 yield return WaitSeconds(POLL_INTERVAL);
+#endif
             }
 
             outcome.Error = TJGeneratorsL10n.L("轮询超时");
@@ -1023,9 +1092,6 @@ namespace TJGenerators.Pipeline
         private void SetupAnimationImport(string assetPath) =>
             RiggedModelPostProcess.SetupAnimationImport(assetPath);
         
-        /// <summary>
-        /// 自动创建 Animator Controller 并配置基本动画状态
-        /// </summary>
         private void CreateAnimatorController(string modelDir, string baseName, string animPath, string walkPath, string runPath)
         {
             try
@@ -1293,7 +1359,6 @@ namespace TJGenerators.Pipeline
                     modelInstance.transform.localRotation = Quaternion.Euler(rotation);
                     modelInstance.transform.localScale = new Vector3(scale, scale, scale);
 
-                    // 绑定到 Prefab 时，若模型材质缺失或使用错误着色器，自动应用默认材质，避免在场景中显示为紫色。
                     ApplyDefaultMaterialIfMissing(modelInstance);
                 }
 
@@ -1313,7 +1378,6 @@ namespace TJGenerators.Pipeline
                 string ctrlPath      = Path.Combine(modelDir2, modelBaseName + "_Controller.controller").Replace("\\", "/");
                 var    ctrl          = AssetDatabase.LoadAssetAtPath<RuntimeAnimatorController>(ctrlPath);
 
-                // 只有模型确实需要动画时才在根节点保留/添加 Animator
                 var animator = prefabRoot.GetComponent<Animator>();
                 if (ctrl != null || bindAvatar != null)
                 {
@@ -1334,8 +1398,6 @@ namespace TJGenerators.Pipeline
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
 
-            // 恢复场景实例的 local transform，防止 Prefab 编辑 + Refresh
-            // 导致的 position override 丢失问题。
             RestoreSceneInstanceLocalTransforms(savedInstanceTransforms);
 
             TJLog.Log($"[GenerationPipeline] 模型已绑定到Prefab: {prefabPath}");
@@ -1525,14 +1587,12 @@ namespace TJGenerators.Pipeline
 
             if (string.IsNullOrEmpty(effectivePreviewUrl))
             {
-                // Priority 1: API preview URL（来自轮询，仅模型/角色类型走此分支）
                 effectivePreviewUrl = _currentPreviewUrl;
 
-                // Priority 2: 轮询阶段通过 SetPreviewUrl 设置的预览URL（避免被覆盖丢失）
                 if (string.IsNullOrEmpty(effectivePreviewUrl) && _activeTaskHandle != null)
                     effectivePreviewUrl = _activeTaskHandle.PreviewUrl;
 
-                // Priority 3: 本地文件 URI（仅限图片/音频/视频；3D 模型文件不能作为预览图）
+                // 本地文件 URI 仅限图片/音频/视频；3D 模型文件不能作为预览图
                 if (string.IsNullOrEmpty(effectivePreviewUrl) && !string.IsNullOrEmpty(modelPath))
                 {
                     bool isPreviewable =
@@ -1593,7 +1653,7 @@ namespace TJGenerators.Pipeline
             }
             
             _host.RefreshHistory();
-            _host.ShowPreviewModel(modelPath);
+            _host.OnGenerationCompleted(modelPath);
             _host.Repaint();
             
             _host.RefreshUserInfo();
@@ -1601,9 +1661,6 @@ namespace TJGenerators.Pipeline
             TJLog.Log($"[GenerationPipeline] 生成完成: {modelPath}");
         }
         
-        /// <summary>
-        /// 增强错误消息，为特定API错误提供更有用的信息
-        /// </summary>
         private string EnhanceErrorMessage(string originalError, ModelGeneratorBase generator)
         {
             if (string.IsNullOrEmpty(originalError)) return null;
@@ -1637,7 +1694,7 @@ namespace TJGenerators.Pipeline
                 return TJGeneratorsL10n.L("模型生成失败，请稍后重试。");
             }
 
-            return null; // 返回null使用原始错误消息
+            return null;
         }
 
         public void HandleError(
@@ -1669,6 +1726,32 @@ namespace TJGenerators.Pipeline
             _host.RefreshHistory();
             _host.Repaint();
         }
+
+#if TJGENERATORS_DEBUG
+        /// <summary>
+        /// 开发菜单等触发的本地轮询中止：不弹错误框、不请求后端 cancel。仅 DEBUG 构建可用。
+        /// </summary>
+        private void HandleLocalPollAbort(ModelGeneratorBase generator, string taskId)
+        {
+            TJLog.Log($"[GenerationPipeline] 本地已中止轮询: {taskId}");
+
+            if (_activeTaskHandle != null)
+            {
+                _activeTaskHandle.MarkFailed("cancelled", TJGeneratorsL10n.L("任务已取消"));
+                _activeTaskHandle = null;
+            }
+
+            if (!string.IsNullOrEmpty(generator.CurrentBackendTaskId))
+                TJGeneratorsTaskRecovery.RemoveInterruptedTask(generator.CurrentBackendTaskId);
+
+            if (!string.IsNullOrEmpty(generator.CurrentGeneratingTaskId))
+                TJGeneratorsHistoryManager.RemovePlaceholder(generator.CurrentGeneratingTaskId);
+
+            EndGenerationState(generator);
+            _host.RefreshHistory();
+            _host.Repaint();
+        }
+#endif
         
         /// <summary>
         /// 处理轮询超时（不移除任务记录，允许重连）
@@ -1929,7 +2012,6 @@ namespace TJGenerators.Pipeline
 
                 AssetDatabase.Refresh();
 
-                // 如果有单独的动画文件，主模型设置为 Humanoid 但不导入动画
                 if (hasSeparateAnimations)
                 {
                     modelImporter.animationType = ModelImporterAnimationType.Human;
@@ -1946,14 +2028,19 @@ namespace TJGenerators.Pipeline
             }
         }
 
-        /// <summary>
-        /// 等待指定秒数（Editor环境兼容）
-        /// </summary>
-        private IEnumerator WaitSeconds(float seconds)
+        private IEnumerator WaitSeconds(float seconds
+#if TJGENERATORS_DEBUG
+            , int abortEpoch = -1
+#endif
+            )
         {
             double startTime = EditorApplication.timeSinceStartup;
             while (EditorApplication.timeSinceStartup - startTime < seconds)
             {
+#if TJGENERATORS_DEBUG
+                if (abortEpoch >= 0 && TJGeneratorsTaskRecovery.WasLocalPollAborted(abortEpoch))
+                    yield break;
+#endif
                 yield return null;
             }
         }

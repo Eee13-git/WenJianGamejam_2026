@@ -30,7 +30,7 @@ namespace TJGenerators
     /// TJGenerators Sprite 生成窗口 - 使用 huoshan_seedream 等生成器生成 Sprite 贴图
     /// 同时支持 Material 模式，通过图生图生成 Unity Material 素材
     /// </summary>
-    public class TJGeneratorsSpriteWindow : GenerationWindowBase, IGenerationPipelineHost
+    public class TJGeneratorsSpriteWindow : GenerationWindowBase, IGenerationPipelineHost, IGenerationTriggerHost, IMediaAssetPipelineHost
     {
         // ========== 窗口模式 ==========
         [SerializeField]
@@ -1389,7 +1389,7 @@ namespace TJGenerators
 
         private string GetCurrentSpriteAssetGuid() => targetSpriteAsset?.guid ?? "";
 
-        public void ShowPreviewModel(string assetPath)
+        public void OnGenerationCompleted(string assetPath)
         {
             if (generationHistory != null && !string.IsNullOrEmpty(assetPath))
             {
@@ -1593,7 +1593,6 @@ namespace TJGenerators
             }
         }
 
-        void IGenerationPipelineHost.Repaint() { Repaint(); }
     }
 }
 #endif

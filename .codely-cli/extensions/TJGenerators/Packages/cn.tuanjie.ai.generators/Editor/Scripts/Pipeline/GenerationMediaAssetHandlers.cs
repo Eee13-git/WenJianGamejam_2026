@@ -30,6 +30,7 @@ namespace TJGenerators.Pipeline
         }
 
         private readonly IGenerationPipelineHost _host;
+        private readonly IMediaAssetPipelineHost _mediaHost;
         private readonly Dependencies _deps;
         private readonly string _historyDirectory;
 
@@ -42,6 +43,7 @@ namespace TJGenerators.Pipeline
             string historyDirectory)
         {
             _host = host;
+            _mediaHost = host as IMediaAssetPipelineHost;
             _deps = deps;
             _historyDirectory = historyDirectory?.TrimEnd('/', '\\') ?? "Assets/TJGenerators/History";
         }
@@ -54,9 +56,9 @@ namespace TJGenerators.Pipeline
         {
             string outputType = generator.GetOutputType();
             if (string.Equals(outputType, GenerationOutputTypes.Audio, StringComparison.OrdinalIgnoreCase))
-                _audioSavePath = TryPrepareSavePath(_host.GetAssetSavePath(PipelineMediaType.Audio, generator), "音频");
+                _audioSavePath = TryPrepareSavePath(_mediaHost?.GetAssetSavePath(PipelineMediaType.Audio, generator), "音频");
             else if (string.Equals(outputType, GenerationOutputTypes.Video, StringComparison.OrdinalIgnoreCase))
-                _videoSavePath = TryPrepareSavePath(_host.GetAssetSavePath(PipelineMediaType.Video, generator), "视频");
+                _videoSavePath = TryPrepareSavePath(_mediaHost?.GetAssetSavePath(PipelineMediaType.Video, generator), "视频");
         }
 
         /// <summary>生成完成或失败后清空本次音视频保存路径。</summary>
@@ -79,7 +81,7 @@ namespace TJGenerators.Pipeline
             if (downloadUrls == null)
                 yield break;
 
-            string firstSavePath = _host.GetAssetSavePath(PipelineMediaType.Texture, generator);
+            string firstSavePath = _mediaHost?.GetAssetSavePath(PipelineMediaType.Texture, generator);
             if (string.IsNullOrEmpty(firstSavePath))
             {
                 _deps.OnError(generator, TJGeneratorsL10n.L("无法确定纹理资产保存路径"));
@@ -128,7 +130,7 @@ namespace TJGenerators.Pipeline
                 PathUtils.ImportAssetAfterDiskWrite(savePath);
 
                 if (i == 0)
-                    _host.OnAssetSaved(PipelineMediaType.Texture, savePath, generator);
+                    _mediaHost?.OnAssetSaved(PipelineMediaType.Texture, savePath, generator);
 
                 yield return null;
             }
@@ -201,7 +203,7 @@ namespace TJGenerators.Pipeline
                 _deps.OnError(generator, TJGeneratorsL10n.L("未找到音频下载URL"));
                 yield break;
             }
-            string savePath = _audioSavePath;
+            string savePath = ResolveMediaSavePath(_audioSavePath, PipelineMediaType.Audio, generator, "音频");
             if (string.IsNullOrEmpty(savePath))
             {
                 _deps.OnError(generator, TJGeneratorsL10n.L("无法确定音频保存路径（占位未创建）"));
@@ -255,7 +257,7 @@ namespace TJGenerators.Pipeline
             }
 
             ApplyPreviewUrlToGenerator(generator, preferredPreviewUrl: null, new[] { url }, finalPath);
-            _host.OnAssetSaved(PipelineMediaType.Audio, finalPath, generator);
+            _mediaHost?.OnAssetSaved(PipelineMediaType.Audio, finalPath, generator);
             _deps.OnComplete(generator, finalPath, null, null);
         }
 
@@ -273,7 +275,7 @@ namespace TJGenerators.Pipeline
                 _deps.OnError(generator, TJGeneratorsL10n.L("未找到视频下载URL"));
                 yield break;
             }
-            string savePath = _videoSavePath;
+            string savePath = ResolveMediaSavePath(_videoSavePath, PipelineMediaType.Video, generator, "视频");
             if (string.IsNullOrEmpty(savePath))
             {
                 _deps.OnError(generator, TJGeneratorsL10n.L("无法确定视频保存路径"));
@@ -311,7 +313,7 @@ namespace TJGenerators.Pipeline
             PathUtils.ImportAssetAfterDiskWrite(finalPath);
 
             ApplyPreviewUrlToGenerator(generator, apiPreviewUrl, null, finalPath);
-            _host.OnAssetSaved(PipelineMediaType.Video, finalPath, generator);
+            _mediaHost?.OnAssetSaved(PipelineMediaType.Video, finalPath, generator);
             _deps.OnComplete(generator, finalPath, null, null);
         }
 
@@ -332,6 +334,19 @@ namespace TJGenerators.Pipeline
                 TJLog.LogWarning($"{LogTag} 准备{label}保存路径失败: {e.Message}");
                 return null;
             }
+        }
+
+        /// <summary>
+        /// Prefer cached path from <see cref="TryInitializeMediaSavePaths"/>; fall back to host placeholder
+        /// (same pattern as <see cref="HandleTextureAsset"/>).
+        /// </summary>
+        private string ResolveMediaSavePath(
+            string cachedPath, PipelineMediaType mediaType, ModelGeneratorBase generator, string label)
+        {
+            if (!string.IsNullOrEmpty(cachedPath))
+                return cachedPath;
+
+            return TryPrepareSavePath(_mediaHost?.GetAssetSavePath(mediaType, generator), label);
         }
 
         /// <summary>

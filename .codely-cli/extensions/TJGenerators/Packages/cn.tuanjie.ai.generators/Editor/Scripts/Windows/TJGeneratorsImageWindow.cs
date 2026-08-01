@@ -16,7 +16,7 @@ namespace TJGenerators
     /// <summary>
     /// TJGenerators 图片生成窗口（文生图 / 图生图）。
     /// </summary>
-    public class TJGeneratorsImageWindow : GenerationWindowBase, IGenerationPipelineHost
+    public class TJGeneratorsImageWindow : GenerationWindowBase, IGenerationPipelineHost, IGenerationTriggerHost, IMediaAssetPipelineHost
     {
         // ========== 固定配置 ==========
         protected override ConfigType WindowConfigType => ConfigType.Image;
@@ -957,7 +957,7 @@ namespace TJGenerators
         }
 
 
-        public void ShowPreviewModel(string assetPath)
+        public void OnGenerationCompleted(string assetPath)
         {
             if (generationHistory != null && !string.IsNullOrEmpty(assetPath))
             {
@@ -1006,11 +1006,6 @@ namespace TJGenerators
             generationStatus = TJGeneratorsL10n.L("完成");
             generationProgress = 1f;
             isGenerating = false;
-        }
-
-        void IGenerationPipelineHost.Repaint()
-        {
-            Repaint();
         }
 
         /// <summary>

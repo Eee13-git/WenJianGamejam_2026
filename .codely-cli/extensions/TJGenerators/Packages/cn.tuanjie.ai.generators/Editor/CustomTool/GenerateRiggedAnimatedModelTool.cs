@@ -25,16 +25,11 @@ namespace UnityTcp.Editor.Tools
     public static class RiggedAnimationTaskTracker
     {
 #if UNITY_EDITOR
-        private static readonly Dictionary<string, RiggedAnimationTaskInfo> _activeTasks =
-            new Dictionary<string, RiggedAnimationTaskInfo>();
-
-        private const string SessionKeyIds = "TJGen_RigAnim_Ids";
-        private const string SessionKeyFmt = "TJGen_RigAnim_{0}";
-
         [Serializable]
         private class PersistedTask
         {
             public string taskId;
+            public string sessionId;
             public string pipelineType;
             public string status;
             public string substatus;
@@ -60,9 +55,10 @@ namespace UnityTcp.Editor.Tools
             public long   endTimeTicks;
         }
 
-        public class RiggedAnimationTaskInfo
+        public class RiggedAnimationTaskInfo : IGenerationTaskInfo
         {
             public string    TaskId              { get; set; }
+            public string    SessionId           { get; set; }
             public string    PipelineType        { get; set; }
             public string    Status              { get; set; }
             public string    Substatus           { get; set; }
@@ -86,166 +82,138 @@ namespace UnityTcp.Editor.Tools
             public string    ErrorMessage        { get; set; }
             public DateTime  StartTime           { get; set; }
             public DateTime? EndTime             { get; set; }
-        }
 
-        // ── Session persistence ───────────────────────────────────────────────
-
-        internal static void SaveToSession(RiggedAnimationTaskInfo info)
-        {
-            var p = new PersistedTask
+            public string BackendTaskId
             {
-                taskId              = info.TaskId              ?? "",
-                pipelineType        = info.PipelineType        ?? "",
-                status              = info.Status              ?? "",
-                substatus           = info.Substatus           ?? "",
-                progress            = info.Progress,
-                sourceModelPath     = info.SourceModelPath     ?? "",
-                riggedModelPath     = info.RiggedModelPath     ?? "",
-                motionDescription   = info.MotionDescription   ?? "",
-                motionFbxPath       = info.MotionFbxPath       ?? "",
-                controllerPath      = info.ControllerPath      ?? "",
-                prefabPath          = info.PrefabPath          ?? "",
-                backendRigTaskId    = info.BackendRigTaskId    ?? "",
-                backendMotionTaskId = info.BackendMotionTaskId ?? "",
-                actionDuration      = info.ActionDuration,
-                cfgStrength         = info.CfgStrength,
-                randomSeedList      = info.RandomSeedList      ?? "0",
-                errorMessage        = info.ErrorMessage        ?? "",
-                startTimeTicks      = info.StartTime.Ticks,
-                endTimeTicks        = info.EndTime?.Ticks ?? 0
-            };
-            SessionState.SetString(string.Format(SessionKeyFmt, info.TaskId), JsonUtility.ToJson(p));
+                get => !string.IsNullOrEmpty(BackendRigTaskId) ? BackendRigTaskId : BackendMotionTaskId;
+                set
+                {
+                    if (string.IsNullOrEmpty(BackendRigTaskId) && string.IsNullOrEmpty(BackendMotionTaskId))
+                        BackendRigTaskId = value;
+                }
+            }
 
-            string ids = SessionState.GetString(SessionKeyIds, "");
-            if (!ids.Contains(info.TaskId))
-                SessionState.SetString(SessionKeyIds,
-                    string.IsNullOrEmpty(ids) ? info.TaskId : ids + "|" + info.TaskId);
+            public string PreviewUrl { get; set; }
         }
 
-        private static void RemoveFromSession(string taskId)
+        private static readonly GenerationTaskTrackerStore<RiggedAnimationTaskInfo, PersistedTask> Store =
+            new GenerationTaskTrackerStore<RiggedAnimationTaskInfo, PersistedTask>(
+                "TJGen_RigAnim",
+                BuildPersisted,
+                FromPersisted,
+                getBackendTaskId: t => t.BackendTaskId,
+                matchesBackendTaskId: (t, id) =>
+                    (!string.IsNullOrEmpty(id) &&
+                     (t.BackendRigTaskId == id || t.BackendMotionTaskId == id)),
+                reconcileAfterRestore: ReconcileRiggedAfterRestore);
+
+        private static PersistedTask BuildPersisted(RiggedAnimationTaskInfo info) => new PersistedTask
         {
-            SessionState.EraseString(string.Format(SessionKeyFmt, taskId));
-            string ids  = SessionState.GetString(SessionKeyIds, "");
-            var list    = new List<string>(ids.Split('|'));
-            list.Remove(taskId);
-            SessionState.SetString(SessionKeyIds, string.Join("|", list));
-        }
+            taskId              = info.TaskId              ?? "",
+            sessionId           = info.SessionId           ?? "",
+            pipelineType        = info.PipelineType        ?? "",
+            status              = info.Status              ?? "",
+            substatus           = info.Substatus           ?? "",
+            progress            = info.Progress,
+            sourceModelPath     = info.SourceModelPath     ?? "",
+            riggedModelPath     = info.RiggedModelPath     ?? "",
+            motionDescription   = info.MotionDescription   ?? "",
+            motionFbxPath       = info.MotionFbxPath       ?? "",
+            controllerPath      = info.ControllerPath      ?? "",
+            prefabPath          = info.PrefabPath          ?? "",
+            backendRigTaskId    = info.BackendRigTaskId    ?? "",
+            backendMotionTaskId = info.BackendMotionTaskId ?? "",
+            actionDuration      = info.ActionDuration,
+            cfgStrength         = info.CfgStrength,
+            randomSeedList      = info.RandomSeedList      ?? "0",
+            errorMessage        = info.ErrorMessage        ?? "",
+            startTimeTicks      = info.StartTime.Ticks,
+            endTimeTicks        = info.EndTime?.Ticks ?? 0
+        };
 
-        private static RiggedAnimationTaskInfo TryRestoreFromSession(string taskId)
+        private static RiggedAnimationTaskInfo FromPersisted(PersistedTask p) => new RiggedAnimationTaskInfo
         {
-            string json = SessionState.GetString(string.Format(SessionKeyFmt, taskId), "");
-            if (string.IsNullOrEmpty(json)) return null;
+            TaskId              = p.taskId,
+            SessionId           = p.sessionId,
+            PipelineType        = p.pipelineType,
+            Status              = p.status,
+            Substatus           = p.substatus,
+            Progress            = p.progress,
+            SourceModelPath     = p.sourceModelPath,
+            RiggedModelPath     = p.riggedModelPath,
+            MotionDescription   = p.motionDescription,
+            MotionFbxPath       = p.motionFbxPath,
+            ControllerPath      = p.controllerPath,
+            PrefabPath          = p.prefabPath,
+            BackendRigTaskId    = p.backendRigTaskId,
+            BackendMotionTaskId = p.backendMotionTaskId,
+            ActionDuration      = p.actionDuration,
+            CfgStrength         = p.cfgStrength,
+            RandomSeedList      = p.randomSeedList,
+            ErrorMessage        = p.errorMessage,
+            StartTime           = new DateTime(p.startTimeTicks),
+            EndTime             = p.endTimeTicks > 0 ? (DateTime?)new DateTime(p.endTimeTicks) : null
+        };
 
-            PersistedTask p;
-            try { p = JsonUtility.FromJson<PersistedTask>(json); }
-            catch { return null; }
-
-            var info = new RiggedAnimationTaskInfo
-            {
-                TaskId              = p.taskId,
-                PipelineType        = p.pipelineType,
-                Status              = p.status,
-                Substatus           = p.substatus,
-                Progress            = p.progress,
-                SourceModelPath     = p.sourceModelPath,
-                RiggedModelPath     = p.riggedModelPath,
-                MotionDescription   = p.motionDescription,
-                MotionFbxPath       = p.motionFbxPath,
-                ControllerPath      = p.controllerPath,
-                PrefabPath          = p.prefabPath,
-                BackendRigTaskId    = p.backendRigTaskId,
-                BackendMotionTaskId = p.backendMotionTaskId,
-                ActionDuration      = p.actionDuration,
-                CfgStrength         = p.cfgStrength,
-                RandomSeedList      = p.randomSeedList,
-                ErrorMessage        = p.errorMessage,
-                StartTime           = new DateTime(p.startTimeTicks),
-                EndTime             = p.endTimeTicks > 0 ? (DateTime?)new DateTime(p.endTimeTicks) : null
-            };
-
+        private static void ReconcileRiggedAfterRestore(RiggedAnimationTaskInfo info, Action save)
+        {
             bool isActive = info.Status == "initializing"     || info.Status == "rigging"          ||
                             info.Status == "rigging_complete"  || info.Status == "generating_motion" ||
                             info.Status == "recovering"        || info.Status == "pending";
-            if (isActive)
+            if (!isActive) return;
+
+            bool canRecover =
+                TJGeneratorsTaskRecovery.HasActiveRecovery(info.BackendRigTaskId) ||
+                TJGeneratorsTaskRecovery.HasActiveRecovery(info.BackendMotionTaskId);
+
+            bool pendingMotionStage = info.PipelineType == "rig_and_motion"
+                && info.Status == "rigging_complete"
+                && string.IsNullOrEmpty(info.BackendMotionTaskId)
+                && !string.IsNullOrEmpty(info.RiggedModelPath)
+                && File.Exists(PathUtils.ToAbsoluteAssetPath(info.RiggedModelPath));
+
+            if (canRecover)
+                info.Status = "recovering";
+            else if (!pendingMotionStage)
             {
-                bool canRecover =
-                    TJGeneratorsTaskRecovery.HasActiveRecovery(info.BackendRigTaskId) ||
-                    TJGeneratorsTaskRecovery.HasActiveRecovery(info.BackendMotionTaskId);
-
-                // rig_and_motion Stage 1 已完成、Stage 2 尚未提交：保留 rigging_complete，由域重载恢复协程续跑
-                bool pendingMotionStage = info.PipelineType == "rig_and_motion"
-                    && info.Status == "rigging_complete"
-                    && string.IsNullOrEmpty(info.BackendMotionTaskId)
-                    && !string.IsNullOrEmpty(info.RiggedModelPath)
-                    && File.Exists(PathUtils.ToAbsoluteAssetPath(info.RiggedModelPath));
-
-                if (canRecover)
-                    info.Status = "recovering";
-                else if (!pendingMotionStage)
-                {
-                    info.Status = "interrupted";
-                    info.ErrorMessage = TJGeneratorsL10n.L("生成因域重载中断且后端任务记录已丢失，请重新生成。");
-                    info.EndTime = DateTime.Now;
-                }
-                SaveToSession(info);
+                info.Status = "interrupted";
+                info.ErrorMessage = TJGeneratorsL10n.L("生成因域重载中断且后端任务记录已丢失，请重新生成。");
+                info.EndTime = DateTime.Now;
             }
-
-            _activeTasks[taskId] = info;
-            return info;
+            save?.Invoke();
         }
 
-        // ── Public API ────────────────────────────────────────────────────────
+        internal static void ApplyTaskUpdate(RiggedAnimationTaskInfo task, Action<RiggedAnimationTaskInfo> mutate) =>
+            Store.ApplyTaskUpdate(task, mutate);
 
         internal static void AddTask(RiggedAnimationTaskInfo task)
         {
-            _activeTasks[task.TaskId] = task;
+            if (task == null || string.IsNullOrEmpty(task.TaskId)) return;
+            Store.RegisterTask(task.TaskId, task);
         }
 
-        public static RiggedAnimationTaskInfo GetTask(string taskId)
-        {
-            if (_activeTasks.TryGetValue(taskId, out var task))
-                return task;
-            return TryRestoreFromSession(taskId);
-        }
+        public static RiggedAnimationTaskInfo GetTask(string taskId) => Store.GetTask(taskId);
 
-        public static List<RiggedAnimationTaskInfo> GetAllTasks()
-        {
-            string ids = SessionState.GetString(SessionKeyIds, "");
-            if (!string.IsNullOrEmpty(ids))
-            {
-                foreach (var id in ids.Split('|'))
-                {
-                    if (!string.IsNullOrEmpty(id) && !_activeTasks.ContainsKey(id))
-                        TryRestoreFromSession(id);
-                }
-            }
-            return new List<RiggedAnimationTaskInfo>(_activeTasks.Values);
-        }
+        public static List<RiggedAnimationTaskInfo> GetAllTasks() => Store.GetAllTasks();
 
         public static RiggedAnimationTaskInfo GetTaskByRigBackendId(string backendId)
         {
             if (string.IsNullOrEmpty(backendId)) return null;
-            GetAllTasks();
-            return _activeTasks.Values.FirstOrDefault(t => t.BackendRigTaskId == backendId);
+            return Store.Find(t => t.BackendRigTaskId == backendId);
         }
 
         public static RiggedAnimationTaskInfo GetTaskByMotionBackendId(string backendId)
         {
             if (string.IsNullOrEmpty(backendId)) return null;
-            GetAllTasks();
-            return _activeTasks.Values.FirstOrDefault(t => t.BackendMotionTaskId == backendId);
+            return Store.Find(t => t.BackendMotionTaskId == backendId);
         }
 
         public static RiggedAnimationTaskInfo CreateRecoveredTask(
             string backendId, string pipelineType, string sourceModelPath, string prefabPath, long timestampMs)
         {
-            var existing = GetTaskByRigBackendId(backendId) ?? GetTaskByMotionBackendId(backendId);
-            if (existing != null) return existing;
-
-            string taskId = $"recovered_{backendId}";
-            var info = new RiggedAnimationTaskInfo
+            return Store.CreateRecoveredTask(backendId, () => new RiggedAnimationTaskInfo
             {
-                TaskId              = taskId,
+                TaskId              = $"recovered_{backendId}",
                 PipelineType        = pipelineType ?? "rig_only",
                 BackendRigTaskId    = pipelineType == "motion_only" ? "" : backendId,
                 BackendMotionTaskId = pipelineType == "motion_only" ? backendId : "",
@@ -256,17 +224,10 @@ namespace UnityTcp.Editor.Tools
                 StartTime           = timestampMs > 0
                     ? DateTimeOffset.FromUnixTimeMilliseconds(timestampMs).LocalDateTime
                     : DateTime.Now
-            };
-            _activeTasks[taskId] = info;
-            SaveToSession(info);
-            return info;
+            });
         }
 
-        public static void RemoveTask(string taskId)
-        {
-            _activeTasks.Remove(taskId);
-            RemoveFromSession(taskId);
-        }
+        public static void RemoveTask(string taskId) => Store.RemoveTask(taskId);
 #endif
     }
 
@@ -292,8 +253,7 @@ namespace UnityTcp.Editor.Tools
                 if (tracker == null) continue; // belongs to UI window, skip
 
                 TJGeneratorsTaskRecovery.MarkAsRecovering(t.backendTaskId);
-                tracker.Status = "recovering";
-                RiggedAnimationTaskTracker.SaveToSession(tracker);
+                RiggedAnimationTaskTracker.ApplyTaskUpdate(tracker, task => task.Status = "recovering");
 
                 var cfg = ConfigManager.GetGeneratorConfig(ConfigType.Generator, "unirig");
                 if (cfg == null) continue;
@@ -302,8 +262,10 @@ namespace UnityTcp.Editor.Tools
                 gen.RestoreFromInterruptedTask(t);
                 gen.SetFileUploadPath(tracker.SourceModelPath);
 
-                var host     = new RigModelPipelineHost(tracker, tracker.SourceModelPath, tracker.RiggedModelPath, gen);
-                var pipeline = new GenerationPipeline(host, ConfigType.Generator);
+                var host     = new RigModelPipelineHost(
+                    tracker, tracker.SourceModelPath, tracker.RiggedModelPath, gen, tracker.SessionId);
+                var pipeline = new GenerationPipeline(
+                    host, ConfigType.Generator, GenerationRequestOrigin.Agent, tracker.SessionId);
                 TJLog.Log($"[RiggedAnimationDomainReloadRecovery] Resuming unirig task: {t.backendTaskId}");
                 EditorCoroutineUtility.StartCoroutineOwnerless(pipeline.PollTaskStatus(gen, t.backendTaskId));
             }
@@ -316,8 +278,7 @@ namespace UnityTcp.Editor.Tools
                 if (tracker == null) continue; // belongs to GenerationPipeline post-processing, skip
 
                 TJGeneratorsTaskRecovery.MarkAsRecovering(t.backendTaskId);
-                tracker.Status = "recovering";
-                RiggedAnimationTaskTracker.SaveToSession(tracker);
+                RiggedAnimationTaskTracker.ApplyTaskUpdate(tracker, task => task.Status = "recovering");
 
                 var motionCfg = ConfigManager.GetGeneratorConfig(ConfigType.Generator, "hunyuan-motion");
                 if (motionCfg == null) continue;
@@ -326,8 +287,10 @@ namespace UnityTcp.Editor.Tools
                 motionGen.RestoreFromInterruptedTask(t);
 
                 string motionSave = BuildMotionSavePath(tracker.RiggedModelPath);
-                var motionHost    = new ModelMotionPipelineHost(tracker, motionSave, motionGen);
-                var pipeline      = new GenerationPipeline(motionHost, ConfigType.Generator);
+                var motionHost    = new ModelMotionPipelineHost(
+                    tracker, motionSave, motionGen, tracker.SessionId);
+                var pipeline      = new GenerationPipeline(
+                    motionHost, ConfigType.Generator, GenerationRequestOrigin.Agent, tracker.SessionId);
                 TJLog.Log($"[RiggedAnimationDomainReloadRecovery] Resuming hunyuan-motion task: {t.backendTaskId}");
                 EditorCoroutineUtility.StartCoroutineOwnerless(pipeline.PollTaskStatus(motionGen, t.backendTaskId));
             }
@@ -372,6 +335,9 @@ namespace UnityTcp.Editor.Tools
         {
             if (task == null) yield break;
 
+            if (string.IsNullOrEmpty(sessionId))
+                sessionId = task.SessionId ?? "";
+
             var motionCfg = ConfigManager.GetGeneratorConfig(ConfigType.Generator, "hunyuan-motion");
             if (motionCfg == null)
             {
@@ -392,9 +358,11 @@ namespace UnityTcp.Editor.Tools
                 yield break;
             }
 
-            task.BackendMotionTaskId = submitResult.BackendTaskId;
-            task.Status              = "generating_motion";
-            RiggedAnimationTaskTracker.SaveToSession(task);
+            RiggedAnimationTaskTracker.ApplyTaskUpdate(task, t =>
+            {
+                t.BackendMotionTaskId = submitResult.BackendTaskId;
+                t.Status              = "generating_motion";
+            });
 
             string motionSavePath = RiggedAnimationDomainReloadRecovery.BuildMotionSavePath(task.RiggedModelPath);
             var motionHost        = new ModelMotionPipelineHost(task, motionSavePath, motionGen, sessionId);
@@ -414,10 +382,15 @@ namespace UnityTcp.Editor.Tools
             string message,
             string sessionId = "")
         {
-            task.Status       = "rigging_complete_motion_failed";
-            task.ErrorMessage = message;
-            task.EndTime      = DateTime.Now;
-            RiggedAnimationTaskTracker.SaveToSession(task);
+            if (string.IsNullOrEmpty(sessionId))
+                sessionId = task?.SessionId ?? "";
+
+            RiggedAnimationTaskTracker.ApplyTaskUpdate(task, t =>
+            {
+                t.Status       = "rigging_complete_motion_failed";
+                t.ErrorMessage = message;
+                t.EndTime      = DateTime.Now;
+            });
             GenerationNotifier.NotifyFailed("generate_rigged_animated_model", task.TaskId, task.BackendRigTaskId, message,
                 new JObject
                 {
@@ -431,7 +404,7 @@ namespace UnityTcp.Editor.Tools
     // ─────────────────────────────────────────────────────────────────────────────
     // RigModelPipelineHost  —  Stage 1 host (UniRig rigging)
     // ─────────────────────────────────────────────────────────────────────────────
-    internal class RigModelPipelineHost : IGenerationPipelineHost, IModelDownloadPathProvider
+    internal class RigModelPipelineHost : HeadlessPipelineHostBase, IModelDownloadPathProvider
     {
         private readonly RiggedAnimationTaskTracker.RiggedAnimationTaskInfo _task;
         private readonly string _sourceModelPath;
@@ -450,10 +423,10 @@ namespace UnityTcp.Editor.Tools
             _sourceModelPath    = sourceModelPath;
             _expectedRiggedPath = expectedRiggedPath;
             _generator          = generator;
-            _sessionId          = sessionId;
+            _sessionId          = !string.IsNullOrEmpty(sessionId) ? sessionId : task?.SessionId ?? "";
         }
 
-        public TJGeneratorsAssetReference GetTargetAsset()
+        public override TJGeneratorsAssetReference GetTargetAsset()
         {
             if (string.IsNullOrEmpty(_task?.PrefabPath)) return null;
             return TJGeneratorsAssetReference.FromPath(_task.PrefabPath);
@@ -469,13 +442,7 @@ namespace UnityTcp.Editor.Tools
             return Path.ChangeExtension(_expectedRiggedPath, ext)?.Replace("\\", "/");
         }
 
-        public string GetAssetSavePath(PipelineMediaType _type, ModelGeneratorBase generator) => null;
-        public void   OnAssetSaved(PipelineMediaType _type, string savePath, ModelGeneratorBase generator) { }
-        public void   StartGeneration(ModelGeneratorBase generator) { }
-        public void   RefreshHistory()  { }
-        public void   RefreshUserInfo() { }
-
-        public void Repaint()
+        public override void Repaint()
         {
             if (_generator == null || _task == null) return;
             bool isActive = _task.Status == "rigging" || _task.Status == "recovering";
@@ -484,13 +451,15 @@ namespace UnityTcp.Editor.Tools
             int progress = _task.PipelineType == "rig_and_motion" ? raw / 2 : raw;
             if (progress > _task.Progress)
             {
-                _task.Status   = "rigging";
-                _task.Progress = progress;
-                RiggedAnimationTaskTracker.SaveToSession(_task);
+                RiggedAnimationTaskTracker.ApplyTaskUpdate(_task, t =>
+                {
+                    t.Status   = "rigging";
+                    t.Progress = progress;
+                });
             }
         }
 
-        public void ShowPreviewModel(string riggedPath)
+        public override void OnGenerationCompleted(string riggedPath)
         {
             if (_task == null) return;
 
@@ -502,14 +471,15 @@ namespace UnityTcp.Editor.Tools
                 ReplaceAnimatedCharacterModelTool.AssignAnimatorControllerIfMissing(_task.PrefabPath, riggedPath);
 
             // 5. Update tracker
-            _task.RiggedModelPath = riggedPath;
-
             if (_task.PipelineType == "rig_only")
             {
-                _task.Status   = "completed";
-                _task.Progress = 100;
-                _task.EndTime  = DateTime.Now;
-                RiggedAnimationTaskTracker.SaveToSession(_task);
+                RiggedAnimationTaskTracker.ApplyTaskUpdate(_task, t =>
+                {
+                    t.RiggedModelPath = riggedPath;
+                    t.Status   = "completed";
+                    t.Progress = 100;
+                    t.EndTime  = DateTime.Now;
+                });
                 GenerationNotifier.NotifyCompleted("generate_rigged_model", _task.TaskId, _task.BackendRigTaskId,
                     new JObject
                     {
@@ -527,25 +497,32 @@ namespace UnityTcp.Editor.Tools
             }
             else if (_task.PipelineType == "rig_and_motion")
             {
-                _task.Status   = "rigging_complete";
-                _task.Progress = 50;
-                RiggedAnimationTaskTracker.SaveToSession(_task);
+                RiggedAnimationTaskTracker.ApplyTaskUpdate(_task, t =>
+                {
+                    t.RiggedModelPath = riggedPath;
+                    t.Status   = "rigging_complete";
+                    t.Progress = 50;
+                });
                 TJLog.Log($"[RigModelPipelineHost] rig_and_motion Stage 1 完成，启动 Stage 2: {riggedPath}");
                 EditorCoroutineUtility.StartCoroutineOwnerless(
                     RiggedAnimationStage2Helper.LaunchMotionStage(_task, _sessionId));
             }
         }
 
-        public void ShowDialog(string title, string message)
+        protected override string DialogLogTag => "RigModelPipelineHost";
+
+        public override void ShowDialog(string title, string message)
         {
-            ErrorDialogUtils.ShowErrorDialog(title, message, "RigModelPipelineHost");
+            base.ShowDialog(title, message);
             if (ErrorDialogUtils.IsErrorDialog(title) && _task != null)
             {
                 var friendly = ErrorDialogUtils.ConvertToUserFriendlyError(title, message);
-                _task.Status       = "failed";
-                _task.ErrorMessage = friendly.TechnicalMessage;
-                _task.EndTime      = DateTime.Now;
-                RiggedAnimationTaskTracker.SaveToSession(_task);
+                RiggedAnimationTaskTracker.ApplyTaskUpdate(_task, t =>
+                {
+                    t.Status       = "failed";
+                    t.ErrorMessage = friendly.TechnicalMessage;
+                    t.EndTime      = DateTime.Now;
+                });
                 string failedTool = _task.PipelineType == "rig_only" ? "generate_rigged_model" : "generate_rigged_animated_model";
                 GenerationNotifier.NotifyFailed(failedTool, _task.TaskId, _task.BackendRigTaskId, friendly.TechnicalMessage,
                     new JObject
@@ -561,7 +538,7 @@ namespace UnityTcp.Editor.Tools
     // ─────────────────────────────────────────────────────────────────────────────
     // ModelMotionPipelineHost  —  Stage 2 host (HunyuanMotion)
     // ─────────────────────────────────────────────────────────────────────────────
-    internal class ModelMotionPipelineHost : IGenerationPipelineHost, IModelDownloadPathProvider
+    internal class ModelMotionPipelineHost : HeadlessPipelineHostBase, IModelDownloadPathProvider
     {
         private readonly RiggedAnimationTaskTracker.RiggedAnimationTaskInfo _task;
         private readonly string _motionSavePath;
@@ -577,12 +554,19 @@ namespace UnityTcp.Editor.Tools
             _task           = task;
             _motionSavePath = motionSavePath;
             _generator      = generator;
-            _sessionId      = sessionId;
+            _sessionId      = !string.IsNullOrEmpty(sessionId) ? sessionId : task?.SessionId ?? "";
+        }
+
+        private string GetNotificationToolName()
+        {
+            return _task?.PipelineType == "motion_only"
+                ? "generate_model_motion"
+                : "generate_rigged_animated_model";
         }
 
         // Returning null prevents GenerationPipeline.BindModelToPrefab from replacing the prefab
         // with the motion FBX — the prefab should keep the rigged model.
-        public TJGeneratorsAssetReference GetTargetAsset() => null;
+        public override TJGeneratorsAssetReference GetTargetAsset() => null;
 
         public string GetModelDownloadPath(string resolvedSavePath)
         {
@@ -594,13 +578,7 @@ namespace UnityTcp.Editor.Tools
             return Path.ChangeExtension(_motionSavePath, ext)?.Replace("\\", "/");
         }
 
-        public string GetAssetSavePath(PipelineMediaType _type, ModelGeneratorBase generator) => null;
-        public void   OnAssetSaved(PipelineMediaType _type, string savePath, ModelGeneratorBase generator) { }
-        public void   StartGeneration(ModelGeneratorBase generator) { }
-        public void   RefreshHistory()  { }
-        public void   RefreshUserInfo() { }
-
-        public void Repaint()
+        public override void Repaint()
         {
             if (_task == null || _generator == null) return;
             bool isActive = _task.Status == "generating_motion" || _task.Status == "recovering";
@@ -609,12 +587,11 @@ namespace UnityTcp.Editor.Tools
             int progress = _task.PipelineType == "rig_and_motion" ? 50 + raw / 2 : raw;
             if (progress > _task.Progress)
             {
-                _task.Progress = progress;
-                RiggedAnimationTaskTracker.SaveToSession(_task);
+                RiggedAnimationTaskTracker.ApplyTaskUpdate(_task, t => t.Progress = progress);
             }
         }
 
-        public void ShowPreviewModel(string motionFbxPath)
+        public override void OnGenerationCompleted(string motionFbxPath)
         {
             if (_task == null) return;
 
@@ -642,17 +619,19 @@ namespace UnityTcp.Editor.Tools
                     _task.PrefabPath, _task.RiggedModelPath);
 
             // 5. Update tracker
-            _task.MotionFbxPath  = motionFbxPath;
-            _task.ControllerPath = controllerPath ?? "";
-            _task.Status         = "completed";
-            _task.Progress       = 100;
-            _task.EndTime        = DateTime.Now;
-            RiggedAnimationTaskTracker.SaveToSession(_task);
-            GenerationNotifier.NotifyCompleted("generate_rigged_animated_model", _task.TaskId, _task.BackendMotionTaskId,
+            RiggedAnimationTaskTracker.ApplyTaskUpdate(_task, t =>
+            {
+                t.MotionFbxPath  = motionFbxPath;
+                t.ControllerPath = controllerPath ?? "";
+                t.Status         = "completed";
+                t.Progress       = 100;
+                t.EndTime        = DateTime.Now;
+            });
+            GenerationNotifier.NotifyCompleted(GetNotificationToolName(), _task.TaskId, _task.BackendMotionTaskId,
                 new JObject
                 {
                     ["session_id"]        = _sessionId,
-                    ["pipeline_type"]     = "rig_and_motion",
+                    ["pipeline_type"]     = _task.PipelineType ?? "",
                     ["source_model_path"] = _task.SourceModelPath ?? "",
                     ["rigged_model_path"] = _task.RiggedModelPath ?? "",
                     ["motion_fbx_path"]   = motionFbxPath ?? "",
@@ -667,24 +646,28 @@ namespace UnityTcp.Editor.Tools
             TJLog.Log($"[ModelMotionPipelineHost] Motion 完成: {motionFbxPath}, controller={controllerPath}");
         }
 
-        public void ShowDialog(string title, string message)
+        protected override string DialogLogTag => "ModelMotionPipelineHost";
+
+        public override void ShowDialog(string title, string message)
         {
-            ErrorDialogUtils.ShowErrorDialog(title, message, "ModelMotionPipelineHost");
+            base.ShowDialog(title, message);
             if (ErrorDialogUtils.IsErrorDialog(title) && _task != null)
             {
                 var friendly = ErrorDialogUtils.ConvertToUserFriendlyError(title, message);
-                _task.Status = _task.PipelineType == "rig_and_motion"
-                    ? "rigging_complete_motion_failed"
-                    : "failed";
-                _task.ErrorMessage = friendly.TechnicalMessage;
-                _task.EndTime      = DateTime.Now;
-                RiggedAnimationTaskTracker.SaveToSession(_task);
-                GenerationNotifier.NotifyFailed("generate_rigged_animated_model", _task.TaskId, _task.BackendMotionTaskId,
+                RiggedAnimationTaskTracker.ApplyTaskUpdate(_task, t =>
+                {
+                    t.Status = _task.PipelineType == "rig_and_motion"
+                        ? "rigging_complete_motion_failed"
+                        : "failed";
+                    t.ErrorMessage = friendly.TechnicalMessage;
+                    t.EndTime      = DateTime.Now;
+                });
+                GenerationNotifier.NotifyFailed(GetNotificationToolName(), _task.TaskId, _task.BackendMotionTaskId,
                     friendly.TechnicalMessage,
                     new JObject
                     {
                         ["session_id"]    = _sessionId,
-                        ["pipeline_type"] = "rig_and_motion"
+                        ["pipeline_type"] = _task.PipelineType ?? ""
                     });
             }
         }
@@ -758,6 +741,7 @@ namespace UnityTcp.Editor.Tools
                 var task = new RiggedAnimationTaskTracker.RiggedAnimationTaskInfo
                 {
                     TaskId           = taskId,
+                    SessionId        = sessionId,
                     PipelineType     = "rig_only",
                     Status           = "rigging",
                     Progress         = 0,
@@ -768,7 +752,6 @@ namespace UnityTcp.Editor.Tools
                     StartTime        = DateTime.Now
                 };
                 RiggedAnimationTaskTracker.AddTask(task);
-                RiggedAnimationTaskTracker.SaveToSession(task);
 
                 var host     = new RigModelPipelineHost(task, sourceModelPath, expectedRig, generator, sessionId);
                 var pipeline = new GenerationPipeline(host, ConfigType.Generator, GenerationRequestOrigin.Agent, sessionId);
@@ -781,6 +764,7 @@ namespace UnityTcp.Editor.Tools
                 return new Dictionary<string, object>
                 {
                     { "success",              true },
+                    { "submission_success",   true },
                     { "task_id",              taskId },
                     { "backend_task_id",      submitResult.BackendTaskId },
                     { "status",               "rigging" },
@@ -933,6 +917,7 @@ namespace UnityTcp.Editor.Tools
                 var task = new RiggedAnimationTaskTracker.RiggedAnimationTaskInfo
                 {
                     TaskId              = taskId,
+                    SessionId           = sessionId,
                     PipelineType        = "motion_only",
                     Status              = "generating_motion",
                     Progress            = 0,
@@ -946,7 +931,6 @@ namespace UnityTcp.Editor.Tools
                     StartTime           = DateTime.Now
                 };
                 RiggedAnimationTaskTracker.AddTask(task);
-                RiggedAnimationTaskTracker.SaveToSession(task);
 
                 string motionSavePath = RiggedAnimationDomainReloadRecovery.BuildMotionSavePath(riggedModelPath);
                 var host     = new ModelMotionPipelineHost(task, motionSavePath, generator, sessionId);
@@ -961,6 +945,7 @@ namespace UnityTcp.Editor.Tools
                 return new Dictionary<string, object>
                 {
                     { "success",                              true },
+                    { "submission_success",                   true },
                     { "task_id",                              taskId },
                     { "backend_task_id",                      submitResult.BackendTaskId },
                     { "status",                               "generating_motion" },
@@ -1125,6 +1110,7 @@ namespace UnityTcp.Editor.Tools
                 var task = new RiggedAnimationTaskTracker.RiggedAnimationTaskInfo
                 {
                     TaskId            = taskId,
+                    SessionId         = sessionId,
                     PipelineType      = "rig_and_motion",
                     Status            = "rigging",
                     Progress          = 0,
@@ -1139,7 +1125,6 @@ namespace UnityTcp.Editor.Tools
                     StartTime         = DateTime.Now
                 };
                 RiggedAnimationTaskTracker.AddTask(task);
-                RiggedAnimationTaskTracker.SaveToSession(task);
 
                 var host     = new RigModelPipelineHost(task, sourceModelPath, expectedRig, generator, sessionId);
                 var pipeline = new GenerationPipeline(host, ConfigType.Generator, GenerationRequestOrigin.Agent, sessionId);
@@ -1152,6 +1137,7 @@ namespace UnityTcp.Editor.Tools
                 return new Dictionary<string, object>
                 {
                     { "success",              true },
+                    { "submission_success",   true },
                     { "task_id",              taskId },
                     { "backend_task_id",      submitResult.BackendTaskId },
                     { "status",               "rigging" },

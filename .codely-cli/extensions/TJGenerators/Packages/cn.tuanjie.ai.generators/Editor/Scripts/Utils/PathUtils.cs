@@ -137,6 +137,109 @@ namespace TJGenerators.Utils
         }
 
         /// <summary>
+        /// 判断磁盘绝对路径是否落在本工程 Assets 目录下（含 Assets 根本身）。
+        /// </summary>
+        public static bool IsAbsolutePathUnderAssets(string absolutePath)
+        {
+            if (string.IsNullOrEmpty(absolutePath))
+                return false;
+
+            string normalized = Path.GetFullPath(absolutePath)
+                .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            string dataPath = Path.GetFullPath(Application.dataPath)
+                .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            if (string.Equals(normalized, dataPath, StringComparison.OrdinalIgnoreCase))
+                return true;
+
+            string prefix = dataPath + Path.DirectorySeparatorChar;
+            return normalized.StartsWith(prefix, StringComparison.OrdinalIgnoreCase);
+        }
+
+        /// <summary>
+        /// 将 CustomTool 的 <c>output_path</c> 规范为 Unity Assets 相对路径（正斜杠）。
+        /// 接受 <c>Assets/...</c>，或落在本工程 Assets 下的绝对路径；拒绝工程外路径与非 Assets 相对路径。
+        /// </summary>
+        public static bool TryNormalizeOutputAssetPath(
+            string outputPath, out string normalizedAssetPath, out string errorMessage)
+        {
+            normalizedAssetPath = null;
+            errorMessage = null;
+
+            if (string.IsNullOrWhiteSpace(outputPath))
+            {
+                errorMessage = TJGeneratorsL10n.L("'output_path' 不能为空。");
+                return false;
+            }
+
+            string trimmed = outputPath.Trim().Replace('\\', '/');
+            string absolute;
+            if (Path.IsPathRooted(trimmed))
+            {
+                absolute = Path.GetFullPath(trimmed);
+            }
+            else
+            {
+                if (!trimmed.StartsWith("Assets/", StringComparison.OrdinalIgnoreCase)
+                    && !string.Equals(trimmed, "Assets", StringComparison.OrdinalIgnoreCase))
+                {
+                    errorMessage = TJGeneratorsL10n.L(
+                        "'output_path' 必须是 Assets 相对路径（Assets/...），或位于工程 Assets 目录下的绝对路径。收到：'{0}'",
+                        outputPath);
+                    return false;
+                }
+
+                absolute = Path.GetFullPath(ToAbsoluteAssetPath(trimmed));
+            }
+
+            if (!IsAbsolutePathUnderAssets(absolute))
+            {
+                errorMessage = TJGeneratorsL10n.L(
+                    "'output_path' 必须解析到工程 Assets 目录下。收到：'{0}'",
+                    outputPath);
+                return false;
+            }
+
+            string relative = AbsolutePathToAssetsRelative(absolute)?.Replace('\\', '/');
+            if (string.IsNullOrEmpty(relative)
+                || (!relative.StartsWith("Assets/", StringComparison.OrdinalIgnoreCase)
+                    && !string.Equals(relative, "Assets", StringComparison.OrdinalIgnoreCase)))
+            {
+                errorMessage = TJGeneratorsL10n.L(
+                    "'output_path' 无法转换为 Assets 相对路径。收到：'{0}'",
+                    outputPath);
+                return false;
+            }
+
+            normalizedAssetPath = relative;
+            return true;
+        }
+
+        /// <summary>
+        /// 调用 <see cref="AssetDatabase.GenerateUniqueAssetPath"/>，并校验返回值仍是合法 Assets 路径；
+        /// 空/非法时回退到 <paramref name="fallbackAssetPath"/>（再不行则用 preferred）。
+        /// </summary>
+        public static string GenerateUniqueAssetPathChecked(string preferredAssetPath, string fallbackAssetPath = null)
+        {
+            if (string.IsNullOrEmpty(preferredAssetPath))
+                preferredAssetPath = fallbackAssetPath;
+
+            if (string.IsNullOrEmpty(preferredAssetPath))
+                return preferredAssetPath;
+
+            preferredAssetPath = preferredAssetPath.Replace('\\', '/');
+            string unique = AssetDatabase.GenerateUniqueAssetPath(preferredAssetPath);
+            if (!string.IsNullOrEmpty(unique)
+                && TryNormalizeOutputAssetPath(unique, out string normalized, out _))
+                return normalized;
+
+            if (!string.IsNullOrEmpty(fallbackAssetPath)
+                && TryNormalizeOutputAssetPath(fallbackAssetPath, out string fallbackNormalized, out _))
+                return fallbackNormalized;
+
+            return preferredAssetPath;
+        }
+
+        /// <summary>
         /// Project 窗口创建资源时的目标文件夹：当前选中文件夹，或选中资产所在目录；无选中时为 Assets。
         /// </summary>
         public static string GetProjectBrowserInsertionFolderAssetPath()

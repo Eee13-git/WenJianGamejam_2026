@@ -35,12 +35,6 @@ Beyond the common report structure, include:
 - Whether domain reload recovery was triggered and how it was resolved (file-size check result)
 """
 
-[agent.model_config]
-model = "codely-core"
-
-[agent.model_config.sampling_params]
-reasoning_effort = "high"
-
 [agent.run_config]
 stream = false
 max_turns = 400

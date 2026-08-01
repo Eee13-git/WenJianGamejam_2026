@@ -26,15 +26,6 @@ namespace UnityTcp.Editor.Tools
     public static class StaticModelTaskTracker
     {
 #if UNITY_EDITOR
-        private static readonly Dictionary<string, StaticModelTaskInfo> _activeTasks =
-            new Dictionary<string, StaticModelTaskInfo>();
-
-        private static int _taskIdCounter = 0;
-
-        // SessionState keys — survive domain reload within the same Editor session
-        private const string SessionKeyIds = "TJGen_3DModel_Ids";
-        private const string SessionKeyFmt = "TJGen_3DModel_{0}";
-
         [Serializable]
         private class PersistedTask
         {
@@ -49,7 +40,6 @@ namespace UnityTcp.Editor.Tools
             public string   errorMessage;
             public long     startTimeTicks;
             public long     endTimeTicks;
-            // Extended fields for multi-generator support
             public string   generatorType;
             public string   modelVersion;
             public string   imagePath;
@@ -57,7 +47,7 @@ namespace UnityTcp.Editor.Tools
             public string   sessionId;
         }
 
-        public class StaticModelTaskInfo
+        public class StaticModelTaskInfo : IGenerationTaskInfo
         {
             public string    TaskId              { get; set; }
             public string    BackendTaskId       { get; set; }
@@ -70,7 +60,6 @@ namespace UnityTcp.Editor.Tools
             public string    ErrorMessage        { get; set; }
             public DateTime  StartTime           { get; set; }
             public DateTime? EndTime             { get; set; }
-            // Extended fields for multi-generator support
             public string    GeneratorType       { get; set; }
             public string    ModelVersion        { get; set; }
             public string    ImagePath           { get; set; }
@@ -78,97 +67,52 @@ namespace UnityTcp.Editor.Tools
             public string    SessionId           { get; set; }
         }
 
-        // ── Session persistence helpers ───────────────────────────────────────
+        private static readonly GenerationTaskTrackerStore<StaticModelTaskInfo, PersistedTask> Store =
+            new GenerationTaskTrackerStore<StaticModelTaskInfo, PersistedTask>(
+                "TJGen_3DModel", BuildPersisted, FromPersisted);
 
-        internal static void SaveToSession(StaticModelTaskInfo info)
+        private static PersistedTask BuildPersisted(StaticModelTaskInfo info) => new PersistedTask
         {
-            var p = new PersistedTask
-            {
-                taskId              = info.TaskId,
-                backendTaskId       = info.BackendTaskId ?? "",
-                prompt              = info.Prompt,
-                status              = info.Status,
-                progress            = info.Progress,
-                prefabPath          = info.PrefabPath,
-                modelPath           = info.ModelPath,
-                previewUrl          = info.PreviewUrl ?? "",
-                errorMessage        = info.ErrorMessage,
-                startTimeTicks      = info.StartTime.Ticks,
-                endTimeTicks        = info.EndTime?.Ticks ?? 0,
-                generatorType       = info.GeneratorType ?? "",
-                modelVersion        = info.ModelVersion ?? "",
-                imagePath           = info.ImagePath ?? "",
-                multiviewImagePaths = info.MultiviewImagePaths ?? new string[0],
-                sessionId           = info.SessionId ?? ""
-            };
-            SessionState.SetString(string.Format(SessionKeyFmt, info.TaskId), JsonUtility.ToJson(p));
+            taskId              = info.TaskId,
+            backendTaskId       = info.BackendTaskId ?? "",
+            prompt              = info.Prompt,
+            status              = info.Status,
+            progress            = info.Progress,
+            prefabPath          = info.PrefabPath,
+            modelPath           = info.ModelPath,
+            previewUrl          = info.PreviewUrl ?? "",
+            errorMessage        = info.ErrorMessage,
+            startTimeTicks      = info.StartTime.Ticks,
+            endTimeTicks        = info.EndTime?.Ticks ?? 0,
+            generatorType       = info.GeneratorType ?? "",
+            modelVersion        = info.ModelVersion ?? "",
+            imagePath           = info.ImagePath ?? "",
+            multiviewImagePaths = info.MultiviewImagePaths ?? new string[0],
+            sessionId           = info.SessionId ?? ""
+        };
 
-            string ids = SessionState.GetString(SessionKeyIds, "");
-            if (!ids.Contains(info.TaskId))
-                SessionState.SetString(SessionKeyIds, string.IsNullOrEmpty(ids) ? info.TaskId : ids + "|" + info.TaskId);
-        }
-
-        private static void RemoveFromSession(string taskId)
+        private static StaticModelTaskInfo FromPersisted(PersistedTask p) => new StaticModelTaskInfo
         {
-            SessionState.EraseString(string.Format(SessionKeyFmt, taskId));
-            string ids  = SessionState.GetString(SessionKeyIds, "");
-            var list    = new List<string>(ids.Split('|'));
-            list.Remove(taskId);
-            SessionState.SetString(SessionKeyIds, string.Join("|", list));
-        }
+            TaskId              = p.taskId,
+            BackendTaskId       = p.backendTaskId,
+            Prompt              = p.prompt,
+            Status              = p.status,
+            Progress            = p.progress,
+            PrefabPath          = p.prefabPath,
+            ModelPath           = p.modelPath,
+            PreviewUrl          = p.previewUrl,
+            ErrorMessage        = p.errorMessage,
+            StartTime           = new DateTime(p.startTimeTicks),
+            EndTime             = p.endTimeTicks > 0 ? (DateTime?)new DateTime(p.endTimeTicks) : null,
+            GeneratorType       = p.generatorType,
+            ModelVersion        = p.modelVersion,
+            ImagePath           = p.imagePath,
+            MultiviewImagePaths = p.multiviewImagePaths ?? new string[0],
+            SessionId           = p.sessionId ?? ""
+        };
 
-        private static StaticModelTaskInfo TryRestoreFromSession(string taskId)
-        {
-            string json = SessionState.GetString(string.Format(SessionKeyFmt, taskId), "");
-            if (string.IsNullOrEmpty(json)) return null;
-
-            PersistedTask p;
-            try { p = JsonUtility.FromJson<PersistedTask>(json); }
-            catch { return null; }
-
-            var info = new StaticModelTaskInfo
-            {
-                TaskId              = p.taskId,
-                BackendTaskId       = p.backendTaskId,
-                Prompt              = p.prompt,
-                Status              = p.status,
-                Progress            = p.progress,
-                PrefabPath          = p.prefabPath,
-                ModelPath           = p.modelPath,
-                PreviewUrl          = p.previewUrl,
-                ErrorMessage        = p.errorMessage,
-                StartTime           = new DateTime(p.startTimeTicks),
-                EndTime             = p.endTimeTicks > 0 ? (DateTime?)new DateTime(p.endTimeTicks) : null,
-                GeneratorType       = p.generatorType,
-                ModelVersion        = p.modelVersion,
-                ImagePath           = p.imagePath,
-                MultiviewImagePaths = p.multiviewImagePaths ?? new string[0],
-                SessionId           = p.sessionId ?? ""
-            };
-
-            if (info.Status == "initializing" || info.Status == "generating" || info.Status == "recovering" ||
-                info.Status == "running"       || info.Status == "processing" || info.Status == "pending")
-            {
-                bool canRecover = TJGeneratorsTaskRecovery.HasActiveRecovery(info.BackendTaskId);
-
-                if (canRecover)
-                {
-                    info.Status = "recovering";
-                }
-                else
-                {
-                    info.Status       = "interrupted";
-                    info.ErrorMessage = TJGeneratorsL10n.L("生成因域重载中断且后端任务记录已丢失，请重新生成。");
-                    info.EndTime      = DateTime.Now;
-                }
-                SaveToSession(info);
-            }
-
-            _activeTasks[taskId] = info;
-            return info;
-        }
-
-        // ── Public API ────────────────────────────────────────────────────────
+        internal static void ApplyTaskUpdate(StaticModelTaskInfo task, Action<StaticModelTaskInfo> mutate) =>
+            Store.ApplyTaskUpdate(task, mutate);
 
         public static string CreateTask(
             string prompt,
@@ -181,7 +125,7 @@ namespace UnityTcp.Editor.Tools
             string sessionId = "")
         {
             string prefix = generatorType == "tripo-p1" ? "tripo_model" : "static_model";
-            string taskId = $"{prefix}_{++_taskIdCounter}_{DateTime.Now.Ticks}";
+            string taskId = Store.AllocateTaskId(prefix);
 
             var taskInfo = new StaticModelTaskInfo
             {
@@ -198,31 +142,36 @@ namespace UnityTcp.Editor.Tools
                 SessionId           = sessionId ?? ""
             };
 
-            _activeTasks[taskId] = taskInfo;
-            SaveToSession(taskInfo);
+            Store.RegisterTask(taskId, taskInfo);
 
             handle.OnCreated += (h) =>
             {
-                taskInfo.BackendTaskId = h.BackendTaskId;
-                taskInfo.Status = "generating";
-                SaveToSession(taskInfo);
+                Store.ApplyTaskUpdate(taskInfo, t =>
+                {
+                    t.BackendTaskId = h.BackendTaskId;
+                    t.Status = "generating";
+                });
             };
             handle.OnProgress += (h) =>
             {
-                taskInfo.Status   = "generating";
-                taskInfo.Progress = h.Progress;
-                if (!string.IsNullOrEmpty(h.PreviewUrl))
-                    taskInfo.PreviewUrl = h.PreviewUrl;
-                SaveToSession(taskInfo);
+                Store.ApplyTaskUpdate(taskInfo, t =>
+                {
+                    t.Status   = "generating";
+                    t.Progress = h.Progress;
+                    if (!string.IsNullOrEmpty(h.PreviewUrl))
+                        t.PreviewUrl = h.PreviewUrl;
+                });
             };
             handle.OnCompleted += (h) =>
             {
-                taskInfo.Status          = "completed";
-                taskInfo.Progress        = 100;
-                taskInfo.ModelPath       = h.ModelPath;
-                taskInfo.PreviewUrl      = h.PreviewUrl;
-                taskInfo.EndTime         = DateTime.Now;
-                SaveToSession(taskInfo);
+                Store.ApplyTaskUpdate(taskInfo, t =>
+                {
+                    t.Status     = "completed";
+                    t.Progress   = 100;
+                    t.ModelPath  = h.ModelPath;
+                    t.PreviewUrl = h.PreviewUrl;
+                    t.EndTime    = DateTime.Now;
+                });
                 GenerationNotifier.NotifyCompleted(
                     toolName: taskInfo.GeneratorType == "tripo-p1"
                               ? "generate_3d_model_by_tripo_p1"
@@ -246,10 +195,12 @@ namespace UnityTcp.Editor.Tools
             };
             handle.OnFailed += (h) =>
             {
-                taskInfo.Status       = "failed";
-                taskInfo.ErrorMessage = h.ErrorMessage;
-                taskInfo.EndTime      = DateTime.Now;
-                SaveToSession(taskInfo);
+                Store.ApplyTaskUpdate(taskInfo, t =>
+                {
+                    t.Status       = "failed";
+                    t.ErrorMessage = h.ErrorMessage;
+                    t.EndTime      = DateTime.Now;
+                });
                 GenerationNotifier.NotifyFailed(
                     toolName: taskInfo.GeneratorType == "tripo-p1"
                               ? "generate_3d_model_by_tripo_p1"
@@ -268,48 +219,19 @@ namespace UnityTcp.Editor.Tools
             return taskId;
         }
 
-        public static StaticModelTaskInfo GetTask(string taskId)
-        {
-            if (_activeTasks.TryGetValue(taskId, out var task))
-                return task;
-            return TryRestoreFromSession(taskId);
-        }
+        public static StaticModelTaskInfo GetTask(string taskId) => Store.GetTask(taskId);
 
-        public static List<StaticModelTaskInfo> GetAllTasks()
-        {
-            string ids = SessionState.GetString(SessionKeyIds, "");
-            if (!string.IsNullOrEmpty(ids))
-            {
-                foreach (var id in ids.Split('|'))
-                {
-                    if (!string.IsNullOrEmpty(id) && !_activeTasks.ContainsKey(id))
-                        TryRestoreFromSession(id);
-                }
-            }
-            return new List<StaticModelTaskInfo>(_activeTasks.Values);
-        }
+        public static List<StaticModelTaskInfo> GetAllTasks() => Store.GetAllTasks();
 
-        public static StaticModelTaskInfo GetTaskByBackendId(string backendTaskId)
-        {
-            if (string.IsNullOrEmpty(backendTaskId)) return null;
-
-            var cached = _activeTasks.Values.FirstOrDefault(t => t.BackendTaskId == backendTaskId);
-            if (cached != null) return cached;
-
-            GetAllTasks();
-            return _activeTasks.Values.FirstOrDefault(t => t.BackendTaskId == backendTaskId);
-        }
+        public static StaticModelTaskInfo GetTaskByBackendId(string backendTaskId) =>
+            Store.GetTaskByBackendId(backendTaskId);
 
         public static StaticModelTaskInfo CreateRecoveredTask(
             string backendTaskId, string prompt, string prefabPath, long timestampMs)
         {
-            var existing = GetTaskByBackendId(backendTaskId);
-            if (existing != null) return existing;
-
-            string taskId = $"recovered_{backendTaskId}";
-            var info = new StaticModelTaskInfo
+            return Store.CreateRecoveredTask(backendTaskId, () => new StaticModelTaskInfo
             {
-                TaskId        = taskId,
+                TaskId        = $"recovered_{backendTaskId}",
                 BackendTaskId = backendTaskId,
                 Prompt        = prompt ?? "",
                 PrefabPath    = prefabPath ?? "",
@@ -318,34 +240,12 @@ namespace UnityTcp.Editor.Tools
                 StartTime     = timestampMs > 0
                                     ? DateTimeOffset.FromUnixTimeMilliseconds(timestampMs).LocalDateTime
                                     : DateTime.Now
-            };
-
-            _activeTasks[taskId] = info;
-            SaveToSession(info);
-            return info;
+            });
         }
 
-        public static void RemoveTask(string taskId)
-        {
-            _activeTasks.Remove(taskId);
-            RemoveFromSession(taskId);
-        }
+        public static void RemoveTask(string taskId) => Store.RemoveTask(taskId);
 
-        public static void CleanupCompletedTasks()
-        {
-            var toRemove = new List<string>();
-            foreach (var kvp in _activeTasks)
-            {
-                if ((kvp.Value.Status == "completed" || kvp.Value.Status == "failed" || kvp.Value.Status == "interrupted") &&
-                    kvp.Value.EndTime.HasValue &&
-                    (DateTime.Now - kvp.Value.EndTime.Value).TotalMinutes > 60)
-                {
-                    toRemove.Add(kvp.Key);
-                }
-            }
-            foreach (var id in toRemove)
-                RemoveTask(id);
-        }
+        public static void CleanupCompletedTasks() => Store.CleanupCompletedTasks();
 #endif
     }
 
@@ -376,8 +276,7 @@ namespace UnityTcp.Editor.Tools
                     {
                         CustomToolDomainReloadRecovery.MarkTrackerRecoveringIfNeeded(trackerTask.Status, () =>
                         {
-                            trackerTask.Status = "recovering";
-                            StaticModelTaskTracker.SaveToSession(trackerTask);
+                            StaticModelTaskTracker.ApplyTaskUpdate(trackerTask, t => t.Status = "recovering");
                         });
                     }
                     else
@@ -406,7 +305,7 @@ namespace UnityTcp.Editor.Tools
     /// Headless pipeline host for resuming static model tasks after domain reload.
     /// Updates StaticModelTaskTracker on completion/failure.
     /// </summary>
-    internal class StaticModelRecoveryHost : IGenerationPipelineHost
+    internal class StaticModelRecoveryHost : HeadlessPipelineHostBase
     {
         private readonly TJGeneratorsAssetReference _targetAsset;
         private readonly string _backendTaskId;
@@ -419,9 +318,11 @@ namespace UnityTcp.Editor.Tools
             _generator     = generator;
         }
 
-        public TJGeneratorsAssetReference GetTargetAsset() => _targetAsset;
+        protected override string DialogLogTag => "StaticModelRecovery";
 
-        public void ShowPreviewModel(string modelPath)
+        public override TJGeneratorsAssetReference GetTargetAsset() => _targetAsset;
+
+        public override void OnGenerationCompleted(string modelPath)
         {
             string prefabPath = _targetAsset?.GetPath();
 
@@ -444,11 +345,13 @@ namespace UnityTcp.Editor.Tools
 
             foreach (var trackerTask in tasksToUpdate)
             {
-                trackerTask.Status    = "completed";
-                trackerTask.Progress  = 100;
-                trackerTask.ModelPath = modelPath;
-                trackerTask.EndTime   = DateTime.Now;
-                StaticModelTaskTracker.SaveToSession(trackerTask);
+                StaticModelTaskTracker.ApplyTaskUpdate(trackerTask, t =>
+                {
+                    t.Status    = "completed";
+                    t.Progress  = 100;
+                    t.ModelPath = modelPath;
+                    t.EndTime   = DateTime.Now;
+                });
             }
 
             TJLog.Log($"[Generate3DModelTool] Recovered task completed ({tasksToUpdate.Count} task(s) updated): {modelPath}");
@@ -477,9 +380,9 @@ namespace UnityTcp.Editor.Tools
                     });
         }
 
-        public void ShowDialog(string title, string message)
+        public override void ShowDialog(string title, string message)
         {
-            ErrorDialogUtils.ShowErrorDialog(title, message, "StaticModelRecovery");
+            base.ShowDialog(title, message);
 
             if (ErrorDialogUtils.IsErrorDialog(title))
             {
@@ -487,10 +390,12 @@ namespace UnityTcp.Editor.Tools
                 if (trackerTask != null)
                 {
                     var friendlyError = ErrorDialogUtils.ConvertToUserFriendlyError(title, message);
-                    trackerTask.Status       = "failed";
-                    trackerTask.ErrorMessage = friendlyError.TechnicalMessage;
-                    trackerTask.EndTime      = DateTime.Now;
-                    StaticModelTaskTracker.SaveToSession(trackerTask);
+                    StaticModelTaskTracker.ApplyTaskUpdate(trackerTask, t =>
+                    {
+                        t.Status       = "failed";
+                        t.ErrorMessage = friendlyError.TechnicalMessage;
+                        t.EndTime      = DateTime.Now;
+                    });
                     GenerationNotifier.NotifyFailed(
                         toolName: trackerTask.GeneratorType == "tripo-p1"
                                   ? "generate_3d_model_by_tripo_p1"
@@ -508,10 +413,7 @@ namespace UnityTcp.Editor.Tools
             }
         }
 
-        public void RefreshHistory()  { }
-        public void RefreshUserInfo() { }
-
-        public void Repaint()
+        public override void Repaint()
         {
             if (_generator == null) return;
             var trackerTask = StaticModelTaskTracker.GetTaskByBackendId(_backendTaskId);
@@ -521,16 +423,14 @@ namespace UnityTcp.Editor.Tools
             int progress = _generator.CurrentProgress;
             if (progress > trackerTask.Progress)
             {
-                trackerTask.Status   = "generating";
-                trackerTask.Progress = progress;
-                StaticModelTaskTracker.SaveToSession(trackerTask);
+                StaticModelTaskTracker.ApplyTaskUpdate(trackerTask, t =>
+                {
+                    t.Status   = "generating";
+                    t.Progress = progress;
+                });
             }
         }
 
-        public void StartGeneration(ModelGeneratorBase generator) { }
-
-        public string GetAssetSavePath(PipelineMediaType _type, ModelGeneratorBase generator) => null;
-        public void OnAssetSaved(PipelineMediaType _type, string savePath, ModelGeneratorBase generator) { }
     }
 #endif
 
@@ -914,20 +814,24 @@ namespace UnityTcp.Editor.Tools
 
             if (completedItem != null)
             {
-                task.Status     = "completed";
-                task.Progress   = 100;
-                task.ModelPath  = completedItem.modelPath;
-                task.PreviewUrl = completedItem.previewImageUrl;
-                task.EndTime    = DateTimeOffset.FromUnixTimeMilliseconds(completedItem.timestamp).LocalDateTime;
-                StaticModelTaskTracker.SaveToSession(task);
+                StaticModelTaskTracker.ApplyTaskUpdate(task, t =>
+                {
+                    t.Status     = "completed";
+                    t.Progress   = 100;
+                    t.ModelPath  = completedItem.modelPath;
+                    t.PreviewUrl = completedItem.previewImageUrl;
+                    t.EndTime    = DateTimeOffset.FromUnixTimeMilliseconds(completedItem.timestamp).LocalDateTime;
+                });
                 TJLog.Log($"[Generate3DModelTool] Recovery task completed via history: {completedItem.modelPath}");
             }
             else if ((DateTime.Now - task.StartTime).TotalMinutes > 30)
             {
-                task.Status       = "failed";
-                task.ErrorMessage = "Recovery finished but no completed model was found in history. The generation may have failed.";
-                task.EndTime      = DateTime.Now;
-                StaticModelTaskTracker.SaveToSession(task);
+                StaticModelTaskTracker.ApplyTaskUpdate(task, t =>
+                {
+                    t.Status       = "failed";
+                    t.ErrorMessage = "Recovery finished but no completed model was found in history. The generation may have failed.";
+                    t.EndTime      = DateTime.Now;
+                });
                 TJLog.LogWarning($"[Generate3DModelTool] Recovery task timed out without result: {task.TaskId}");
             }
         }
@@ -1409,12 +1313,14 @@ namespace UnityTcp.Editor.Tools
 
             if (candidate != null)
             {
-                task.Status     = "completed";
-                task.Progress   = 100;
-                task.ModelPath  = candidate.modelPath;
-                task.PreviewUrl = candidate.previewImageUrl;
-                task.EndTime    = DateTimeOffset.FromUnixTimeMilliseconds(candidate.timestamp).LocalDateTime;
-                StaticModelTaskTracker.SaveToSession(task);
+                StaticModelTaskTracker.ApplyTaskUpdate(task, t =>
+                {
+                    t.Status     = "completed";
+                    t.Progress   = 100;
+                    t.ModelPath  = candidate.modelPath;
+                    t.PreviewUrl = candidate.previewImageUrl;
+                    t.EndTime    = DateTimeOffset.FromUnixTimeMilliseconds(candidate.timestamp).LocalDateTime;
+                });
             }
         }
 #endif

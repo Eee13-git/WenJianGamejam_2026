@@ -1,10 +1,7 @@
 #if UNITY_EDITOR
 using System;
-using System.Collections;
 using System.IO;
-using System.Net.Http;
 using System.Text;
-using System.Threading.Tasks;
 using Unity.UniAsset.Manager.Editor.InternalBridge;
 using TJGenerators.Generators;
 using TJGenerators.Pipeline;
@@ -203,7 +200,8 @@ namespace TJGenerators
             ModelGeneratorBase generator,
             TJGeneratorsGenerationContext context,
             string backendTaskId,
-            string sessionId = "")
+            string sessionId = "",
+            string toolName = "")
         {
             if (generator == null)
                 throw new ArgumentNullException(nameof(generator));
@@ -225,7 +223,7 @@ namespace TJGenerators
                 case GenerationOutputTypes.Model:           configType = ConfigType.Generator; break;
                 default:                                    configType = ConfigType.Skybox; break;
             }
-            var pipeline  = new GenerationPipeline(host, configType, GenerationRequestOrigin.Agent, sessionId);
+            var pipeline  = new GenerationPipeline(host, configType, GenerationRequestOrigin.Agent, sessionId, toolName ?? "");
             var assetGuid = targetAsset?.guid ?? "";
 
             EditorCoroutineUtility.StartCoroutineOwnerless(
@@ -235,7 +233,8 @@ namespace TJGenerators
 
         /// <summary>
         /// 同步提交生成任务到后端（约 1-3 秒），立即返回 backendTaskId 或失败原因。
-        /// 使用 HttpClient 阻塞式请求，不依赖 Unity player loop，编辑器会短暂冻结。
+        /// 使用与 <see cref="GenerationPipeline"/> 相同的 UnityWebRequest 路径（阻塞等待），
+        /// 避免 Unity Mono 下 HttpClient 的 Illegal byte sequence 缺陷；编辑器会短暂冻结。
         /// 所有 CustomTool 应调用此方法替代 pipeline.StartGeneration() 的提交阶段。
         /// </summary>
         public static TJGeneratorsSubmitResult SubmitTaskSync(ModelGeneratorBase generator, string sessionId = "")
@@ -267,85 +266,75 @@ namespace TJGenerators
                 };
             string url = ConfigManager.GetApiBaseUrl() + endpoint;
 
-            // 3. 构建请求体 & 同步发送
+            // 3. 构建请求体 & 同步发送（与 GenerationPipeline / ProductionBackendTransport 同路径）
             var requestData = generator.BuildRequestData();
             try
             {
-                using (var client = new HttpClient())
+                GenerationBackendSyncSubmit.HttpResult http;
+                if (requestData is MultipartRequestData multipart)
                 {
-                    client.Timeout = TimeSpan.FromSeconds(30);
-                    client.DefaultRequestHeaders.Add("Authorization", $"Bearer {token}");
-                    client.DefaultRequestHeaders.Add("orgId", UnityConnectSession.instance.GetOrgId());
-                    client.DefaultRequestHeaders.Add("source", "codely");
-                    // SubmitTaskSync 仅由 custom tool 调用，固定标记为 agent 来源
-                    client.DefaultRequestHeaders.Add(GenerationRequestOrigin.HeaderName, GenerationRequestOrigin.Agent);
-                    if (!string.IsNullOrEmpty(sessionId))
-                        client.DefaultRequestHeaders.Add(GenerationRequestOrigin.SessionIdHeaderName, sessionId);
-
-                    HttpResponseMessage response;
-                    if (requestData is MultipartRequestData multipart)
-                    {
-                        using (var form = new MultipartFormDataContent())
-                        {
-                            if (multipart.AdditionalFields != null)
-                                foreach (var kv in multipart.AdditionalFields)
-                                    form.Add(new StringContent(kv.Value), kv.Key);
-                            if (!string.IsNullOrEmpty(multipart.FilePath) && File.Exists(multipart.FilePath))
-                            {
-                                var bytes = File.ReadAllBytes(multipart.FilePath);
-                                form.Add(new ByteArrayContent(bytes), multipart.FileFieldName,
-                                    multipart.FileName ?? Path.GetFileName(multipart.FilePath));
-                            }
-                            response = client.PostAsync(url, form).Result;
-                        }
-                    }
-                    else
-                    {
-                        string jsonData = requestData is DynamicRequestData d
-                            ? d.JsonContent : JsonUtility.ToJson(requestData);
-                        response = client.PostAsync(url,
-                            new StringContent(jsonData, Encoding.UTF8, "application/json")).Result;
-                    }
-
-                    string body = response.Content.ReadAsStringAsync().Result;
-                    if (response.IsSuccessStatusCode)
-                    {
-                        var resp = JsonUtility.FromJson<TJTaskResponse>(body);
-                        if (resp != null && !string.IsNullOrEmpty(resp.taskId))
-                            return new TJGeneratorsSubmitResult { Success = true, BackendTaskId = resp.taskId };
-                        return new TJGeneratorsSubmitResult {
-                            Success = false, ErrorCode = "INVALID_RESPONSE",
-                            Message = string.Format(TJGeneratorsL10n.L("服务器响应格式异常: {0}"), body)
-                        };
-                    }
-                    switch ((int)response.StatusCode)
-                    {
-                        case 403:
-                            return new TJGeneratorsSubmitResult { Success = false, ErrorCode = "AUTH_REQUIRED",
-                                Message = TJGeneratorsL10n.L("登录权限检查失败，请确认编辑器左上角或者Hub内已登录") };
-                        case 401:
-                            return new TJGeneratorsSubmitResult { Success = false, ErrorCode = "AUTH_REQUIRED",
-                                Message = TJGeneratorsL10n.L("认证失败，请重新登录Unity账号") };
-                        case 422:
-                            return new TJGeneratorsSubmitResult { Success = false, ErrorCode = "INVALID_PARAMS",
-                                Message = string.Format(TJGeneratorsL10n.L("请求参数错误: {0}"), body) };
-                        case 429:
-                            return new TJGeneratorsSubmitResult { Success = false, ErrorCode = "RATE_LIMITED",
-                                Message = TJGeneratorsL10n.L("请求频率过高，请稍后重试") };
-                        default:
-                            return new TJGeneratorsSubmitResult { Success = false, ErrorCode = "SERVER_ERROR",
-                                Message = string.Format(TJGeneratorsL10n.L("提交失败 (HTTP {0}): {1}"), (int)response.StatusCode, body) };
-                    }
+                    http = GenerationBackendSyncSubmit.PostMultipart(
+                        url, multipart, GenerationRequestOrigin.Agent, sessionId);
                 }
-            }
-            catch (AggregateException ae) when (
-                ae.InnerException is HttpRequestException ||
-                ae.InnerException is TaskCanceledException)
-            {
-                return new TJGeneratorsSubmitResult {
-                    Success = false, ErrorCode = "NETWORK_ERROR",
-                    Message = string.Format(TJGeneratorsL10n.L("网络请求失败: {0}"), ae.InnerException.Message)
-                };
+                else
+                {
+                    string jsonData = requestData is DynamicRequestData d
+                        ? d.JsonContent : JsonUtility.ToJson(requestData);
+                    // Encoding.UTF8.GetBytes 不含 BOM，与 pipeline CreateTask 一致
+                    byte[] postData = Encoding.UTF8.GetBytes(jsonData ?? "");
+                    http = GenerationBackendSyncSubmit.PostJson(
+                        url, postData, GenerationRequestOrigin.Agent, sessionId);
+                }
+
+                if (http.TimedOut)
+                {
+                    return new TJGeneratorsSubmitResult {
+                        Success = false, ErrorCode = "NETWORK_ERROR",
+                        Message = string.Format(TJGeneratorsL10n.L("网络请求失败: {0}"), http.Error)
+                    };
+                }
+
+                string body = http.Body ?? "";
+                if (http.IsSuccess)
+                {
+                    var resp = JsonUtility.FromJson<TJTaskResponse>(body);
+                    if (resp != null && !string.IsNullOrEmpty(resp.taskId))
+                        return new TJGeneratorsSubmitResult { Success = true, BackendTaskId = resp.taskId };
+                    return new TJGeneratorsSubmitResult {
+                        Success = false, ErrorCode = "INVALID_RESPONSE",
+                        Message = string.Format(TJGeneratorsL10n.L("服务器响应格式异常: {0}"), body)
+                    };
+                }
+
+                // responseCode==0：传输层/网络错误（非 HTTP 状态）
+                if (http.ResponseCode == 0)
+                {
+                    return new TJGeneratorsSubmitResult {
+                        Success = false, ErrorCode = "NETWORK_ERROR",
+                        Message = string.Format(TJGeneratorsL10n.L("网络请求失败: {0}"),
+                            string.IsNullOrEmpty(http.Error) ? body : http.Error)
+                    };
+                }
+
+                switch ((int)http.ResponseCode)
+                {
+                    case 403:
+                        return new TJGeneratorsSubmitResult { Success = false, ErrorCode = "AUTH_REQUIRED",
+                            Message = TJGeneratorsL10n.L("登录权限检查失败，请确认编辑器左上角或者Hub内已登录") };
+                    case 401:
+                        return new TJGeneratorsSubmitResult { Success = false, ErrorCode = "AUTH_REQUIRED",
+                            Message = TJGeneratorsL10n.L("认证失败，请重新登录Unity账号") };
+                    case 422:
+                        return new TJGeneratorsSubmitResult { Success = false, ErrorCode = "INVALID_PARAMS",
+                            Message = string.Format(TJGeneratorsL10n.L("请求参数错误: {0}"), body) };
+                    case 429:
+                        return new TJGeneratorsSubmitResult { Success = false, ErrorCode = "RATE_LIMITED",
+                            Message = TJGeneratorsL10n.L("请求频率过高，请稍后重试") };
+                    default:
+                        return new TJGeneratorsSubmitResult { Success = false, ErrorCode = "SERVER_ERROR",
+                            Message = string.Format(TJGeneratorsL10n.L("提交失败 (HTTP {0}): {1}"),
+                                (int)http.ResponseCode, body) };
+                }
             }
             catch (Exception e)
             {
@@ -490,7 +479,7 @@ namespace TJGenerators
             return path;
         }
 
-        private sealed class HeadlessGenerationHost : IGenerationPipelineHost
+        private sealed class HeadlessGenerationHost : HeadlessPipelineHostBase, IMediaAssetPipelineHost
         {
             private readonly TJGeneratorsAssetReference _targetAsset;
 
@@ -499,35 +488,11 @@ namespace TJGenerators
                 _targetAsset = targetAsset;
             }
 
-            public TJGeneratorsAssetReference GetTargetAsset()
+            protected override string DialogLogTag => "TJGenerators";
+
+            public override TJGeneratorsAssetReference GetTargetAsset()
             {
                 return _targetAsset;
-            }
-
-            public void RefreshHistory()
-            {
-            }
-
-            public void ShowPreviewModel(string assetPath)
-            {
-            }
-
-            public void RefreshUserInfo()
-            {
-            }
-
-            public void Repaint()
-            {
-            }
-
-            public void StartGeneration(ModelGeneratorBase generator)
-            {
-                // Headless 模式无 UI，不触发窗口内生成
-            }
-
-            public void ShowDialog(string title, string message)
-            {
-                ErrorDialogUtils.ShowErrorDialog(title, message, "TJGenerators");
             }
 
             public string GetAssetSavePath(PipelineMediaType _type, ModelGeneratorBase generator)

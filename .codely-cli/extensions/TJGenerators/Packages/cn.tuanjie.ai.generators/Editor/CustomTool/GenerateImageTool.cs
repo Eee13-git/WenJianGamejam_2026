@@ -19,18 +19,9 @@ using Unity.EditorCoroutines.Editor;
 
 namespace UnityTcp.Editor.Tools
 {
-    /// <summary>
-    /// Tracks active image generation tasks.
-    /// </summary>
     public static class ImageTaskTracker
     {
 #if UNITY_EDITOR
-        private static readonly Dictionary<string, ImageTaskInfo> _activeTasks = new Dictionary<string, ImageTaskInfo>();
-        private static int _taskIdCounter = 0;
-
-        private const string SessionKeyIds = "TJGen_Image_Ids";
-        private const string SessionKeyFmt = "TJGen_Image_{0}";
-
         [Serializable]
         private class PersistedTask
         {
@@ -49,7 +40,7 @@ namespace UnityTcp.Editor.Tools
             public string backendTaskId;
         }
 
-        public class ImageTaskInfo
+        public class ImageTaskInfo : IGenerationTaskInfo
         {
             public string TaskId { get; set; }
             public string GeneratorId { get; set; }
@@ -66,82 +57,50 @@ namespace UnityTcp.Editor.Tools
             public string BackendTaskId { get; set; }
         }
 
-        internal static void SaveToSession(ImageTaskInfo info)
+        private static readonly GenerationTaskTrackerStore<ImageTaskInfo, PersistedTask> Store =
+            new GenerationTaskTrackerStore<ImageTaskInfo, PersistedTask>(
+                "TJGen_Image", BuildPersisted, FromPersisted);
+
+        private static PersistedTask BuildPersisted(ImageTaskInfo info) => new PersistedTask
         {
-            var p = new PersistedTask
-            {
-                taskId          = info.TaskId,
-                generatorId     = info.GeneratorId,
-                prompt          = info.Prompt ?? "",
-                imagePath       = info.ImagePath ?? "",
-                status          = info.Status,
-                progress        = info.Progress,
-                resultPath      = info.ResultPath ?? "",
-                errorMessage    = info.ErrorMessage ?? "",
-                startTimeTicks  = info.StartTime.Ticks,
-                endTimeTicks    = info.EndTime?.Ticks ?? 0,
-                previewUrl      = info.PreviewUrl ?? "",
-                placeholderPath = info.PlaceholderPath ?? "",
-                backendTaskId   = info.BackendTaskId ?? ""
-            };
-            SessionState.SetString(string.Format(SessionKeyFmt, info.TaskId), JsonUtility.ToJson(p));
-            string ids = SessionState.GetString(SessionKeyIds, "");
-            if (!ids.Contains(info.TaskId))
-                SessionState.SetString(SessionKeyIds, string.IsNullOrEmpty(ids) ? info.TaskId : ids + "|" + info.TaskId);
-        }
+            taskId          = info.TaskId,
+            generatorId     = info.GeneratorId,
+            prompt          = info.Prompt ?? "",
+            imagePath       = info.ImagePath ?? "",
+            status          = info.Status,
+            progress        = info.Progress,
+            resultPath      = info.ResultPath ?? "",
+            errorMessage    = info.ErrorMessage ?? "",
+            startTimeTicks  = info.StartTime.Ticks,
+            endTimeTicks    = info.EndTime?.Ticks ?? 0,
+            previewUrl      = info.PreviewUrl ?? "",
+            placeholderPath = info.PlaceholderPath ?? "",
+            backendTaskId   = info.BackendTaskId ?? ""
+        };
 
-        private static ImageTaskInfo TryRestoreFromSession(string taskId)
+        private static ImageTaskInfo FromPersisted(PersistedTask p) => new ImageTaskInfo
         {
-            string json = SessionState.GetString(string.Format(SessionKeyFmt, taskId), "");
-            if (string.IsNullOrEmpty(json)) return null;
-            PersistedTask p;
-            try { p = JsonUtility.FromJson<PersistedTask>(json); }
-            catch { return null; }
+            TaskId          = p.taskId,
+            GeneratorId     = p.generatorId,
+            Prompt          = p.prompt,
+            ImagePath       = p.imagePath,
+            Status          = p.status,
+            Progress        = p.progress,
+            ResultPath      = p.resultPath,
+            ErrorMessage    = p.errorMessage,
+            PreviewUrl      = p.previewUrl,
+            StartTime       = new DateTime(p.startTimeTicks),
+            EndTime         = p.endTimeTicks > 0 ? (DateTime?)new DateTime(p.endTimeTicks) : null,
+            PlaceholderPath = p.placeholderPath,
+            BackendTaskId   = p.backendTaskId
+        };
 
-            var info = new ImageTaskInfo
-            {
-                TaskId          = p.taskId,
-                GeneratorId     = p.generatorId,
-                Prompt          = p.prompt,
-                ImagePath       = p.imagePath,
-                Status          = p.status,
-                Progress        = p.progress,
-                ResultPath      = p.resultPath,
-                ErrorMessage    = p.errorMessage,
-                PreviewUrl      = p.previewUrl,
-                StartTime       = new DateTime(p.startTimeTicks),
-                EndTime         = p.endTimeTicks > 0 ? (DateTime?)new DateTime(p.endTimeTicks) : null,
-                PlaceholderPath = p.placeholderPath,
-                BackendTaskId   = p.backendTaskId
-            };
-
-            // Domain reload: resume if InterruptedTasks.json still has the backend task
-            if (info.Status == "initializing" || info.Status == "generating" || info.Status == "recovering" ||
-                info.Status == "running" || info.Status == "processing" || info.Status == "pending")
-            {
-                bool canRecover = TJGeneratorsTaskRecovery.HasActiveRecovery(info.BackendTaskId);
-
-                if (canRecover)
-                {
-                    info.Status = "recovering";
-                }
-                else
-                {
-                    info.Status       = "interrupted";
-                    info.ErrorMessage = TJGeneratorsL10n.L("生成因域重载中断且后端任务记录已丢失，请重新生成。");
-                    info.EndTime      = DateTime.Now;
-                }
-                SaveToSession(info);
-            }
-
-            _activeTasks[taskId] = info;
-            return info;
-        }
+        internal static void ApplyTaskUpdate(ImageTaskInfo task, Action<ImageTaskInfo> mutate) =>
+            Store.ApplyTaskUpdate(task, mutate);
 
         public static string CreateTask(string generatorId, string prompt, string imagePath = null, string placeholderPath = null, string backendTaskId = null)
         {
-            string taskId = $"image_{++_taskIdCounter}_{DateTime.Now.Ticks}";
-
+            string taskId = Store.AllocateTaskId("image");
             var task = new ImageTaskInfo
             {
                 TaskId          = taskId,
@@ -153,77 +112,49 @@ namespace UnityTcp.Editor.Tools
                 PlaceholderPath = placeholderPath,
                 BackendTaskId   = backendTaskId
             };
-            _activeTasks[taskId] = task;
-            SaveToSession(task);
-
+            Store.RegisterTask(taskId, task);
             return taskId;
         }
 
         public static void MarkTaskCompleted(string taskId, string resultPath, string previewUrl = null)
         {
-            if (_activeTasks.TryGetValue(taskId, out var task))
+            var task = Store.GetTask(taskId);
+            if (task == null) return;
+            Store.ApplyTaskUpdate(task, t =>
             {
-                task.Status     = "completed";
-                task.Progress   = 100;
-                task.ResultPath = resultPath;
-                task.PreviewUrl = previewUrl;
-                task.EndTime    = DateTime.Now;
-                SaveToSession(task);
-            }
+                t.Status     = "completed";
+                t.Progress   = 100;
+                t.ResultPath = resultPath;
+                t.PreviewUrl = previewUrl;
+                t.EndTime    = DateTime.Now;
+            });
         }
 
         public static void MarkTaskFailed(string taskId, string errorMessage)
         {
-            if (_activeTasks.TryGetValue(taskId, out var task))
+            var task = Store.GetTask(taskId);
+            if (task == null) return;
+            Store.ApplyTaskUpdate(task, t =>
             {
-                task.Status       = "failed";
-                task.ErrorMessage = errorMessage;
-                task.EndTime      = DateTime.Now;
-                SaveToSession(task);
-            }
+                t.Status       = "failed";
+                t.ErrorMessage = errorMessage;
+                t.EndTime      = DateTime.Now;
+            });
         }
 
-        public static ImageTaskInfo GetTask(string taskId)
-        {
-            if (_activeTasks.TryGetValue(taskId, out var task)) return task;
-            return TryRestoreFromSession(taskId);
-        }
+        public static ImageTaskInfo GetTask(string taskId) => Store.GetTask(taskId);
 
-        public static List<ImageTaskInfo> GetAllTasks()
-        {
-            string ids = SessionState.GetString(SessionKeyIds, "");
-            if (!string.IsNullOrEmpty(ids))
-            {
-                foreach (var id in ids.Split('|'))
-                {
-                    if (!string.IsNullOrEmpty(id) && !_activeTasks.ContainsKey(id))
-                        TryRestoreFromSession(id);
-                }
-            }
-            return new List<ImageTaskInfo>(_activeTasks.Values);
-        }
+        public static List<ImageTaskInfo> GetAllTasks() => Store.GetAllTasks();
 
-        public static ImageTaskInfo GetTaskByBackendId(string backendTaskId)
-        {
-            if (string.IsNullOrEmpty(backendTaskId)) return null;
-
-            var cached = _activeTasks.Values.FirstOrDefault(t => t.BackendTaskId == backendTaskId);
-            if (cached != null) return cached;
-
-            GetAllTasks();
-            return _activeTasks.Values.FirstOrDefault(t => t.BackendTaskId == backendTaskId);
-        }
+        public static ImageTaskInfo GetTaskByBackendId(string backendTaskId) =>
+            Store.GetTaskByBackendId(backendTaskId);
 
         public static ImageTaskInfo CreateRecoveredTask(
             string backendTaskId, string prompt, string placeholderPath, long timestampMs, string generatorId = null)
         {
-            var existing = GetTaskByBackendId(backendTaskId);
-            if (existing != null) return existing;
-
-            string taskId = $"recovered_{backendTaskId}";
-            var info = new ImageTaskInfo
+            return Store.CreateRecoveredTask(backendTaskId, () => new ImageTaskInfo
             {
-                TaskId          = taskId,
+                TaskId          = $"recovered_{backendTaskId}",
                 BackendTaskId   = backendTaskId,
                 GeneratorId     = generatorId ?? "",
                 Prompt          = prompt ?? "",
@@ -233,50 +164,18 @@ namespace UnityTcp.Editor.Tools
                 StartTime       = timestampMs > 0
                                     ? DateTimeOffset.FromUnixTimeMilliseconds(timestampMs).LocalDateTime
                                     : DateTime.Now
-            };
-
-            _activeTasks[taskId] = info;
-            SaveToSession(info);
-            return info;
+            });
         }
 
-        public static void RemoveTask(string taskId)
-        {
-            _activeTasks.Remove(taskId);
-            SessionState.EraseString(string.Format(SessionKeyFmt, taskId));
-            string ids = SessionState.GetString(SessionKeyIds, "");
-            var list = new List<string>(ids.Split('|'));
-            list.Remove(taskId);
-            SessionState.SetString(SessionKeyIds, string.Join("|", list));
-        }
+        public static void RemoveTask(string taskId) => Store.RemoveTask(taskId);
 
-        public static void CleanupCompletedTasks()
-        {
-            var toRemove = new List<string>();
-            foreach (var kvp in _activeTasks)
-            {
-                if ((kvp.Value.Status == "completed" || kvp.Value.Status == "failed") &&
-                    kvp.Value.EndTime.HasValue &&
-                    (DateTime.Now - kvp.Value.EndTime.Value).TotalMinutes > 60)
-                {
-                    toRemove.Add(kvp.Key);
-                }
-            }
-            foreach (var id in toRemove)
-                _activeTasks.Remove(id);
-        }
+        public static void CleanupCompletedTasks() => Store.CleanupCompletedTasks();
 #endif
     }
 
-    /// <summary>
-    /// Tracks auto 2D sprite-sequence workflow tasks.
-    /// </summary>
     public static class AutoSpriteSequenceTaskTracker
     {
 #if UNITY_EDITOR
-        private const string SessionKeyIds = "TJGen_AutoSpriteSeq_Ids";
-        private const string SessionKeyFmt = "TJGen_AutoSpriteSeq_{0}";
-
         [Serializable]
         private class PersistedAutoTask
         {
@@ -299,7 +198,7 @@ namespace UnityTcp.Editor.Tools
             public bool postProcessDone;
         }
 
-        public class AutoTaskInfo
+        public class AutoTaskInfo : IGenerationTaskInfo
         {
             public string TaskId { get; set; }
             public string ImageTaskId { get; set; }
@@ -318,154 +217,99 @@ namespace UnityTcp.Editor.Tools
             public DateTime StartTime { get; set; }
             public DateTime? EndTime { get; set; }
             public bool PostProcessDone { get; set; }
+
+            string IGenerationTaskInfo.BackendTaskId { get => ""; set { } }
+            int IGenerationTaskInfo.Progress { get => 0; set { } }
+            string IGenerationTaskInfo.PreviewUrl { get => ""; set { } }
+            string IGenerationTaskInfo.ErrorMessage { get => Error; set => Error = value; }
         }
 
-        private static readonly Dictionary<string, AutoTaskInfo> _tasks = new Dictionary<string, AutoTaskInfo>();
-        private static int _counter = 0;
+        private static readonly GenerationTaskTrackerStore<AutoTaskInfo, PersistedAutoTask> Store =
+            new GenerationTaskTrackerStore<AutoTaskInfo, PersistedAutoTask>(
+                "TJGen_AutoSpriteSeq",
+                BuildAutoTaskPersisted,
+                FromAutoTaskPersisted,
+                getBackendTaskId: _ => "",
+                matchesBackendTaskId: (t, id) => false,
+                reconcileAfterRestore: ReconcileAutoSpriteSeqAfterRestore);
 
-        public static string CreateTask(string imageTaskId, string prompt)
+        private static void ReconcileAutoSpriteSeqAfterRestore(AutoTaskInfo t, Action save)
         {
-            string id = $"auto_sprite_seq_{++_counter}_{DateTime.Now.Ticks}";
-            _tasks[id] = new AutoTaskInfo
-            {
-                TaskId = id,
-                ImageTaskId = imageTaskId,
-                Status = "submitted",
-                Prompt = prompt ?? "",
-                StartTime = DateTime.Now
-            };
-            SaveToSession(_tasks[id]);
-            return id;
-        }
-
-        public static AutoTaskInfo GetTask(string taskId)
-        {
-            if (_tasks.TryGetValue(taskId, out var t))
-                return t;
-            return TryRestoreFromSession(taskId);
-        }
-
-        public static List<AutoTaskInfo> GetAllTasks()
-        {
-            string ids = SessionState.GetString(SessionKeyIds, "");
-            if (!string.IsNullOrEmpty(ids))
-            {
-                foreach (var id in ids.Split('|'))
-                {
-                    if (!string.IsNullOrEmpty(id) && !_tasks.ContainsKey(id))
-                        TryRestoreFromSession(id);
-                }
-            }
-            return new List<AutoTaskInfo>(_tasks.Values);
-        }
-
-        public static void Save(AutoTaskInfo task)
-        {
-            if (task == null || string.IsNullOrEmpty(task.TaskId))
-                return;
-            _tasks[task.TaskId] = task;
-            SaveToSession(task);
-        }
-
-        public static void RemoveTask(string taskId)
-        {
-            _tasks.Remove(taskId);
-            SessionState.EraseString(string.Format(SessionKeyFmt, taskId));
-            string ids = SessionState.GetString(SessionKeyIds, "");
-            if (string.IsNullOrEmpty(ids))
-                return;
-            var list = new List<string>(ids.Split('|'));
-            list.Remove(taskId);
-            SessionState.SetString(SessionKeyIds, string.Join("|", list));
-        }
-
-        public static void CleanupCompletedTasks()
-        {
-            var toRemove = new List<string>();
-            foreach (var kvp in _tasks)
-            {
-                var t = kvp.Value;
-                if ((t.Status == "completed" || t.Status == "failed" || t.Status == "interrupted")
-                    && t.EndTime.HasValue
-                    && (DateTime.Now - t.EndTime.Value).TotalMinutes > 60)
-                {
-                    toRemove.Add(kvp.Key);
-                }
-            }
-            foreach (var id in toRemove)
-                RemoveTask(id);
-        }
-
-        private static void SaveToSession(AutoTaskInfo task)
-        {
-            var p = new PersistedAutoTask
-            {
-                taskId = task.TaskId,
-                imageTaskId = task.ImageTaskId ?? "",
-                status = task.Status ?? "",
-                prompt = task.Prompt ?? "",
-                error = task.Error ?? "",
-                imagePath = task.ImagePath ?? "",
-                spritesFolder = task.SpritesFolder ?? "",
-                animationPath = task.AnimationPath ?? "",
-                sliceColumns = task.SliceColumns,
-                sliceRows = task.SliceRows,
-                chromaTolerance = task.ChromaTolerance,
-                chromaFeather = task.ChromaFeather,
-                loop = task.Loop,
-                fps = task.Fps,
-                startTimeTicks = task.StartTime.Ticks,
-                endTimeTicks = task.EndTime?.Ticks ?? 0,
-                postProcessDone = task.PostProcessDone
-            };
-            SessionState.SetString(string.Format(SessionKeyFmt, task.TaskId), JsonUtility.ToJson(p));
-            string ids = SessionState.GetString(SessionKeyIds, "");
-            if (!ids.Contains(task.TaskId))
-                SessionState.SetString(SessionKeyIds, string.IsNullOrEmpty(ids) ? task.TaskId : ids + "|" + task.TaskId);
-        }
-
-        private static AutoTaskInfo TryRestoreFromSession(string taskId)
-        {
-            string json = SessionState.GetString(string.Format(SessionKeyFmt, taskId), "");
-            if (string.IsNullOrEmpty(json))
-                return null;
-
-            PersistedAutoTask p;
-            try { p = JsonUtility.FromJson<PersistedAutoTask>(json); }
-            catch { return null; }
-
-            var t = new AutoTaskInfo
-            {
-                TaskId = p.taskId,
-                ImageTaskId = p.imageTaskId,
-                Status = p.status,
-                Prompt = p.prompt,
-                Error = p.error,
-                ImagePath = p.imagePath,
-                SpritesFolder = p.spritesFolder,
-                AnimationPath = p.animationPath,
-                SliceColumns = p.sliceColumns,
-                SliceRows = p.sliceRows,
-                ChromaTolerance = p.chromaTolerance,
-                ChromaFeather = p.chromaFeather,
-                Loop = p.loop,
-                Fps = p.fps,
-                StartTime = p.startTimeTicks > 0 ? new DateTime(p.startTimeTicks) : DateTime.Now,
-                EndTime = p.endTimeTicks > 0 ? (DateTime?)new DateTime(p.endTimeTicks) : null,
-                PostProcessDone = p.postProcessDone
-            };
-
-            // domain reload 恢复语义：进行中任务标记为 recovering，允许 query 再次驱动流程
             if ((t.Status == "submitted" || t.Status == "generating" || t.Status == "postprocessing") && !t.PostProcessDone)
             {
                 t.Status = "recovering";
                 t.Error = "";
-                t.EndTime = null;
+                save?.Invoke();
             }
-
-            _tasks[taskId] = t;
-            return t;
         }
+
+        private static PersistedAutoTask BuildAutoTaskPersisted(AutoTaskInfo task) => new PersistedAutoTask
+        {
+            taskId          = task.TaskId,
+            imageTaskId     = task.ImageTaskId ?? "",
+            status          = task.Status ?? "",
+            prompt          = task.Prompt ?? "",
+            error           = task.Error ?? "",
+            imagePath       = task.ImagePath ?? "",
+            spritesFolder   = task.SpritesFolder ?? "",
+            animationPath   = task.AnimationPath ?? "",
+            sliceColumns    = task.SliceColumns,
+            sliceRows       = task.SliceRows,
+            chromaTolerance = task.ChromaTolerance,
+            chromaFeather   = task.ChromaFeather,
+            loop            = task.Loop,
+            fps             = task.Fps,
+            startTimeTicks  = task.StartTime.Ticks,
+            endTimeTicks    = task.EndTime?.Ticks ?? 0,
+            postProcessDone = task.PostProcessDone
+        };
+
+        private static AutoTaskInfo FromAutoTaskPersisted(PersistedAutoTask p) => new AutoTaskInfo
+        {
+            TaskId          = p.taskId,
+            ImageTaskId     = p.imageTaskId,
+            Status          = p.status,
+            Prompt          = p.prompt,
+            Error           = p.error,
+            ImagePath       = p.imagePath,
+            SpritesFolder   = p.spritesFolder,
+            AnimationPath   = p.animationPath,
+            SliceColumns    = p.sliceColumns,
+            SliceRows       = p.sliceRows,
+            ChromaTolerance = p.chromaTolerance,
+            ChromaFeather   = p.chromaFeather,
+            Loop            = p.loop,
+            Fps             = p.fps,
+            StartTime       = p.startTimeTicks > 0 ? new DateTime(p.startTimeTicks) : DateTime.Now,
+            EndTime         = p.endTimeTicks > 0 ? (DateTime?)new DateTime(p.endTimeTicks) : null,
+            PostProcessDone = p.postProcessDone
+        };
+
+        public static string CreateTask(string imageTaskId, string prompt)
+        {
+            string id = Store.AllocateTaskId("auto_sprite_seq");
+            var task = new AutoTaskInfo
+            {
+                TaskId      = id,
+                ImageTaskId = imageTaskId,
+                Status      = "submitted",
+                Prompt      = prompt ?? "",
+                StartTime   = DateTime.Now
+            };
+            Store.RegisterTask(id, task);
+            return id;
+        }
+
+        public static AutoTaskInfo GetTask(string taskId) => Store.GetTask(taskId);
+
+        public static List<AutoTaskInfo> GetAllTasks() => Store.GetAllTasks();
+
+        internal static void ApplyTaskUpdate(AutoTaskInfo task, Action<AutoTaskInfo> mutate) =>
+            Store.ApplyTaskUpdate(task, mutate);
+
+        public static void RemoveTask(string taskId) => Store.RemoveTask(taskId);
+
+        public static void CleanupCompletedTasks() => Store.CleanupCompletedTasks();
 #endif
     }
 
@@ -833,14 +677,16 @@ namespace UnityTcp.Editor.Tools
 
                 string autoTaskId = AutoSpriteSequenceTaskTracker.CreateTask(imageTaskId, wrapped["prompt"]?.ToString());
                 var autoTask = AutoSpriteSequenceTaskTracker.GetTask(autoTaskId);
-                autoTask.SliceColumns = cols;
-                autoTask.SliceRows = rows;
-                autoTask.ChromaTolerance = tolerance;
-                autoTask.ChromaFeather = feather;
-                autoTask.Fps = fps;
-                autoTask.Loop = loop;
-                autoTask.Status = "generating";
-                AutoSpriteSequenceTaskTracker.Save(autoTask);
+                AutoSpriteSequenceTaskTracker.ApplyTaskUpdate(autoTask, t =>
+                {
+                    t.SliceColumns = cols;
+                    t.SliceRows = rows;
+                    t.ChromaTolerance = tolerance;
+                    t.ChromaFeather = feather;
+                    t.Fps = fps;
+                    t.Loop = loop;
+                    t.Status = "generating";
+                });
 
                 return new Dictionary<string, object>
                 {
@@ -918,28 +764,30 @@ namespace UnityTcp.Editor.Tools
                     var imageTask = imageTaskForPreview;
                     if (imageTask == null)
                     {
-                        autoTask.Status = "interrupted";
-                        autoTask.Error = $"Image task '{autoTask.ImageTaskId}' not found.";
-                        autoTask.EndTime = DateTime.Now;
-                        AutoSpriteSequenceTaskTracker.Save(autoTask);
+                        AutoSpriteSequenceTaskTracker.ApplyTaskUpdate(autoTask, t =>
+                        {
+                            t.Status = "interrupted";
+                            t.Error = $"Image task '{autoTask.ImageTaskId}' not found.";
+                            t.EndTime = DateTime.Now;
+                        });
                     }
                     else if (imageTask.Status == "failed" || imageTask.Status == "interrupted")
                     {
-                        autoTask.Status = imageTask.Status == "interrupted" ? "interrupted" : "failed";
-                        autoTask.Error = imageTask.ErrorMessage ?? $"Image task status: {imageTask.Status}";
-                        autoTask.EndTime = DateTime.Now;
-                        AutoSpriteSequenceTaskTracker.Save(autoTask);
+                        AutoSpriteSequenceTaskTracker.ApplyTaskUpdate(autoTask, t =>
+                        {
+                            t.Status = imageTask.Status == "interrupted" ? "interrupted" : "failed";
+                            t.Error = imageTask.ErrorMessage ?? $"Image task status: {imageTask.Status}";
+                            t.EndTime = DateTime.Now;
+                        });
                     }
                     else if (imageTask.Status == "completed")
                     {
-                        autoTask.Status = "postprocessing";
-                        AutoSpriteSequenceTaskTracker.Save(autoTask);
+                        AutoSpriteSequenceTaskTracker.ApplyTaskUpdate(autoTask, t => t.Status = "postprocessing");
                         RunAutoPostProcess(autoTask, imageTask.ResultPath);
                     }
                     else
                     {
-                        autoTask.Status = "generating";
-                        AutoSpriteSequenceTaskTracker.Save(autoTask);
+                        AutoSpriteSequenceTaskTracker.ApplyTaskUpdate(autoTask, t => t.Status = "generating");
                     }
                 }
 
@@ -1658,10 +1506,12 @@ namespace UnityTcp.Editor.Tools
                 return;
             if (string.IsNullOrEmpty(imageAssetPath))
             {
-                autoTask.Status = "failed";
-                autoTask.Error = "Image generation completed but image path is empty.";
-                autoTask.EndTime = DateTime.Now;
-                AutoSpriteSequenceTaskTracker.Save(autoTask);
+                AutoSpriteSequenceTaskTracker.ApplyTaskUpdate(autoTask, t =>
+                {
+                    t.Status = "failed";
+                    t.Error = "Image generation completed but image path is empty.";
+                    t.EndTime = DateTime.Now;
+                });
                 return;
             }
 
@@ -1677,20 +1527,24 @@ namespace UnityTcp.Editor.Tools
                     autoTask.Loop
                 );
 
-                autoTask.ImagePath = imageAssetPath;
-                autoTask.SpritesFolder = sliceResult.OutputDirectory;
-                autoTask.AnimationPath = sliceResult.AnimationClipPath;
-                autoTask.Status = "completed";
-                autoTask.PostProcessDone = true;
-                autoTask.EndTime = DateTime.Now;
-                AutoSpriteSequenceTaskTracker.Save(autoTask);
+                AutoSpriteSequenceTaskTracker.ApplyTaskUpdate(autoTask, t =>
+                {
+                    t.ImagePath = imageAssetPath;
+                    t.SpritesFolder = sliceResult.OutputDirectory;
+                    t.AnimationPath = sliceResult.AnimationClipPath;
+                    t.Status = "completed";
+                    t.PostProcessDone = true;
+                    t.EndTime = DateTime.Now;
+                });
             }
             catch (Exception e)
             {
-                autoTask.Status = "failed";
-                autoTask.Error = $"Post-process failed: {e.Message}";
-                autoTask.EndTime = DateTime.Now;
-                AutoSpriteSequenceTaskTracker.Save(autoTask);
+                AutoSpriteSequenceTaskTracker.ApplyTaskUpdate(autoTask, t =>
+                {
+                    t.Status = "failed";
+                    t.Error = $"Post-process failed: {e.Message}";
+                    t.EndTime = DateTime.Now;
+                });
             }
         }
 
@@ -2111,8 +1965,7 @@ namespace UnityTcp.Editor.Tools
                     {
                         CustomToolDomainReloadRecovery.MarkTrackerRecoveringIfNeeded(trackerTask.Status, () =>
                         {
-                            trackerTask.Status = "recovering";
-                            ImageTaskTracker.SaveToSession(trackerTask);
+                            ImageTaskTracker.ApplyTaskUpdate(trackerTask, t => t.Status = "recovering");
                         });
                     }
                     else
@@ -2139,7 +1992,7 @@ namespace UnityTcp.Editor.Tools
     /// <summary>
     /// Headless pipeline host for resuming image tasks after domain reload.
     /// </summary>
-    internal class ImageRecoveryHost : IGenerationPipelineHost
+    internal class ImageRecoveryHost : HeadlessPipelineHostBase, IMediaAssetPipelineHost
     {
         private readonly string _placeholderPath;
         private readonly TJGeneratorsAssetReference _placeholderRef;
@@ -2158,14 +2011,11 @@ namespace UnityTcp.Editor.Tools
             _generator = generator;
         }
 
-        public TJGeneratorsAssetReference GetTargetAsset() => _placeholderRef;
+        protected override string DialogLogTag => "ImageRecovery";
 
-        public void RefreshHistory() { }
-        public void ShowPreviewModel(string assetPath) { }
-        public void RefreshUserInfo() { }
-        public void StartGeneration(ModelGeneratorBase generator) { }
+        public override TJGeneratorsAssetReference GetTargetAsset() => _placeholderRef;
 
-        public void Repaint()
+        public override void Repaint()
         {
             if (_generator == null) return;
             var trackerTask = ImageTaskTracker.GetTaskByBackendId(_backendTaskId);
@@ -2174,14 +2024,16 @@ namespace UnityTcp.Editor.Tools
             int progress = _generator.CurrentProgress;
             if (progress <= trackerTask.Progress) return;
 
-            trackerTask.Status = "generating";
-            trackerTask.Progress = progress;
-            ImageTaskTracker.SaveToSession(trackerTask);
+            ImageTaskTracker.ApplyTaskUpdate(trackerTask, t =>
+            {
+                t.Status = "generating";
+                t.Progress = progress;
+            });
         }
 
-        public void ShowDialog(string title, string message)
+        public override void ShowDialog(string title, string message)
         {
-            ErrorDialogUtils.ShowErrorDialog(title, message, "ImageRecovery");
+            base.ShowDialog(title, message);
 
             if (ErrorDialogUtils.IsErrorDialog(title))
             {
@@ -2249,7 +2101,7 @@ namespace UnityTcp.Editor.Tools
     /// IGenerationPipelineHost implementation for headless image generation via custom tools.
     /// Keeps TextureImporterType.Default (not Sprite) to match the Image window behavior.
     /// </summary>
-    internal class ImagePipelineHost : IGenerationPipelineHost
+    internal class ImagePipelineHost : HeadlessPipelineHostBase, IMediaAssetPipelineHost
     {
         private readonly string _placeholderPath;
         private readonly TJGeneratorsAssetReference _placeholderRef;
@@ -2266,22 +2118,14 @@ namespace UnityTcp.Editor.Tools
             _onFailed        = onFailed;
         }
 
-        public TJGeneratorsAssetReference GetTargetAsset() => _placeholderRef;
+        protected override string DialogLogTag => "GenerateImageTool";
+        protected override Action<string> DialogFailedCallback => errorMessage => _onFailed?.Invoke(errorMessage);
+
+        public override TJGeneratorsAssetReference GetTargetAsset() => _placeholderRef;
 
         public void StartEditorCoroutine(IEnumerator coroutine)
         {
             EditorCoroutineUtility.StartCoroutineOwnerless(coroutine);
-        }
-
-        public void RefreshHistory() { }
-        public void ShowPreviewModel(string assetPath) { }
-        public void RefreshUserInfo() { }
-        public void Repaint() { }
-        public void StartGeneration(ModelGeneratorBase generator) { }
-
-        public void ShowDialog(string title, string message)
-        {
-            ErrorDialogUtils.ShowErrorDialog(title, message, (errorMessage) => _onFailed?.Invoke(errorMessage), "GenerateImageTool");
         }
 
         public string GetAssetSavePath(PipelineMediaType _type, ModelGeneratorBase generator) =>

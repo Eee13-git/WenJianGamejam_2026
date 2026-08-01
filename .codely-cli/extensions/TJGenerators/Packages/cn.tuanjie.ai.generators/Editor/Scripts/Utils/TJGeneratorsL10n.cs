@@ -339,6 +339,9 @@ namespace TJGenerators.Utils
             _translations["确认替换"] = "Confirm Replace";
             _translations["清空历史记录"] = "Clear History";
             _translations["确定要清空所有 TJGenerators 生成历史记录吗？此操作不可撤销。"] = "Are you sure you want to clear all TJGenerators history? This cannot be undone.";
+            _translations["清除轮询任务记录"] = "Clear Polling Task Records";
+            _translations["确定要清除所有轮询中的生成任务记录吗？将清空本地中断任务与「生成中」占位符，并停止本地继续轮询。后端暂无取消接口，服务器上的任务可能仍会继续运行。"] =
+                "Clear all in-progress polling task records? This removes local interrupted tasks and generating placeholders, and stops further local polling. There is no backend cancel API, so server-side jobs may keep running.";
             _translations["场景中没有该预制体的实例。"] = "No instances of this prefab in the scene.";
             _translations["请先选择一个目标预制体。"] = "Please select a target prefab first.";
 
@@ -431,6 +434,7 @@ namespace TJGenerators.Utils
 
             // ---- Skybox 窗口补充 ----
             _translations["错误"] = "Error";
+            _translations["当前宿主不支持触发生成。"] = "The current host does not support triggering generation.";
             _translations["该历史记录的纹理文件不存在，可能已被删除。"] = "The texture file for this history record does not exist.";
             _translations["请先绑定或创建目标天空盒资产。"] = "Please bind or create a target skybox asset first.";
             _translations["确定要将选中的历史天空盒应用到 {0} 吗？"] = "Apply selected skybox to {0}?";
@@ -731,6 +735,13 @@ namespace TJGenerators.Utils
             _translations["未找到模型下载URL"] = "Model download URL not found";
             _translations["未找到纹理资产下载URL"] = "Texture asset download URL not found";
             _translations["无法确定纹理资产保存路径"] = "Cannot determine texture asset save path";
+            _translations["'output_path' 不能为空。"] = "'output_path' is empty.";
+            _translations["'output_path' 必须是 Assets 相对路径（Assets/...），或位于工程 Assets 目录下的绝对路径。收到：'{0}'"] =
+                "'output_path' must be an Assets-relative path (Assets/...) or an absolute path under the project Assets folder. Got: '{0}'";
+            _translations["'output_path' 必须解析到工程 Assets 目录下。收到：'{0}'"] =
+                "'output_path' must resolve under the project Assets folder. Got: '{0}'";
+            _translations["'output_path' 无法转换为 Assets 相对路径。收到：'{0}'"] =
+                "'output_path' could not be converted to an Assets-relative path. Got: '{0}'";
             _translations["下载的纹理数据为空"] = "Downloaded texture data is empty";
             _translations["未找到序列帧下载URL"] = "Sequence frame download URL not found";
             _translations["下载的帧数据为空"] = "Downloaded frame data is empty";

@@ -34,12 +34,6 @@ Beyond the common report structure, include:
 - For SFX: whether prompt was translated from Chinese to English
 """
 
-[agent.model_config]
-model = "codely-core"
-
-[agent.model_config.sampling_params]
-reasoning_effort = "high"
-
 [agent.run_config]
 stream = false
 max_turns = 1000

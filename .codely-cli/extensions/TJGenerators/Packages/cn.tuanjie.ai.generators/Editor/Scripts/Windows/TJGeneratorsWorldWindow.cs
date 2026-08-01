@@ -20,7 +20,7 @@ namespace TJGenerators
     /// <summary>
     /// TJGenerators 世界生成窗口 - 使用 World Labs Marble 生成 3D 世界
     /// </summary>
-    public class TJGeneratorsWorldWindow : GenerationWindowBase, IGenerationPipelineHost
+    public class TJGeneratorsWorldWindow : GenerationWindowBase, IGenerationPipelineHost, IGenerationTriggerHost, IMediaAssetPipelineHost
     {
         // ========== 基类抽象属性实现 ==========
         protected override ConfigType WindowConfigType => ConfigType.World;
@@ -713,7 +713,7 @@ namespace TJGenerators
             return targetWorldAsset?.guid ?? "";
         }
 
-        public void ShowPreviewModel(string assetPath)
+        public void OnGenerationCompleted(string assetPath)
         {
             if (generationHistory != null && !string.IsNullOrEmpty(assetPath))
             {
@@ -1172,11 +1172,6 @@ namespace TJGenerators
             {
                 TJLog.LogWarning($"[TJGeneratorsWorld] Collider mesh 文件已保存但无法自动导入: {meshPath}\n如需使用，请安装 GLB 导入器（如 GLTFast）");
             }
-        }
-
-        void IGenerationPipelineHost.Repaint()
-        {
-            Repaint();
         }
     }
 }

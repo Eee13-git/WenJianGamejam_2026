@@ -24,12 +24,6 @@ namespace UnityTcp.Editor.Tools
     public static class EffectVideoTaskTracker
     {
 #if UNITY_EDITOR
-        private static readonly Dictionary<string, EffectVideoTaskInfo> _activeTasks = new Dictionary<string, EffectVideoTaskInfo>();
-        private static int _taskIdCounter = 0;
-
-        private const string SessionKeyIds = "TJGen_EffectVideo_Ids";
-        private const string SessionKeyFmt = "TJGen_EffectVideo_{0}";
-
         [Serializable]
         private class PersistedTask
         {
@@ -47,7 +41,7 @@ namespace UnityTcp.Editor.Tools
             public string backendTaskId;
         }
 
-        public class EffectVideoTaskInfo
+        public class EffectVideoTaskInfo : IGenerationTaskInfo
         {
             public string TaskId { get; set; }
             public string Prompt { get; set; }
@@ -63,69 +57,48 @@ namespace UnityTcp.Editor.Tools
             public string BackendTaskId { get; set; }
         }
 
-        internal static void SaveToSession(EffectVideoTaskInfo info)
+        private static readonly GenerationTaskTrackerStore<EffectVideoTaskInfo, PersistedTask> Store =
+            new GenerationTaskTrackerStore<EffectVideoTaskInfo, PersistedTask>(
+                "TJGen_EffectVideo", BuildPersisted, FromPersisted);
+
+        private static PersistedTask BuildPersisted(EffectVideoTaskInfo info) => new PersistedTask
         {
-            var p = new PersistedTask
-            {
-                taskId          = info.TaskId,
-                prompt          = info.Prompt ?? "",
-                status          = info.Status,
-                progress        = info.Progress,
-                videoPath       = info.VideoPath ?? "",
-                materialPath    = info.MaterialPath ?? "",
-                errorMessage    = info.ErrorMessage ?? "",
-                startTimeTicks  = info.StartTime.Ticks,
-                endTimeTicks    = info.EndTime?.Ticks ?? 0,
-                previewUrl      = info.PreviewUrl ?? "",
-                placeholderPath = info.PlaceholderPath ?? "",
-                backendTaskId   = info.BackendTaskId ?? ""
-            };
-            SessionState.SetString(string.Format(SessionKeyFmt, info.TaskId), JsonUtility.ToJson(p));
-            string ids = SessionState.GetString(SessionKeyIds, "");
-            if (!ids.Contains(info.TaskId))
-                SessionState.SetString(SessionKeyIds, string.IsNullOrEmpty(ids) ? info.TaskId : ids + "|" + info.TaskId);
-        }
+            taskId          = info.TaskId,
+            prompt          = info.Prompt ?? "",
+            status          = info.Status,
+            progress        = info.Progress,
+            videoPath       = info.VideoPath ?? "",
+            materialPath    = info.MaterialPath ?? "",
+            errorMessage    = info.ErrorMessage ?? "",
+            startTimeTicks  = info.StartTime.Ticks,
+            endTimeTicks    = info.EndTime?.Ticks ?? 0,
+            previewUrl      = info.PreviewUrl ?? "",
+            placeholderPath = info.PlaceholderPath ?? "",
+            backendTaskId   = info.BackendTaskId ?? ""
+        };
 
-        private static EffectVideoTaskInfo TryRestoreFromSession(string taskId)
+        private static EffectVideoTaskInfo FromPersisted(PersistedTask p) => new EffectVideoTaskInfo
         {
-            string json = SessionState.GetString(string.Format(SessionKeyFmt, taskId), "");
-            if (string.IsNullOrEmpty(json)) return null;
-            PersistedTask p;
-            try { p = JsonUtility.FromJson<PersistedTask>(json); }
-            catch { return null; }
+            TaskId          = p.taskId,
+            Prompt          = p.prompt,
+            Status          = p.status,
+            Progress        = p.progress,
+            VideoPath       = p.videoPath,
+            MaterialPath    = p.materialPath,
+            ErrorMessage    = p.errorMessage,
+            PreviewUrl      = p.previewUrl,
+            StartTime       = new DateTime(p.startTimeTicks),
+            EndTime         = p.endTimeTicks > 0 ? (DateTime?)new DateTime(p.endTimeTicks) : null,
+            PlaceholderPath = p.placeholderPath,
+            BackendTaskId   = p.backendTaskId
+        };
 
-            var info = new EffectVideoTaskInfo
-            {
-                TaskId          = p.taskId,
-                Prompt          = p.prompt,
-                Status          = p.status,
-                Progress        = p.progress,
-                VideoPath       = p.videoPath,
-                MaterialPath    = p.materialPath,
-                ErrorMessage    = p.errorMessage,
-                PreviewUrl      = p.previewUrl,
-                StartTime       = new DateTime(p.startTimeTicks),
-                EndTime         = p.endTimeTicks > 0 ? (DateTime?)new DateTime(p.endTimeTicks) : null,
-                PlaceholderPath = p.placeholderPath,
-                BackendTaskId   = p.backendTaskId
-            };
-
-            if (info.Status == "generating" || info.Status == "initializing")
-            {
-                info.Status       = "interrupted";
-                info.ErrorMessage = "Generation was interrupted (domain reload). Please re-generate.";
-                info.EndTime      = DateTime.Now;
-                SaveToSession(info);
-            }
-
-            _activeTasks[taskId] = info;
-            return info;
-        }
+        internal static void ApplyTaskUpdate(EffectVideoTaskInfo task, Action<EffectVideoTaskInfo> mutate) =>
+            Store.ApplyTaskUpdate(task, mutate);
 
         public static string CreateTask(string prompt, string placeholderPath, string backendTaskId = null)
         {
-            string taskId = $"effectvideo_{++_taskIdCounter}_{DateTime.Now.Ticks}";
-
+            string taskId = Store.AllocateTaskId("effectvideo");
             var task = new EffectVideoTaskInfo
             {
                 TaskId          = taskId,
@@ -135,82 +108,64 @@ namespace UnityTcp.Editor.Tools
                 PlaceholderPath = placeholderPath,
                 BackendTaskId   = backendTaskId
             };
-            _activeTasks[taskId] = task;
-            SaveToSession(task);
-
+            Store.RegisterTask(taskId, task);
             return taskId;
         }
 
         public static void MarkTaskCompleted(string taskId, string videoPath, string materialPath, string previewUrl)
         {
-            if (_activeTasks.TryGetValue(taskId, out var task))
+            var task = Store.GetTask(taskId);
+            if (task == null) return;
+            Store.ApplyTaskUpdate(task, t =>
             {
-                task.Status       = "completed";
-                task.Progress     = 100;
-                task.VideoPath    = videoPath;
-                task.MaterialPath = materialPath;
-                task.PreviewUrl   = previewUrl;
-                task.EndTime      = DateTime.Now;
-                SaveToSession(task);
-            }
+                t.Status       = "completed";
+                t.Progress     = 100;
+                t.VideoPath    = videoPath;
+                t.MaterialPath = materialPath;
+                t.PreviewUrl   = previewUrl;
+                t.EndTime      = DateTime.Now;
+            });
         }
 
         public static void MarkTaskFailed(string taskId, string errorMessage)
         {
-            if (_activeTasks.TryGetValue(taskId, out var task))
+            var task = Store.GetTask(taskId);
+            if (task == null) return;
+            Store.ApplyTaskUpdate(task, t =>
             {
-                task.Status       = "failed";
-                task.ErrorMessage = errorMessage;
-                task.EndTime      = DateTime.Now;
-                SaveToSession(task);
-            }
+                t.Status       = "failed";
+                t.ErrorMessage = errorMessage;
+                t.EndTime      = DateTime.Now;
+            });
         }
 
-        public static EffectVideoTaskInfo GetTask(string taskId)
-        {
-            if (_activeTasks.TryGetValue(taskId, out var task)) return task;
-            return TryRestoreFromSession(taskId);
-        }
+        public static EffectVideoTaskInfo GetTask(string taskId) => Store.GetTask(taskId);
 
-        public static List<EffectVideoTaskInfo> GetAllTasks()
+        public static List<EffectVideoTaskInfo> GetAllTasks() => Store.GetAllTasks();
+
+        public static EffectVideoTaskInfo GetTaskByBackendId(string backendTaskId) =>
+            Store.GetTaskByBackendId(backendTaskId);
+
+        public static EffectVideoTaskInfo CreateRecoveredTask(
+            string backendTaskId, string prompt, string placeholderPath, long timestampMs)
         {
-            string ids = SessionState.GetString(SessionKeyIds, "");
-            if (!string.IsNullOrEmpty(ids))
+            return Store.CreateRecoveredTask(backendTaskId, () => new EffectVideoTaskInfo
             {
-                foreach (var id in ids.Split('|'))
-                {
-                    if (!string.IsNullOrEmpty(id) && !_activeTasks.ContainsKey(id))
-                        TryRestoreFromSession(id);
-                }
-            }
-            return new List<EffectVideoTaskInfo>(_activeTasks.Values);
+                TaskId          = $"recovered_{backendTaskId}",
+                BackendTaskId   = backendTaskId,
+                Prompt          = prompt ?? "",
+                PlaceholderPath = placeholderPath ?? "",
+                Status          = "recovering",
+                Progress        = 0,
+                StartTime       = timestampMs > 0
+                                    ? DateTimeOffset.FromUnixTimeMilliseconds(timestampMs).LocalDateTime
+                                    : DateTime.Now
+            });
         }
 
-        public static void RemoveTask(string taskId)
-        {
-            _activeTasks.Remove(taskId);
-            SessionState.EraseString(string.Format(SessionKeyFmt, taskId));
-            string ids = SessionState.GetString(SessionKeyIds, "");
-            var list = new List<string>(ids.Split('|'));
-            list.Remove(taskId);
-            SessionState.SetString(SessionKeyIds, string.Join("|", list));
-        }
+        public static void RemoveTask(string taskId) => Store.RemoveTask(taskId);
 
-        public static void CleanupCompletedTasks()
-        {
-            var toRemove = new List<string>();
-            foreach (var kvp in _activeTasks)
-            {
-                if ((kvp.Value.Status == "completed" || kvp.Value.Status == "failed") &&
-                    kvp.Value.EndTime.HasValue &&
-                    (DateTime.Now - kvp.Value.EndTime.Value).TotalMinutes > 60)
-                {
-                    toRemove.Add(kvp.Key);
-                }
-            }
-            foreach (var id in toRemove)
-                _activeTasks.Remove(id);
-        }
+        public static void CleanupCompletedTasks() => Store.CleanupCompletedTasks();
 #endif
     }
 
@@ -292,44 +247,8 @@ namespace UnityTcp.Editor.Tools
                     placeholderPath,
                     sessionId,
                     (savedPath, previewUrl) =>
-                    {
-                        // Video downloaded — create ChromaKey material for real-time keying
-                        TJLog.Log($"[GenerateEffectVideoTool] Video downloaded, creating ChromaKey material: {savedPath}");
-
-                        var postResult = GreenScreenVideoPostProcess.EnsureChromaKeyMaterial(savedPath);
-
-                        string materialPath = "";
-                        if (postResult.Success)
-                        {
-                            materialPath = postResult.MaterialPath;
-                            GreenScreenVideoPostProcess.SetupEffectVideoInScene(savedPath, materialPath);
-                        }
-                        else
-                        {
-                            TJLog.LogError($"[GenerateEffectVideoTool] ChromaKey material creation failed: {postResult.Error}");
-                        }
-
-                        EffectVideoTaskTracker.MarkTaskCompleted(taskId, savedPath, materialPath, previewUrl);
-
-                        var t = EffectVideoTaskTracker.GetTask(taskId);
-                        var notifyPayload = new JObject
-                        {
-                            ["session_id"]    = sessionId,
-                            ["generator_id"]   = generatorId,
-                            ["prompt"]         = prompt ?? "",
-                            ["video_path"]     = savedPath ?? "",
-                            ["material_path"]  = materialPath ?? "",
-                            ["preview_url"]    = previewUrl ?? "",
-                            ["progress"]       = 100,
-                            ["start_time"]     = t?.StartTime.ToString("yyyy-MM-dd HH:mm:ss") ?? "",
-                            ["end_time"]       = t?.EndTime?.ToString("yyyy-MM-dd HH:mm:ss") ?? "",
-                            ["duration_seconds"] = (t != null && t.EndTime.HasValue) ? (int)(t.EndTime.Value - t.StartTime).TotalSeconds : 0
-                        };
-                        if (!postResult.Success)
-                            notifyPayload["warning"] = $"ChromaKey material creation failed: {postResult.Error}";
-
-                        GenerationNotifier.NotifyCompleted("generate_effect_video", taskId, capturedBackendTaskId, notifyPayload);
-                    },
+                        GenerateEffectVideoTool.CompleteEffectVideoTask(
+                            taskId, capturedBackendTaskId, savedPath, previewUrl, sessionId, prompt),
                     errorMsg =>
                     {
                         EffectVideoTaskTracker.MarkTaskFailed(taskId, errorMsg);
@@ -338,7 +257,7 @@ namespace UnityTcp.Editor.Tools
                     }
                 );
 
-                var pipeline = new GenerationPipeline(host, ConfigType.Video, GenerationRequestOrigin.Agent, sessionId);
+                var pipeline = new GenerationPipeline(host, ConfigType.Video, GenerationRequestOrigin.Agent, sessionId, "generate_effect_video");
                 string historyAssetGuid = CustomToolHistoryBindings.HistoryGuidFromPlaceholderAssetPath(placeholderPath);
                 EditorCoroutineUtility.StartCoroutineOwnerless(
                     pipeline.StartFromSubmittedTask(generator, historyAssetGuid, submitResult.BackendTaskId));
@@ -386,7 +305,7 @@ namespace UnityTcp.Editor.Tools
         [ExecuteCustomTool.CustomTool("query_effect_video_status",
             "Query the status of an effect video generation task. Use ONLY as a one-time fallback if no <bg_task_done> notification arrives. " +
             "When completed, returns 'video_path' (green-screen MP4) and 'material_path' (ChromaKey material). " +
-            "Status values: 'generating', 'completed', 'failed', 'interrupted'. " +
+            "Status values: 'generating', 'recovering', 'completed', 'failed', 'interrupted'. " +
             "WARNING: Do NOT call this tool repeatedly. Polling is forbidden.")]
         public static object QueryEffectVideoStatus(JObject parameters)
         {
@@ -435,7 +354,7 @@ namespace UnityTcp.Editor.Tools
                     result["duration_seconds"]  = (int)(task.EndTime.Value - task.StartTime).TotalSeconds;
                 }
 
-                if (task.Status == "generating" && !string.IsNullOrEmpty(task.PlaceholderPath))
+                if ((task.Status == "generating" || task.Status == "recovering") && !string.IsNullOrEmpty(task.PlaceholderPath))
                     result["placeholder_path"] = task.PlaceholderPath;
 
                 return result;
@@ -513,14 +432,137 @@ namespace UnityTcp.Editor.Tools
 #endif
         }
 
+        internal static void CompleteEffectVideoTask(
+            string taskId, string backendTaskId, string savedPath, string previewUrl, string sessionId, string prompt)
+        {
+            TJLog.Log($"[GenerateEffectVideoTool] Video downloaded, creating ChromaKey material: {savedPath}");
+
+            var postResult = GreenScreenVideoPostProcess.EnsureChromaKeyMaterial(savedPath);
+
+            string materialPath = "";
+            if (postResult.Success)
+            {
+                materialPath = postResult.MaterialPath;
+                GreenScreenVideoPostProcess.SetupEffectVideoInScene(savedPath, materialPath);
+            }
+            else
+            {
+                TJLog.LogError($"[GenerateEffectVideoTool] ChromaKey material creation failed: {postResult.Error}");
+            }
+
+            EffectVideoTaskTracker.MarkTaskCompleted(taskId, savedPath, materialPath, previewUrl);
+
+            var t = EffectVideoTaskTracker.GetTask(taskId);
+            var notifyPayload = new JObject
+            {
+                ["session_id"]       = sessionId,
+                ["generator_id"]     = "effect_video_wf",
+                ["prompt"]           = prompt ?? t?.Prompt ?? "",
+                ["video_path"]       = savedPath ?? "",
+                ["material_path"]    = materialPath ?? "",
+                ["preview_url"]      = previewUrl ?? "",
+                ["progress"]         = 100,
+                ["start_time"]       = t?.StartTime.ToString("yyyy-MM-dd HH:mm:ss") ?? "",
+                ["end_time"]         = t?.EndTime?.ToString("yyyy-MM-dd HH:mm:ss") ?? "",
+                ["duration_seconds"] = (t != null && t.EndTime.HasValue) ? (int)(t.EndTime.Value - t.StartTime).TotalSeconds : 0
+            };
+            if (!postResult.Success)
+                notifyPayload["warning"] = $"ChromaKey material creation failed: {postResult.Error}";
+
+            GenerationNotifier.NotifyCompleted("generate_effect_video", taskId, backendTaskId, notifyPayload);
+        }
+
+        /// <summary>
+        /// Restore prompt after domain reload. Session tracker takes precedence.
+        /// </summary>
+        internal static void ApplyEffectVideoRecoveryGeneratorSettings(
+            DynamicGenerator generator, InterruptedTaskData interrupted, EffectVideoTaskTracker.EffectVideoTaskInfo trackerTask = null)
+        {
+            if (generator == null || interrupted == null) return;
+
+            string prompt = !string.IsNullOrEmpty(trackerTask?.Prompt) ? trackerTask.Prompt : interrupted.prompt;
+            if (!string.IsNullOrEmpty(prompt))
+                generator.SetTextPrompt(prompt);
+        }
     }
 
 #if UNITY_EDITOR
     /// <summary>
+    /// Automatically resumes interrupted generate_effect_video tasks after domain reload.
+    /// </summary>
+    [InitializeOnLoad]
+    public static class EffectVideoDomainReloadRecovery
+    {
+        static EffectVideoDomainReloadRecovery()
+        {
+            CustomToolDomainReloadRecovery.Schedule(ResumeInterruptedTasks);
+        }
+
+        private static void ResumeInterruptedTasks()
+        {
+            CustomToolDomainReloadRecovery.Resume(
+                "GenerateEffectVideoTool",
+                ConfigType.Video,
+                t => t.toolName == "generate_effect_video",
+                () => EffectVideoTaskTracker.GetAllTasks(),
+                (interrupted, _, generator) =>
+                {
+                    var trackerTask = EffectVideoTaskTracker.GetTaskByBackendId(interrupted.backendTaskId);
+                    if (trackerTask != null)
+                    {
+                        CustomToolDomainReloadRecovery.MarkTrackerRecoveringIfNeeded(trackerTask.Status, () =>
+                        {
+                            EffectVideoTaskTracker.ApplyTaskUpdate(trackerTask, t => t.Status = "recovering");
+                        });
+                    }
+                    else
+                    {
+                        string placeholderPath = CustomToolDomainReloadRecovery.ResolveAssetPath(interrupted.targetAssetGuid);
+                        trackerTask = EffectVideoTaskTracker.CreateRecoveredTask(
+                            interrupted.backendTaskId, interrupted.prompt, placeholderPath, interrupted.timestamp);
+                    }
+
+                    string placeholderPathForHost = trackerTask.PlaceholderPath ?? "";
+                    if (string.IsNullOrEmpty(placeholderPathForHost))
+                        placeholderPathForHost = CustomToolDomainReloadRecovery.ResolveAssetPath(interrupted.targetAssetGuid);
+
+                    string sessionId = interrupted.sessionId ?? "";
+                    string capturedBackendTaskId = interrupted.backendTaskId;
+                    string taskId = trackerTask.TaskId;
+                    string prompt = trackerTask.Prompt ?? interrupted.prompt ?? "";
+
+                    GenerateEffectVideoTool.ApplyEffectVideoRecoveryGeneratorSettings(generator, interrupted, trackerTask);
+
+                    var host = new EffectVideoPipelineHost(
+                        placeholderPathForHost,
+                        sessionId,
+                        (savedPath, previewUrl) =>
+                            GenerateEffectVideoTool.CompleteEffectVideoTask(
+                                taskId, capturedBackendTaskId, savedPath, previewUrl, sessionId, prompt),
+                        errorMsg =>
+                        {
+                            EffectVideoTaskTracker.MarkTaskFailed(taskId, errorMsg);
+                            GenerationNotifier.NotifyFailed("generate_effect_video", taskId, capturedBackendTaskId, errorMsg,
+                                new JObject
+                                {
+                                    ["session_id"]   = sessionId,
+                                    ["generator_id"] = "effect_video_wf",
+                                    ["prompt"]       = prompt
+                                });
+                        });
+
+                    CustomToolDomainReloadRecovery.StartPolling(
+                        "GenerateEffectVideoTool", host, ConfigType.Video,
+                        sessionId, "generate_effect_video", generator, interrupted.backendTaskId);
+                });
+        }
+    }
+
+    /// <summary>
     /// Pipeline host for effect video generation.
     /// After video download, creates a ChromaKey material for real-time green-screen keying.
     /// </summary>
-    internal class EffectVideoPipelineHost : IGenerationPipelineHost
+    internal class EffectVideoPipelineHost : HeadlessPipelineHostBase, IMediaAssetPipelineHost
     {
         private readonly string _placeholderPath;
         private readonly TJGeneratorsAssetReference _placeholderRef;
@@ -541,22 +583,14 @@ namespace UnityTcp.Editor.Tools
             _onFailed          = onFailed;
         }
 
-        public TJGeneratorsAssetReference GetTargetAsset() => _placeholderRef;
+        protected override string DialogLogTag => "GenerateEffectVideoTool";
+        protected override Action<string> DialogFailedCallback => errorMessage => _onFailed?.Invoke(errorMessage);
+
+        public override TJGeneratorsAssetReference GetTargetAsset() => _placeholderRef;
 
         public void StartEditorCoroutine(IEnumerator coroutine)
         {
             EditorCoroutineUtility.StartCoroutineOwnerless(coroutine);
-        }
-
-        public void RefreshHistory() { }
-        public void ShowPreviewModel(string assetPath) { }
-        public void RefreshUserInfo() { }
-        public void Repaint() { }
-        public void StartGeneration(ModelGeneratorBase generator) { }
-
-        public void ShowDialog(string title, string message)
-        {
-            ErrorDialogUtils.ShowErrorDialog(title, message, (errorMessage) => _onFailed?.Invoke(errorMessage), "GenerateEffectVideoTool");
         }
 
         public string GetAssetSavePath(PipelineMediaType _type, ModelGeneratorBase generator) =>

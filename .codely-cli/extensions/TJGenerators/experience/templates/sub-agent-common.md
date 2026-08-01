@@ -76,7 +76,11 @@ Log: `Debug.Log("Found existing [Name] — reusing instead of creating duplicate
 
 完整规则见 [generator-async-pattern §5.1](generator-async-pattern.md#51-place_assets_in_scene-调用规则)。Final Report 中**不要**问 caller "需要放到场景吗"——子代理负责放置，告诉 caller 资产已在场景里（给出 GameObject 名）。
 
-## 7. 各 agent 应保留的特有内容
+## 7. TJGenerators 包版本（按需）
+
+用户或 caller 需要当前插件版本时：`activate_skill("unity-tjgenerators-version")`，用 `execute_csharp_script` 调 `GenerationRequestOrigin.GetPackageVersion()`（Unity 实际加载的 UPM 包）。**禁止**读 `.codely-cli/extensions/TJGenerators/`（Codely 扩展拷贝，常与 `file:` 本地包版本不一致）或 `Assets/TJGenerators/`（History）。
+
+## 8. 各 agent 应保留的特有内容
 
 抽出本模板后，各 agent toml 仍应详细写：
 

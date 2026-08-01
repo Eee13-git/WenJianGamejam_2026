@@ -18,7 +18,7 @@ namespace TJGenerators
     /// <summary>
     /// TJGenerators 2D 精灵表序列帧生成窗口：生成 1:1 spritesheet → 绿幕抠图 → 网格切片 → Sprites + AnimationClip。
     /// </summary>
-    public class TJGeneratorsSpriteSheetSequenceWindow : GenerationWindowBase, IGenerationPipelineHost
+    public class TJGeneratorsSpriteSheetSequenceWindow : GenerationWindowBase, IGenerationPipelineHost, IGenerationTriggerHost, IMediaAssetPipelineHost
     {
         private const string GeneratorId = "frontier-game-design";
 
@@ -1182,7 +1182,7 @@ namespace TJGenerators
                 StartGeneration();
         }
 
-        public void ShowPreviewModel(string assetPath)
+        public void OnGenerationCompleted(string assetPath)
         {
             if (generationHistory != null && !string.IsNullOrEmpty(assetPath))
             {
@@ -1318,8 +1318,6 @@ namespace TJGenerators
                     EditorGUIUtility.PingObject(dirAsset);
             }
         }
-
-        void IGenerationPipelineHost.Repaint() => Repaint();
 
         private void ApplyGeneratorFilter()
         {

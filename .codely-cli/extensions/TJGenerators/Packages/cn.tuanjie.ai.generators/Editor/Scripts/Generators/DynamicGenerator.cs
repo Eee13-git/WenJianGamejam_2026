@@ -908,7 +908,10 @@ namespace TJGenerators.Generators
                     }
                     UpdateEndpointForInputMode();
                 }
-                context.StartGeneration(this);
+                if (context is IGenerationTriggerHost triggerHost)
+                    triggerHost.StartGeneration(this);
+                else
+                    ErrorDialogUtils.ShowErrorDialog(TJGeneratorsL10n.L("错误"), TJGeneratorsL10n.L("当前宿主不支持触发生成。"), "[DynamicGenerator]");
             }
             else
             {
@@ -1668,7 +1671,7 @@ namespace TJGenerators.Generators
             string targetAssetGuid
         )
         {
-            return new InterruptedTaskData
+            var data = new InterruptedTaskData
             {
                 backendTaskId = backendTaskId,
                 localTaskId = CurrentGeneratingTaskId,
@@ -1681,6 +1684,45 @@ namespace TJGenerators.Generators
                 targetAssetGuid = targetAssetGuid ?? "",
                 status = "pending",
             };
+
+            var animationType = GetParameter("animation_type")?.ToString();
+            if (!string.IsNullOrEmpty(animationType))
+                data.animationType = animationType;
+
+            if (GetParameter("fps") != null && int.TryParse(GetParameter("fps").ToString(), out int fps) && fps > 0)
+                data.fps = fps;
+
+            if (GetParameter("loop") != null)
+            {
+                data.loopSpecified = true;
+                if (GetParameter("loop") is bool loopBool)
+                    data.loop = loopBool;
+                else if (bool.TryParse(GetParameter("loop").ToString(), out bool loopParsed))
+                    data.loop = loopParsed;
+            }
+
+            return data;
+        }
+
+        public override void RestoreFromInterruptedTask(InterruptedTaskData taskData)
+        {
+            base.RestoreFromInterruptedTask(taskData);
+            if (taskData == null) return;
+
+            if (!string.IsNullOrEmpty(taskData.prompt))
+                SetTextPrompt(taskData.prompt);
+
+            if (!string.IsNullOrEmpty(taskData.imagePath))
+                SetImagePath(taskData.imagePath);
+
+            if (!string.IsNullOrEmpty(taskData.animationType))
+                SetParameter("animation_type", taskData.animationType);
+
+            if (taskData.fps > 0)
+                SetParameter("fps", taskData.fps);
+
+            if (taskData.loopSpecified)
+                SetParameter("loop", taskData.loop);
         }
 
         #endregion

@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using Codely.Newtonsoft.Json.Linq;
 using UnityEngine;
 using UnityEditor;
@@ -23,12 +24,6 @@ namespace UnityTcp.Editor.Tools
     public static class VideoTaskTracker
     {
 #if UNITY_EDITOR
-        private static readonly Dictionary<string, VideoTaskInfo> _activeTasks = new Dictionary<string, VideoTaskInfo>();
-        private static int _taskIdCounter = 0;
-
-        private const string SessionKeyIds = "TJGen_Video_Ids";
-        private const string SessionKeyFmt = "TJGen_Video_{0}";
-
         [Serializable]
         private class PersistedTask
         {
@@ -48,7 +43,7 @@ namespace UnityTcp.Editor.Tools
             public string backendTaskId;
         }
 
-        public class VideoTaskInfo
+        public class VideoTaskInfo : IGenerationTaskInfo
         {
             public string TaskId { get; set; }
             public string GeneratorId { get; set; }
@@ -66,74 +61,52 @@ namespace UnityTcp.Editor.Tools
             public string BackendTaskId { get; set; }
         }
 
-        internal static void SaveToSession(VideoTaskInfo info)
+        private static readonly GenerationTaskTrackerStore<VideoTaskInfo, PersistedTask> Store =
+            new GenerationTaskTrackerStore<VideoTaskInfo, PersistedTask>(
+                "TJGen_Video", BuildPersisted, FromPersisted);
+
+        private static PersistedTask BuildPersisted(VideoTaskInfo info) => new PersistedTask
         {
-            var p = new PersistedTask
-            {
-                taskId          = info.TaskId,
-                generatorId     = info.GeneratorId,
-                prompt          = info.Prompt ?? "",
-                imagePath       = info.ImagePath ?? "",
-                status          = info.Status,
-                progress        = info.Progress,
-                videoPath       = info.VideoPath ?? "",
-                errorMessage    = info.ErrorMessage ?? "",
-                startTimeTicks  = info.StartTime.Ticks,
-                endTimeTicks    = info.EndTime?.Ticks ?? 0,
-                previewUrl      = info.PreviewUrl ?? "",
-                lastFrameUrl    = info.LastFrameUrl ?? "",
-                placeholderPath = info.PlaceholderPath ?? "",
-                backendTaskId   = info.BackendTaskId ?? ""
-            };
-            SessionState.SetString(string.Format(SessionKeyFmt, info.TaskId), JsonUtility.ToJson(p));
-            string ids = SessionState.GetString(SessionKeyIds, "");
-            if (!ids.Contains(info.TaskId))
-                SessionState.SetString(SessionKeyIds, string.IsNullOrEmpty(ids) ? info.TaskId : ids + "|" + info.TaskId);
-        }
+            taskId          = info.TaskId,
+            generatorId     = info.GeneratorId,
+            prompt          = info.Prompt ?? "",
+            imagePath       = info.ImagePath ?? "",
+            status          = info.Status,
+            progress        = info.Progress,
+            videoPath       = info.VideoPath ?? "",
+            errorMessage    = info.ErrorMessage ?? "",
+            startTimeTicks  = info.StartTime.Ticks,
+            endTimeTicks    = info.EndTime?.Ticks ?? 0,
+            previewUrl      = info.PreviewUrl ?? "",
+            lastFrameUrl    = info.LastFrameUrl ?? "",
+            placeholderPath = info.PlaceholderPath ?? "",
+            backendTaskId   = info.BackendTaskId ?? ""
+        };
 
-        private static VideoTaskInfo TryRestoreFromSession(string taskId)
+        private static VideoTaskInfo FromPersisted(PersistedTask p) => new VideoTaskInfo
         {
-            string json = SessionState.GetString(string.Format(SessionKeyFmt, taskId), "");
-            if (string.IsNullOrEmpty(json)) return null;
-            PersistedTask p;
-            try { p = JsonUtility.FromJson<PersistedTask>(json); }
-            catch { return null; }
+            TaskId          = p.taskId,
+            GeneratorId     = p.generatorId,
+            Prompt          = p.prompt,
+            ImagePath       = p.imagePath,
+            Status          = p.status,
+            Progress        = p.progress,
+            VideoPath       = p.videoPath,
+            ErrorMessage    = p.errorMessage,
+            PreviewUrl      = p.previewUrl,
+            LastFrameUrl    = p.lastFrameUrl,
+            StartTime       = new DateTime(p.startTimeTicks),
+            EndTime         = p.endTimeTicks > 0 ? (DateTime?)new DateTime(p.endTimeTicks) : null,
+            PlaceholderPath = p.placeholderPath,
+            BackendTaskId   = p.backendTaskId
+        };
 
-            var info = new VideoTaskInfo
-            {
-                TaskId          = p.taskId,
-                GeneratorId     = p.generatorId,
-                Prompt          = p.prompt,
-                ImagePath       = p.imagePath,
-                Status          = p.status,
-                Progress        = p.progress,
-                VideoPath       = p.videoPath,
-                ErrorMessage    = p.errorMessage,
-                PreviewUrl      = p.previewUrl,
-                LastFrameUrl    = p.lastFrameUrl,
-                StartTime       = new DateTime(p.startTimeTicks),
-                EndTime         = p.endTimeTicks > 0 ? (DateTime?)new DateTime(p.endTimeTicks) : null,
-                PlaceholderPath = p.placeholderPath,
-                BackendTaskId   = p.backendTaskId
-            };
-
-            // pipeline 无法在 domain reload 后恢复，一律标记为中断
-            if (info.Status == "generating" || info.Status == "initializing")
-            {
-                info.Status       = "interrupted";
-                info.ErrorMessage = "Generation was interrupted (domain reload). Please re-generate.";
-                info.EndTime      = DateTime.Now;
-                SaveToSession(info);
-            }
-
-            _activeTasks[taskId] = info;
-            return info;
-        }
+        internal static void ApplyTaskUpdate(VideoTaskInfo task, Action<VideoTaskInfo> mutate) =>
+            Store.ApplyTaskUpdate(task, mutate);
 
         public static string CreateTask(string generatorId, string prompt, string imagePath, string placeholderPath, string backendTaskId = null)
         {
-            string taskId = $"video_{++_taskIdCounter}_{DateTime.Now.Ticks}";
-
+            string taskId = Store.AllocateTaskId("video");
             var task = new VideoTaskInfo
             {
                 TaskId          = taskId,
@@ -145,90 +118,69 @@ namespace UnityTcp.Editor.Tools
                 PlaceholderPath = placeholderPath,
                 BackendTaskId   = backendTaskId
             };
-            _activeTasks[taskId] = task;
-            SaveToSession(task);
-
+            Store.RegisterTask(taskId, task);
             return taskId;
         }
 
         public static void MarkTaskCompleted(string taskId, string videoPath, string previewUrl = null, string lastFrameUrl = null)
         {
-            if (_activeTasks.TryGetValue(taskId, out var task))
+            var task = Store.GetTask(taskId);
+            if (task == null) return;
+            Store.ApplyTaskUpdate(task, t =>
             {
-                task.Status      = "completed";
-                task.Progress    = 100;
-                task.VideoPath   = videoPath;
-                task.PreviewUrl  = previewUrl;
-                task.LastFrameUrl = lastFrameUrl;
-                task.EndTime     = DateTime.Now;
-                SaveToSession(task);
-            }
+                t.Status       = "completed";
+                t.Progress     = 100;
+                t.VideoPath    = videoPath;
+                t.PreviewUrl   = previewUrl;
+                t.LastFrameUrl = lastFrameUrl;
+                t.EndTime      = DateTime.Now;
+            });
         }
 
         public static void MarkTaskFailed(string taskId, string errorMessage)
         {
-            if (_activeTasks.TryGetValue(taskId, out var task))
+            var task = Store.GetTask(taskId);
+            if (task == null) return;
+            Store.ApplyTaskUpdate(task, t =>
             {
-                task.Status       = "failed";
-                task.ErrorMessage = errorMessage;
-                task.EndTime      = DateTime.Now;
-                SaveToSession(task);
-            }
+                t.Status       = "failed";
+                t.ErrorMessage = errorMessage;
+                t.EndTime      = DateTime.Now;
+            });
         }
 
-        public static VideoTaskInfo GetTask(string taskId)
-        {
-            if (_activeTasks.TryGetValue(taskId, out var task)) return task;
-            return TryRestoreFromSession(taskId);
-        }
+        public static VideoTaskInfo GetTask(string taskId) => Store.GetTask(taskId);
 
-        public static List<VideoTaskInfo> GetAllTasks()
+        public static List<VideoTaskInfo> GetAllTasks() => Store.GetAllTasks();
+
+        public static VideoTaskInfo GetTaskByBackendId(string backendTaskId) =>
+            Store.GetTaskByBackendId(backendTaskId);
+
+        public static VideoTaskInfo CreateRecoveredTask(
+            string backendTaskId, string prompt, string placeholderPath, long timestampMs, string generatorId = null, string imagePath = null)
         {
-            string ids = SessionState.GetString(SessionKeyIds, "");
-            if (!string.IsNullOrEmpty(ids))
+            return Store.CreateRecoveredTask(backendTaskId, () => new VideoTaskInfo
             {
-                foreach (var id in ids.Split('|'))
-                {
-                    if (!string.IsNullOrEmpty(id) && !_activeTasks.ContainsKey(id))
-                        TryRestoreFromSession(id);
-                }
-            }
-            return new List<VideoTaskInfo>(_activeTasks.Values);
+                TaskId          = $"recovered_{backendTaskId}",
+                BackendTaskId   = backendTaskId,
+                GeneratorId     = generatorId ?? "",
+                Prompt          = prompt ?? "",
+                ImagePath       = imagePath ?? "",
+                PlaceholderPath = placeholderPath ?? "",
+                Status          = "recovering",
+                Progress        = 0,
+                StartTime       = timestampMs > 0
+                                    ? DateTimeOffset.FromUnixTimeMilliseconds(timestampMs).LocalDateTime
+                                    : DateTime.Now
+            });
         }
 
-        public static void RemoveTask(string taskId)
-        {
-            _activeTasks.Remove(taskId);
-            SessionState.EraseString(string.Format(SessionKeyFmt, taskId));
-            string ids = SessionState.GetString(SessionKeyIds, "");
-            var list = new List<string>(ids.Split('|'));
-            list.Remove(taskId);
-            SessionState.SetString(SessionKeyIds, string.Join("|", list));
-        }
+        public static void RemoveTask(string taskId) => Store.RemoveTask(taskId);
 
-        public static void CleanupCompletedTasks()
-        {
-            var toRemove = new List<string>();
-            foreach (var kvp in _activeTasks)
-            {
-                if ((kvp.Value.Status == "completed" || kvp.Value.Status == "failed") &&
-                    kvp.Value.EndTime.HasValue &&
-                    (DateTime.Now - kvp.Value.EndTime.Value).TotalMinutes > 60)
-                {
-                    toRemove.Add(kvp.Key);
-                }
-            }
-            foreach (var id in toRemove)
-                _activeTasks.Remove(id);
-        }
+        public static void CleanupCompletedTasks() => Store.CleanupCompletedTasks();
 #endif
     }
 
-    /// <summary>
-    /// CustomTool for generating video assets using TJGenerators Video pipeline.
-    /// Supports text-to-video and image-to-video generation.
-    /// Output is an MP4 (VideoClip) saved to Assets/TJGenerators/History/.
-    /// </summary>
     public static class GenerateVideoTool
     {
         [ExecuteCustomTool.CustomTool("generate_video",
@@ -345,7 +297,7 @@ namespace UnityTcp.Editor.Tools
                 );
 
                 // 阶段 2：异步轮询（跳过提交）
-                var pipeline = new GenerationPipeline(host, ConfigType.Video, GenerationRequestOrigin.Agent, sessionId);
+                var pipeline = new GenerationPipeline(host, ConfigType.Video, GenerationRequestOrigin.Agent, sessionId, "generate_video");
                 string historyAssetGuid = CustomToolHistoryBindings.HistoryGuidFromPlaceholderAssetPath(placeholderPath);
                 EditorCoroutineUtility.StartCoroutineOwnerless(
                     pipeline.StartFromSubmittedTask(generator, historyAssetGuid, submitResult.BackendTaskId));
@@ -399,7 +351,7 @@ namespace UnityTcp.Editor.Tools
         [ExecuteCustomTool.CustomTool("query_video_status",
             "Query the status of a video generation task. Use ONLY as a one-time fallback if no <bg_task_done> notification arrives. " +
             "When completed, returns 'video_path' with the VideoClip asset path in the project. " +
-            "Status values: 'generating', 'completed', 'failed', 'interrupted'. " +
+            "Status values: 'generating', 'recovering', 'completed', 'failed', 'interrupted'. " +
             "WARNING: Do NOT call this tool repeatedly. Polling is forbidden.")]
         public static object QueryVideoStatus(JObject parameters)
         {
@@ -451,7 +403,7 @@ namespace UnityTcp.Editor.Tools
                     result["duration_seconds"]  = (int)(task.EndTime.Value - task.StartTime).TotalSeconds;
                 }
 
-                if (task.Status == "generating")
+                if (task.Status == "generating" || task.Status == "recovering")
                 {
                     if (!string.IsNullOrEmpty(task.PlaceholderPath))
                         result["placeholder_path"] = task.PlaceholderPath;
@@ -574,6 +526,31 @@ namespace UnityTcp.Editor.Tools
             ApplyVideoParameters(generator, generatorId, parameters);
         }
 
+        /// <summary>
+        /// Restore prompt/image and generator-specific defaults after domain reload.
+        /// Session tracker takes precedence over InterruptedTasks.json.
+        /// </summary>
+        internal static void ApplyVideoRecoveryGeneratorSettings(
+            DynamicGenerator generator, InterruptedTaskData interrupted, VideoTaskTracker.VideoTaskInfo trackerTask = null)
+        {
+            if (generator == null || interrupted == null) return;
+
+            string generatorId = trackerTask?.GeneratorId ?? interrupted.modelVersion ?? generator.GeneratorId ?? "";
+            string prompt = !string.IsNullOrEmpty(trackerTask?.Prompt) ? trackerTask.Prompt : interrupted.prompt;
+            string imagePath = !string.IsNullOrEmpty(trackerTask?.ImagePath) ? trackerTask.ImagePath : interrupted.imagePath;
+
+            if (!string.IsNullOrEmpty(prompt))
+                generator.SetTextPrompt(prompt);
+            if (!string.IsNullOrEmpty(imagePath))
+                generator.SetImagePath(imagePath);
+
+            if (generatorId == "huoshan_seedance")
+            {
+                generator.SetParameter("mode",
+                    !string.IsNullOrEmpty(imagePath) ? "reference_image" : "text_to_video");
+            }
+        }
+
         private static void ApplyVideoParameters(DynamicGenerator generator, string generatorId, JObject parameters)
         {
             // Huoshan SeeDream Video parameters
@@ -632,10 +609,97 @@ namespace UnityTcp.Editor.Tools
 
 #if UNITY_EDITOR
     /// <summary>
+    /// Automatically resumes interrupted generate_video tasks after domain reload.
+    /// </summary>
+    [InitializeOnLoad]
+    public static class VideoDomainReloadRecovery
+    {
+        static VideoDomainReloadRecovery()
+        {
+            CustomToolDomainReloadRecovery.Schedule(ResumeInterruptedTasks);
+        }
+
+        private static void ResumeInterruptedTasks()
+        {
+            CustomToolDomainReloadRecovery.Resume(
+                "GenerateVideoTool",
+                ConfigType.Video,
+                t => t.toolName == "generate_video",
+                () => VideoTaskTracker.GetAllTasks(),
+                (interrupted, _, generator) =>
+                {
+                    var trackerTask = VideoTaskTracker.GetTaskByBackendId(interrupted.backendTaskId);
+                    if (trackerTask != null)
+                    {
+                        CustomToolDomainReloadRecovery.MarkTrackerRecoveringIfNeeded(trackerTask.Status, () =>
+                        {
+                            VideoTaskTracker.ApplyTaskUpdate(trackerTask, t => t.Status = "recovering");
+                        });
+                    }
+                    else
+                    {
+                        string placeholderPath = CustomToolDomainReloadRecovery.ResolveAssetPath(interrupted.targetAssetGuid);
+                        trackerTask = VideoTaskTracker.CreateRecoveredTask(
+                            interrupted.backendTaskId, interrupted.prompt, placeholderPath, interrupted.timestamp,
+                            interrupted.modelVersion, interrupted.imagePath);
+                    }
+
+                    string placeholderPathForHost = trackerTask.PlaceholderPath ?? "";
+                    if (string.IsNullOrEmpty(placeholderPathForHost))
+                        placeholderPathForHost = CustomToolDomainReloadRecovery.ResolveAssetPath(interrupted.targetAssetGuid);
+
+                    GenerateVideoTool.ApplyVideoRecoveryGeneratorSettings(generator, interrupted, trackerTask);
+
+                    string sessionId = interrupted.sessionId ?? "";
+                    string capturedBackendTaskId = interrupted.backendTaskId;
+                    string taskId = trackerTask.TaskId;
+
+                    var host = new VideoPipelineHost(
+                        placeholderPathForHost,
+                        sessionId,
+                        (savedPath, previewUrl, lastFrameUrl) =>
+                        {
+                            VideoTaskTracker.MarkTaskCompleted(taskId, savedPath, previewUrl, lastFrameUrl);
+                            var t = VideoTaskTracker.GetTask(taskId);
+                            GenerationNotifier.NotifyCompleted("generate_video", taskId, capturedBackendTaskId,
+                                new JObject
+                                {
+                                    ["session_id"]       = sessionId,
+                                    ["generator_id"]     = t?.GeneratorId ?? interrupted.modelVersion ?? "",
+                                    ["prompt"]           = t?.Prompt ?? interrupted.prompt ?? "",
+                                    ["video_path"]       = savedPath ?? "",
+                                    ["preview_url"]      = previewUrl ?? "",
+                                    ["last_frame_url"]   = lastFrameUrl ?? "",
+                                    ["progress"]         = 100,
+                                    ["start_time"]       = t?.StartTime.ToString("yyyy-MM-dd HH:mm:ss") ?? "",
+                                    ["end_time"]         = t?.EndTime?.ToString("yyyy-MM-dd HH:mm:ss") ?? "",
+                                    ["duration_seconds"] = (t != null && t.EndTime.HasValue) ? (int)(t.EndTime.Value - t.StartTime).TotalSeconds : 0
+                                });
+                        },
+                        errorMsg =>
+                        {
+                            VideoTaskTracker.MarkTaskFailed(taskId, errorMsg);
+                            GenerationNotifier.NotifyFailed("generate_video", taskId, capturedBackendTaskId, errorMsg,
+                                new JObject
+                                {
+                                    ["session_id"]   = sessionId,
+                                    ["generator_id"] = trackerTask.GeneratorId ?? interrupted.modelVersion ?? "",
+                                    ["prompt"]       = trackerTask.Prompt ?? interrupted.prompt ?? ""
+                                });
+                        });
+
+                    CustomToolDomainReloadRecovery.StartPolling(
+                        "GenerateVideoTool", host, ConfigType.Video,
+                        sessionId, "generate_video", generator, interrupted.backendTaskId);
+                });
+        }
+    }
+
+    /// <summary>
     /// IGenerationPipelineHost implementation for headless video generation via custom tools.
     /// Handles video saving and task lifecycle callbacks.
     /// </summary>
-    internal class VideoPipelineHost : IGenerationPipelineHost
+    internal class VideoPipelineHost : HeadlessPipelineHostBase, IMediaAssetPipelineHost
     {
         private readonly string _placeholderPath;
         private readonly TJGeneratorsAssetReference _placeholderRef;
@@ -652,22 +716,14 @@ namespace UnityTcp.Editor.Tools
             _onFailed        = onFailed;
         }
 
-        public TJGeneratorsAssetReference GetTargetAsset() => _placeholderRef;
+        protected override string DialogLogTag => "GenerateVideoTool";
+        protected override Action<string> DialogFailedCallback => errorMessage => _onFailed?.Invoke(errorMessage);
+
+        public override TJGeneratorsAssetReference GetTargetAsset() => _placeholderRef;
 
         public void StartEditorCoroutine(IEnumerator coroutine)
         {
             EditorCoroutineUtility.StartCoroutineOwnerless(coroutine);
-        }
-
-        public void RefreshHistory() { }
-        public void ShowPreviewModel(string assetPath) { }
-        public void RefreshUserInfo() { }
-        public void Repaint() { }
-        public void StartGeneration(ModelGeneratorBase generator) { }
-
-        public void ShowDialog(string title, string message)
-        {
-            ErrorDialogUtils.ShowErrorDialog(title, message, (errorMessage) => _onFailed?.Invoke(errorMessage), "GenerateVideoTool");
         }
 
         public string GetAssetSavePath(PipelineMediaType _type, ModelGeneratorBase generator) =>

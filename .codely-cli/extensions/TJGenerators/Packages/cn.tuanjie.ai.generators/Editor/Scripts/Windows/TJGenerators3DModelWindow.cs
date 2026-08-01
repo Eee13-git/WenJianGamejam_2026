@@ -20,7 +20,7 @@ namespace TJGenerators
     /// <summary>
     /// TJGenerators 3D模型生成窗口 - 作为容器协调各种生成器
     /// </summary>
-    public class TJGenerators3DModelWindow : GenerationWindowBase, IGenerationPipelineHost
+    public class TJGenerators3DModelWindow : GenerationWindowBase, IGenerationPipelineHost, IGenerationTriggerHost
     {
         private string _userEmail = "user123@unity.cn";
         // ========== 基类抽象属性实现 ==========
@@ -907,7 +907,7 @@ namespace TJGenerators
             float scale = GetScaleForModelVersion(item.modelVersion);
             Vector3 rotation = GetRotationForModelVersion(item.modelVersion);
             _pipeline.BindModelToPrefab(item.modelPath, scale, rotation);
-            ShowPreviewModel(item.modelPath);
+            OnGenerationCompleted(item.modelPath);
             
             TJLog.Log($"已将历史模型 {item.modelPath} 应用到 {targetAsset.GetPath()} (scale={scale}, rotation={rotation})");
         }
@@ -976,7 +976,7 @@ namespace TJGenerators
         }
         
         
-        public void ShowPreviewModel(string assetPath)
+        public void OnGenerationCompleted(string assetPath)
         {
             if (generationHistory != null && !string.IsNullOrEmpty(assetPath))
             {
@@ -1009,9 +1009,7 @@ namespace TJGenerators
             Repaint();
         }
         
-        // 纹理/音频/视频资产处理（3D模型窗口不处理，返回null）
-        public string GetAssetSavePath(PipelineMediaType _type, ModelGeneratorBase generator) => null;
-        public void OnAssetSaved(PipelineMediaType _type, string savePath, ModelGeneratorBase generator) { }
+        // 3D 模型窗口不处理纹理/音频/视频媒体路径
 
         // ========== 场景实例查找 ==========
 

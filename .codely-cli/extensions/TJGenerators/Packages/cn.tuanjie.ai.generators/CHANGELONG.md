@@ -5,6 +5,41 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.19] - 2026-07-30
+
+### Added
+
+- 新增 Codely skill `unity-tjgenerators-version`，查询 Unity 实际编译加载的 TJGenerators UPM 包版本，避免读到扩展包或 History 目录中的过期副本
+- 火山 SeeDream / SeeDream Pro（图片、精灵、材质）生成器补充 1024 字符 prompt 长度限制与提交前校验
+
+### Fixed
+
+- 绑骨动画 CustomTool 在 Domain Reload 恢复时正确持久化并传递 `sessionId`，并按 pipeline 类型动态选择通知工具名；任务提交结果增加 `submission_success` 字段
+
+## [1.0.18] - 2026-07-29
+
+### Fixed
+
+- 修复 Unity 2019 下 2D 骨骼动画生成工具任务恢复逻辑中 lambda 变量遮蔽导致的编译报错
+
+## [1.0.17] - 2026-07-29
+
+### Added
+
+- CustomTool（视频、特效视频、天空盒、地形、2D 序列帧）支持 Domain Reload 后自动恢复未完成任务，与图片/精灵等工具行为一致
+- 精灵 CustomTool 生成占位纹理后自动配置为 Sprite 导入类型并启用 Alpha 透明
+
+### Fixed
+
+- CustomTool 同步任务提交改用 `UnityWebRequest` 阻塞实现，修复 Unity Mono 下 `HttpClient` 导致「Illegal byte sequence」、任务无法提交的问题
+- 修复 `GenerationPipeline` 中因编码损坏的中文注释与字符串
+
+### Changed
+
+- 抽取通用 `GenerationTaskTrackerStore`，统一 13 个 CustomTool 的任务追踪、会话持久化与 Domain Reload 恢复逻辑
+- 拆分 `IGenerationPipelineHost` 为生命周期、UI 触发与媒体资产三个接口，CustomTool 宿主统一继承 `HeadlessPipelineHostBase`
+- 天空盒 `output_path` 提交前校验与规范化；音频/视频保存路径增加回退解析；音效输出扩展名统一规范为 mp3/wav
+
 ## [1.0.16] - 2026-07-24
 
 ### Changed

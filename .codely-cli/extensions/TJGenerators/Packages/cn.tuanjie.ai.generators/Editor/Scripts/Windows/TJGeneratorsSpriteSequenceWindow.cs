@@ -20,7 +20,7 @@ namespace TJGenerators
     /// <summary>
     /// 2D 序列帧（动作）生成窗口：输入动作描述（必填）+ 参考图（可选），输出多帧 Sprite + AnimationClip。
     /// </summary>
-    public class TJGeneratorsSpriteSequenceWindow : GenerationWindowBase, IGenerationPipelineHost
+    public class TJGeneratorsSpriteSequenceWindow : GenerationWindowBase, IGenerationPipelineHost, IGenerationTriggerHost, IMediaAssetPipelineHost
     {
         // ========== 基类抽象属性实现 ==========
         protected override ConfigType WindowConfigType => ConfigType.SpriteSequence;
@@ -532,7 +532,7 @@ namespace TJGenerators
         public TJGeneratorsAssetReference GetTargetAsset() => targetAnimationAsset;
 
 
-        public void ShowPreviewModel(string assetPath)
+        public void OnGenerationCompleted(string assetPath)
         {
             if (generationHistory != null && !string.IsNullOrEmpty(assetPath))
             {

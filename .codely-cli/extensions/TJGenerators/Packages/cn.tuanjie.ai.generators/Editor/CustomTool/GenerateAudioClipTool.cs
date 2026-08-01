@@ -2,7 +2,6 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using Codely.Newtonsoft.Json.Linq;
 using UnityEngine;
 using UnityEditor;
@@ -24,12 +23,6 @@ namespace UnityTcp.Editor.Tools
     public static class AudioClipTaskTracker
     {
 #if UNITY_EDITOR
-        private static readonly Dictionary<string, AudioClipTaskInfo> _activeTasks = new Dictionary<string, AudioClipTaskInfo>();
-        private static int _taskIdCounter = 0;
-
-        private const string SessionKeyIds = "TJGen_Audio_Ids";
-        private const string SessionKeyFmt = "TJGen_Audio_{0}";
-
         [Serializable]
         private class PersistedTask
         {
@@ -47,7 +40,7 @@ namespace UnityTcp.Editor.Tools
             public string backendTaskId;
         }
 
-        public class AudioClipTaskInfo
+        public class AudioClipTaskInfo : IGenerationTaskInfo
         {
             public string TaskId { get; set; }
             public string GeneratorId { get; set; }
@@ -63,80 +56,48 @@ namespace UnityTcp.Editor.Tools
             public string BackendTaskId { get; set; }
         }
 
-        internal static void SaveToSession(AudioClipTaskInfo info)
+        private static readonly GenerationTaskTrackerStore<AudioClipTaskInfo, PersistedTask> Store =
+            new GenerationTaskTrackerStore<AudioClipTaskInfo, PersistedTask>(
+                "TJGen_Audio", BuildPersisted, FromPersisted);
+
+        private static PersistedTask BuildPersisted(AudioClipTaskInfo info) => new PersistedTask
         {
-            var p = new PersistedTask
-            {
-                taskId          = info.TaskId,
-                generatorId     = info.GeneratorId,
-                prompt          = info.Prompt ?? "",
-                status          = info.Status,
-                progress        = info.Progress,
-                audioPath       = info.AudioPath ?? "",
-                errorMessage    = info.ErrorMessage ?? "",
-                startTimeTicks  = info.StartTime.Ticks,
-                endTimeTicks    = info.EndTime?.Ticks ?? 0,
-                previewUrl      = info.PreviewUrl ?? "",
-                placeholderPath = info.PlaceholderPath ?? "",
-                backendTaskId   = info.BackendTaskId ?? ""
-            };
-            SessionState.SetString(string.Format(SessionKeyFmt, info.TaskId), JsonUtility.ToJson(p));
-            string ids = SessionState.GetString(SessionKeyIds, "");
-            if (!ids.Contains(info.TaskId))
-                SessionState.SetString(SessionKeyIds, string.IsNullOrEmpty(ids) ? info.TaskId : ids + "|" + info.TaskId);
-        }
+            taskId          = info.TaskId,
+            generatorId     = info.GeneratorId,
+            prompt          = info.Prompt ?? "",
+            status          = info.Status,
+            progress        = info.Progress,
+            audioPath       = info.AudioPath ?? "",
+            errorMessage    = info.ErrorMessage ?? "",
+            startTimeTicks  = info.StartTime.Ticks,
+            endTimeTicks    = info.EndTime?.Ticks ?? 0,
+            previewUrl      = info.PreviewUrl ?? "",
+            placeholderPath = info.PlaceholderPath ?? "",
+            backendTaskId   = info.BackendTaskId ?? ""
+        };
 
-        private static AudioClipTaskInfo TryRestoreFromSession(string taskId)
+        private static AudioClipTaskInfo FromPersisted(PersistedTask p) => new AudioClipTaskInfo
         {
-            string json = SessionState.GetString(string.Format(SessionKeyFmt, taskId), "");
-            if (string.IsNullOrEmpty(json)) return null;
-            PersistedTask p;
-            try { p = JsonUtility.FromJson<PersistedTask>(json); }
-            catch { return null; }
+            TaskId          = p.taskId,
+            GeneratorId     = p.generatorId,
+            Prompt          = p.prompt,
+            Status          = p.status,
+            Progress        = p.progress,
+            AudioPath       = p.audioPath,
+            ErrorMessage    = p.errorMessage,
+            PreviewUrl      = p.previewUrl,
+            StartTime       = new DateTime(p.startTimeTicks),
+            EndTime         = p.endTimeTicks > 0 ? (DateTime?)new DateTime(p.endTimeTicks) : null,
+            PlaceholderPath = p.placeholderPath,
+            BackendTaskId   = p.backendTaskId
+        };
 
-            var info = new AudioClipTaskInfo
-            {
-                TaskId          = p.taskId,
-                GeneratorId     = p.generatorId,
-                Prompt          = p.prompt,
-                Status          = p.status,
-                Progress        = p.progress,
-                AudioPath       = p.audioPath,
-                ErrorMessage    = p.errorMessage,
-                PreviewUrl      = p.previewUrl,
-                StartTime       = new DateTime(p.startTimeTicks),
-                EndTime         = p.endTimeTicks > 0 ? (DateTime?)new DateTime(p.endTimeTicks) : null,
-                PlaceholderPath = p.placeholderPath,
-                BackendTaskId   = p.backendTaskId
-            };
-
-            // Domain reload: resume if InterruptedTasks.json still has the backend task
-            if (info.Status == "initializing" || info.Status == "generating" || info.Status == "recovering" ||
-                info.Status == "running" || info.Status == "processing" || info.Status == "pending")
-            {
-                bool canRecover = TJGeneratorsTaskRecovery.HasActiveRecovery(info.BackendTaskId);
-
-                if (canRecover)
-                {
-                    info.Status = "recovering";
-                }
-                else
-                {
-                    info.Status       = "interrupted";
-                    info.ErrorMessage = TJGeneratorsL10n.L("生成因域重载中断且后端任务记录已丢失，请重新生成。");
-                    info.EndTime      = DateTime.Now;
-                }
-                SaveToSession(info);
-            }
-
-            _activeTasks[taskId] = info;
-            return info;
-        }
+        internal static void ApplyTaskUpdate(AudioClipTaskInfo task, Action<AudioClipTaskInfo> mutate) =>
+            Store.ApplyTaskUpdate(task, mutate);
 
         public static string CreateTask(string generatorId, string prompt, string placeholderPath = null, string backendTaskId = null)
         {
-            string taskId = $"audio_{++_taskIdCounter}_{DateTime.Now.Ticks}";
-
+            string taskId = Store.AllocateTaskId("audio");
             var task = new AudioClipTaskInfo
             {
                 TaskId          = taskId,
@@ -147,77 +108,49 @@ namespace UnityTcp.Editor.Tools
                 PlaceholderPath = placeholderPath,
                 BackendTaskId   = backendTaskId
             };
-            _activeTasks[taskId] = task;
-            SaveToSession(task);
-
+            Store.RegisterTask(taskId, task);
             return taskId;
         }
 
         public static void MarkCompleted(string taskId, string audioPath, string previewUrl = null)
         {
-            if (_activeTasks.TryGetValue(taskId, out var task))
+            var task = Store.GetTask(taskId);
+            if (task == null) return;
+            Store.ApplyTaskUpdate(task, t =>
             {
-                task.Status    = "completed";
-                task.Progress  = 100;
-                task.AudioPath = audioPath;
-                task.PreviewUrl = previewUrl;
-                task.EndTime   = DateTime.Now;
-                SaveToSession(task);
-            }
+                t.Status    = "completed";
+                t.Progress  = 100;
+                t.AudioPath = audioPath;
+                t.PreviewUrl = previewUrl;
+                t.EndTime   = DateTime.Now;
+            });
         }
 
         public static void MarkFailed(string taskId, string errorMessage)
         {
-            if (_activeTasks.TryGetValue(taskId, out var task))
+            var task = Store.GetTask(taskId);
+            if (task == null) return;
+            Store.ApplyTaskUpdate(task, t =>
             {
-                task.Status       = "failed";
-                task.ErrorMessage = errorMessage;
-                task.EndTime      = DateTime.Now;
-                SaveToSession(task);
-            }
+                t.Status       = "failed";
+                t.ErrorMessage = errorMessage;
+                t.EndTime      = DateTime.Now;
+            });
         }
 
-        public static AudioClipTaskInfo GetTask(string taskId)
-        {
-            if (_activeTasks.TryGetValue(taskId, out var task)) return task;
-            return TryRestoreFromSession(taskId);
-        }
+        public static AudioClipTaskInfo GetTask(string taskId) => Store.GetTask(taskId);
 
-        public static List<AudioClipTaskInfo> GetAllTasks()
-        {
-            string ids = SessionState.GetString(SessionKeyIds, "");
-            if (!string.IsNullOrEmpty(ids))
-            {
-                foreach (var id in ids.Split('|'))
-                {
-                    if (!string.IsNullOrEmpty(id) && !_activeTasks.ContainsKey(id))
-                        TryRestoreFromSession(id);
-                }
-            }
-            return new List<AudioClipTaskInfo>(_activeTasks.Values);
-        }
+        public static List<AudioClipTaskInfo> GetAllTasks() => Store.GetAllTasks();
 
-        public static AudioClipTaskInfo GetTaskByBackendId(string backendTaskId)
-        {
-            if (string.IsNullOrEmpty(backendTaskId)) return null;
-
-            var cached = _activeTasks.Values.FirstOrDefault(t => t.BackendTaskId == backendTaskId);
-            if (cached != null) return cached;
-
-            GetAllTasks();
-            return _activeTasks.Values.FirstOrDefault(t => t.BackendTaskId == backendTaskId);
-        }
+        public static AudioClipTaskInfo GetTaskByBackendId(string backendTaskId) =>
+            Store.GetTaskByBackendId(backendTaskId);
 
         public static AudioClipTaskInfo CreateRecoveredTask(
             string backendTaskId, string prompt, string placeholderPath, long timestampMs, string generatorId = null)
         {
-            var existing = GetTaskByBackendId(backendTaskId);
-            if (existing != null) return existing;
-
-            string taskId = $"recovered_{backendTaskId}";
-            var info = new AudioClipTaskInfo
+            return Store.CreateRecoveredTask(backendTaskId, () => new AudioClipTaskInfo
             {
-                TaskId          = taskId,
+                TaskId          = $"recovered_{backendTaskId}",
                 BackendTaskId   = backendTaskId,
                 GeneratorId     = generatorId ?? "",
                 Prompt          = prompt ?? "",
@@ -227,38 +160,12 @@ namespace UnityTcp.Editor.Tools
                 StartTime       = timestampMs > 0
                                     ? DateTimeOffset.FromUnixTimeMilliseconds(timestampMs).LocalDateTime
                                     : DateTime.Now
-            };
-
-            _activeTasks[taskId] = info;
-            SaveToSession(info);
-            return info;
+            });
         }
 
-        public static void RemoveTask(string taskId)
-        {
-            _activeTasks.Remove(taskId);
-            SessionState.EraseString(string.Format(SessionKeyFmt, taskId));
-            string ids = SessionState.GetString(SessionKeyIds, "");
-            var list = new List<string>(ids.Split('|'));
-            list.Remove(taskId);
-            SessionState.SetString(SessionKeyIds, string.Join("|", list));
-        }
+        public static void RemoveTask(string taskId) => Store.RemoveTask(taskId);
 
-        public static void CleanupCompletedTasks()
-        {
-            var toRemove = new List<string>();
-            foreach (var kvp in _activeTasks)
-            {
-                if ((kvp.Value.Status == "completed" || kvp.Value.Status == "failed") &&
-                    kvp.Value.EndTime.HasValue &&
-                    (DateTime.Now - kvp.Value.EndTime.Value).TotalMinutes > 60)
-                {
-                    toRemove.Add(kvp.Key);
-                }
-            }
-            foreach (var id in toRemove)
-                _activeTasks.Remove(id);
-        }
+        public static void CleanupCompletedTasks() => Store.CleanupCompletedTasks();
 #endif
     }
 
@@ -662,8 +569,7 @@ namespace UnityTcp.Editor.Tools
                     {
                         CustomToolDomainReloadRecovery.MarkTrackerRecoveringIfNeeded(trackerTask.Status, () =>
                         {
-                            trackerTask.Status = "recovering";
-                            AudioClipTaskTracker.SaveToSession(trackerTask);
+                            AudioClipTaskTracker.ApplyTaskUpdate(trackerTask, t => t.Status = "recovering");
                         });
                     }
                     else
@@ -743,7 +649,7 @@ namespace UnityTcp.Editor.Tools
     /// IGenerationPipelineHost implementation for headless audio clip generation via custom tools.
     /// Handles audio saving and task lifecycle callbacks.
     /// </summary>
-    internal class AudioPipelineHost : IGenerationPipelineHost
+    internal class AudioPipelineHost : HeadlessPipelineHostBase, IMediaAssetPipelineHost
     {
         private readonly string _placeholderPath;   // WAV placeholder — available immediately
         private readonly string _audioDownloadPath; // MP3 download target path
@@ -764,24 +670,14 @@ namespace UnityTcp.Editor.Tools
             _onFailed = onFailed;
         }
 
-        public TJGeneratorsAssetReference GetTargetAsset() => null;
+        protected override string DialogLogTag => "GenerateAudioClipTool";
+        protected override Action<string> DialogFailedCallback => errorMessage => _onFailed?.Invoke(errorMessage);
+
+        public override TJGeneratorsAssetReference GetTargetAsset() => null;
 
         public void StartEditorCoroutine(IEnumerator coroutine)
         {
             EditorCoroutineUtility.StartCoroutineOwnerless(coroutine);
-        }
-
-        public void RefreshHistory() { }
-        public void ShowPreviewModel(string assetPath) { }
-        public void RefreshUserInfo() { }
-        public void Repaint() { }
-        public void StartGeneration(ModelGeneratorBase generator) { }
-
-        public void ShowDialog(string title, string message)
-        {
-            // Pipeline calls ShowDialog on error — treat as failure
-            var friendlyError = ErrorDialogUtils.ConvertToUserFriendlyError(title, message);
-            ErrorDialogUtils.ShowErrorDialog(title, message, (errorMessage) => _onFailed?.Invoke(errorMessage), "GenerateAudioClipTool");
         }
 
         public string GetAssetSavePath(PipelineMediaType _type, ModelGeneratorBase generator) =>

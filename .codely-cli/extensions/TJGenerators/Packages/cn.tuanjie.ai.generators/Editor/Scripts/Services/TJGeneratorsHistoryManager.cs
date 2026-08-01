@@ -392,6 +392,22 @@ namespace TJGenerators
             TJLog.Log("[TJGeneratorsHistoryManager] 已清空所有生成历史记录");
         }
 
+#if TJGENERATORS_DEBUG
+        /// <summary>
+        /// 仅移除历史中的「生成中」占位符（isGenerating），保留已完成记录。仅 DEBUG 构建可用。
+        /// </summary>
+        /// <returns>移除的条数。</returns>
+        public static int ClearAllGeneratingPlaceholders()
+        {
+            var history = LoadHistory();
+            int removed = history.RemoveAll(h => h != null && h.isGenerating);
+            if (removed > 0)
+                SaveHistory(history);
+            TJLog.Log($"[TJGeneratorsHistoryManager] 已清除 {removed} 条生成中占位符");
+            return removed;
+        }
+#endif
+
         /// <summary>
         /// 目标资源从 .wav 占位变为 .mp4 / .mp3 等时 GUID 会变，将已有关联的历史条目的 assetGuid 迁移到新 GUID，避免面板历史丢失。
         /// </summary>

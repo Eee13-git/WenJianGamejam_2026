@@ -27,6 +27,15 @@ namespace TJGenerators
         public int faceLimit;
         public bool texture;
         public bool pbr;
+
+        /// <summary>Sprite sequence: animation_type (idle / frontRun / backRun).</summary>
+        public string animationType;
+        /// <summary>Sprite sequence: AnimationClip fps; 0 = unset.</summary>
+        public int fps;
+        /// <summary>Sprite sequence: whether loop was explicitly set on submit.</summary>
+        public bool loopSpecified;
+        /// <summary>Sprite sequence: AnimationClip loop (meaningful when loopSpecified).</summary>
+        public bool loop;
     }
 
     public static class TJGeneratorsTaskRecovery
@@ -39,6 +48,14 @@ namespace TJGenerators
 
         private static List<InterruptedTaskData> s_Tasks;
         private static readonly HashSet<string> s_Recovering = new HashSet<string>();
+
+#if TJGENERATORS_DEBUG
+        /// <summary>
+        /// 本地轮询中止代数：每次 RequestAbortAllLocalPolling 递增。
+        /// 进行中的 PollTaskStatus 在循环里比对捕获的代数，不一致则停止继续请求。
+        /// </summary>
+        private static int s_localPollAbortEpoch;
+#endif
 
         private static readonly HashSet<string> RecoverableTrackerStatuses = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
@@ -163,6 +180,41 @@ namespace TJGenerators
         public static void MarkAsRecovering(string backendTaskId) => s_Recovering.Add(backendTaskId);
 
         public static void ClearRecovering(string backendTaskId) => s_Recovering.Remove(backendTaskId);
+
+#if TJGENERATORS_DEBUG
+        /// <summary>
+        /// 清空本地中断/轮询恢复任务列表（InterruptedTasks.json）及 in-memory recovering 标记，
+        /// 并递增本地轮询中止代数，使已启动的 PollTaskStatus 在下一轮循环停止继续请求。
+        /// 不会向后端发送取消请求。仅 DEBUG 构建可用。
+        /// </summary>
+        /// <returns>清除前记录的任务数量。</returns>
+        public static int ClearAllInterruptedTasks()
+        {
+            int count = s_Tasks?.Count ?? 0;
+            s_Tasks = new List<InterruptedTaskData>();
+            s_Recovering.Clear();
+            RequestAbortAllLocalPolling();
+            Save();
+            TJLog.Log($"[TJGeneratorsTaskRecovery] 已清空全部中断/轮询任务记录（共 {count} 条）");
+            return count;
+        }
+
+        /// <summary>
+        /// 请求停止所有本地轮询协程（不碰 InterruptedTasks 列表本身）。仅 DEBUG 构建可用。
+        /// </summary>
+        public static void RequestAbortAllLocalPolling()
+        {
+            unchecked { s_localPollAbortEpoch++; }
+            TJLog.Log($"[TJGeneratorsTaskRecovery] 已请求中止本地轮询（epoch={s_localPollAbortEpoch}）");
+        }
+
+        /// <summary>供 PollTaskStatus 在启动时捕获，之后用 <see cref="WasLocalPollAborted"/> 检测。</summary>
+        public static int GetLocalPollAbortEpoch() => s_localPollAbortEpoch;
+
+        /// <summary>若自 <paramref name="capturedEpoch"/> 起已请求过本地中止，返回 true。</summary>
+        public static bool WasLocalPollAborted(int capturedEpoch) =>
+            capturedEpoch != s_localPollAbortEpoch;
+#endif
 
         /// <summary>
         /// True if the backend task is still tracked for recovery: either persisted in

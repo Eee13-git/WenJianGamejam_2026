@@ -20,7 +20,7 @@ namespace TJGenerators
     /// <summary>
     /// TJGenerators 天空盒生成窗口 - 使用生成器模型生成天空盒
     /// </summary>
-    public class TJGeneratorsSkyboxWindow : GenerationWindowBase, IGenerationPipelineHost
+    public class TJGeneratorsSkyboxWindow : GenerationWindowBase, IGenerationPipelineHost, IGenerationTriggerHost, IMediaAssetPipelineHost
     {
         // ========== 基类抽象属性实现 ==========
         protected override ConfigType WindowConfigType => ConfigType.Skybox;
@@ -828,7 +828,7 @@ namespace TJGenerators
             return targetSkyboxAsset?.guid ?? "";
         }
         
-        public void ShowPreviewModel(string assetPath)
+        public void OnGenerationCompleted(string assetPath)
         {
             if (generationHistory != null && !string.IsNullOrEmpty(assetPath))
             {
@@ -1029,11 +1029,6 @@ namespace TJGenerators
                 AssetDatabase.SaveAssets();
                 TJLog.Log($"[TJGeneratorsSkybox] 天空盒材质已保存: {savePath}");
             }
-        }
-        
-        void IGenerationPipelineHost.Repaint()
-        {
-            Repaint();
         }
     }
 }

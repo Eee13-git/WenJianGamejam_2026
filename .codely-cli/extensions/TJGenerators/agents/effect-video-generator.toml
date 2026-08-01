@@ -48,12 +48,6 @@ Beyond the common report structure, include:
 - VideoPlayer setup: RenderTexture + ChromaKey material on a Quad
 """
 
-[agent.model_config]
-model = "codely-core"
-
-[agent.model_config.sampling_params]
-reasoning_effort = "high"
-
 [agent.run_config]
 stream = false
 max_turns = 400

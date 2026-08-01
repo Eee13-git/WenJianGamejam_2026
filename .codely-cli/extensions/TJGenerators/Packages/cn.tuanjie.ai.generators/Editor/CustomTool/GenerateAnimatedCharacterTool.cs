@@ -27,20 +27,11 @@ namespace UnityTcp.Editor.Tools
     public static class AnimatedCharacterTaskTracker
     {
 #if UNITY_EDITOR
-        private static readonly Dictionary<string, AnimatedCharacterTaskInfo> _activeTasks =
-            new Dictionary<string, AnimatedCharacterTaskInfo>();
-
-        private static int _taskIdCounter = 0;
-
-        // SessionState keys — survive domain reload within the same Editor session
-        private const string SessionKeyIds   = "TJGen_AnimChar_Ids";
-        private const string SessionKeyFmt   = "TJGen_AnimChar_{0}";
-
         [Serializable]
         private class PersistedTask
         {
             public string taskId;
-            public string backendTaskId;       // backend task ID (set after OnCreated)
+            public string backendTaskId;
             public string generatorId;
             public string prompt;
             public string status;
@@ -52,14 +43,14 @@ namespace UnityTcp.Editor.Tools
             public string runningAnimationPath;
             public string errorMessage;
             public long   startTimeTicks;
-            public long   endTimeTicks;   // 0 = not ended
+            public long   endTimeTicks;
             public string previewUrl;
         }
 
-        public class AnimatedCharacterTaskInfo
+        public class AnimatedCharacterTaskInfo : IGenerationTaskInfo
         {
             public string   TaskId                { get; set; }
-            public string   BackendTaskId         { get; set; }  // backend task ID for recovery matching
+            public string   BackendTaskId         { get; set; }
             public string   GeneratorId           { get; set; }
             public string   Prompt                { get; set; }
             public string   Status                { get; set; }
@@ -75,111 +66,54 @@ namespace UnityTcp.Editor.Tools
             public DateTime? EndTime              { get; set; }
         }
 
-        // ── Session persistence helpers ───────────────────────────────────────
+        private static readonly GenerationTaskTrackerStore<AnimatedCharacterTaskInfo, PersistedTask> Store =
+            new GenerationTaskTrackerStore<AnimatedCharacterTaskInfo, PersistedTask>(
+                "TJGen_AnimChar", BuildPersisted, FromPersisted);
 
-        internal static void SaveToSession(AnimatedCharacterTaskInfo info)
+        private static PersistedTask BuildPersisted(AnimatedCharacterTaskInfo info) => new PersistedTask
         {
-            var p = new PersistedTask
-            {
-                taskId               = info.TaskId,
-                backendTaskId        = info.BackendTaskId ?? "",
-                generatorId          = info.GeneratorId ?? "",
-                prompt               = info.Prompt,
-                status               = info.Status,
-                progress             = info.Progress,
-                prefabPath           = info.PrefabPath,
-                modelPath            = info.ModelPath,
-                animationPath        = info.AnimationPath,
-                walkingAnimationPath = info.WalkingAnimationPath,
-                runningAnimationPath = info.RunningAnimationPath,
-                errorMessage         = info.ErrorMessage,
-                startTimeTicks       = info.StartTime.Ticks,
-                endTimeTicks         = info.EndTime?.Ticks ?? 0,
-                previewUrl           = info.PreviewUrl ?? ""
-            };
-            SessionState.SetString(string.Format(SessionKeyFmt, info.TaskId), JsonUtility.ToJson(p));
+            taskId               = info.TaskId,
+            backendTaskId        = info.BackendTaskId ?? "",
+            generatorId          = info.GeneratorId ?? "",
+            prompt               = info.Prompt,
+            status               = info.Status,
+            progress             = info.Progress,
+            prefabPath           = info.PrefabPath,
+            modelPath            = info.ModelPath,
+            animationPath        = info.AnimationPath,
+            walkingAnimationPath = info.WalkingAnimationPath,
+            runningAnimationPath = info.RunningAnimationPath,
+            errorMessage         = info.ErrorMessage,
+            startTimeTicks       = info.StartTime.Ticks,
+            endTimeTicks         = info.EndTime?.Ticks ?? 0,
+            previewUrl           = info.PreviewUrl ?? ""
+        };
 
-            // Keep the global ID list up to date
-            string ids = SessionState.GetString(SessionKeyIds, "");
-            if (!ids.Contains(info.TaskId))
-                SessionState.SetString(SessionKeyIds, string.IsNullOrEmpty(ids) ? info.TaskId : ids + "|" + info.TaskId);
-        }
-
-        private static void RemoveFromSession(string taskId)
+        private static AnimatedCharacterTaskInfo FromPersisted(PersistedTask p) => new AnimatedCharacterTaskInfo
         {
-            SessionState.EraseString(string.Format(SessionKeyFmt, taskId));
-            string ids = SessionState.GetString(SessionKeyIds, "");
-            var list  = new List<string>(ids.Split('|'));
-            list.Remove(taskId);
-            SessionState.SetString(SessionKeyIds, string.Join("|", list));
-        }
+            TaskId               = p.taskId,
+            BackendTaskId        = p.backendTaskId,
+            GeneratorId          = p.generatorId,
+            Prompt               = p.prompt,
+            Status               = p.status,
+            Progress             = p.progress,
+            PrefabPath           = p.prefabPath,
+            ModelPath            = p.modelPath,
+            AnimationPath        = p.animationPath,
+            WalkingAnimationPath = p.walkingAnimationPath,
+            RunningAnimationPath = p.runningAnimationPath,
+            ErrorMessage         = p.errorMessage,
+            PreviewUrl           = p.previewUrl,
+            StartTime            = new DateTime(p.startTimeTicks),
+            EndTime              = p.endTimeTicks > 0 ? (DateTime?)new DateTime(p.endTimeTicks) : null
+        };
 
-        /// <summary>
-        /// Tries to restore a task from SessionState (called when not found in memory).
-        /// If the backend task is still registered in TJGeneratorsTaskRecovery, it is marked
-        /// "recovering" (pipeline will resume). Otherwise "interrupted".
-        /// </summary>
-        private static AnimatedCharacterTaskInfo TryRestoreFromSession(string taskId)
-        {
-            string json = SessionState.GetString(string.Format(SessionKeyFmt, taskId), "");
-            if (string.IsNullOrEmpty(json))
-                return null;
-
-            PersistedTask p;
-            try { p = JsonUtility.FromJson<PersistedTask>(json); }
-            catch { return null; }
-
-            var info = new AnimatedCharacterTaskInfo
-            {
-                TaskId               = p.taskId,
-                BackendTaskId        = p.backendTaskId,
-                GeneratorId          = p.generatorId,
-                Prompt               = p.prompt,
-                Status               = p.status,
-                Progress             = p.progress,
-                PrefabPath           = p.prefabPath,
-                ModelPath            = p.modelPath,
-                AnimationPath        = p.animationPath,
-                WalkingAnimationPath = p.walkingAnimationPath,
-                RunningAnimationPath = p.runningAnimationPath,
-                ErrorMessage         = p.errorMessage,
-                PreviewUrl           = p.previewUrl,
-                StartTime            = new DateTime(p.startTimeTicks),
-                EndTime              = p.endTimeTicks > 0 ? (DateTime?)new DateTime(p.endTimeTicks) : null
-            };
-
-            // If it was still in-progress, determine recovery state.
-            // Also catch "running"/"processing" which are raw backend states stored before the
-            // OnProgress normalization fix — treat them as generating.
-            if (info.Status == "initializing" || info.Status == "generating" || info.Status == "recovering" ||
-                info.Status == "running"       || info.Status == "processing" || info.Status == "pending")
-            {
-                bool canRecover = TJGeneratorsTaskRecovery.HasActiveRecovery(info.BackendTaskId);
-
-                if (canRecover)
-                {
-                    // Recovery pipeline will resume polling automatically via [InitializeOnLoad]
-                    info.Status = "recovering";
-                }
-                else
-                {
-                    // Backend task not found — truly interrupted, no recovery possible
-                    info.Status       = "interrupted";
-                    info.ErrorMessage = TJGeneratorsL10n.L("生成因域重载中断且后端任务记录已丢失，请重新生成。");
-                    info.EndTime      = DateTime.Now;
-                }
-                SaveToSession(info);
-            }
-
-            _activeTasks[taskId] = info;
-            return info;
-        }
-
-        // ── Public API ────────────────────────────────────────────────────────
+        internal static void ApplyTaskUpdate(AnimatedCharacterTaskInfo task, Action<AnimatedCharacterTaskInfo> mutate) =>
+            Store.ApplyTaskUpdate(task, mutate);
 
         public static string CreateTask(string prompt, TJGeneratorsTaskHandle handle, string prefabPath = null, string sessionId = "")
         {
-            string taskId = $"animated_character_{++_taskIdCounter}_{DateTime.Now.Ticks}";
+            string taskId = Store.AllocateTaskId("animated_character");
 
             var taskInfo = new AnimatedCharacterTaskInfo
             {
@@ -192,49 +126,49 @@ namespace UnityTcp.Editor.Tools
                 StartTime   = DateTime.Now
             };
 
-            _activeTasks[taskId] = taskInfo;
-            SaveToSession(taskInfo);
+            Store.RegisterTask(taskId, taskInfo);
 
             handle.OnCreated += (h) =>
             {
-                taskInfo.BackendTaskId = h.BackendTaskId;
-                taskInfo.Status = "generating";
-                SaveToSession(taskInfo);
+                Store.ApplyTaskUpdate(taskInfo, t =>
+                {
+                    t.BackendTaskId = h.BackendTaskId;
+                    t.Status = "generating";
+                });
             };
             handle.OnProgress += (h) =>
             {
-                // Normalize raw backend status strings ("running", "processing", "pending", etc.)
-                // to our internal "generating" state — only "completed"/"failed" have dedicated callbacks.
-                taskInfo.Status   = "generating";
-                taskInfo.Progress = h.Progress;
-                if (!string.IsNullOrEmpty(h.PreviewUrl))
-                    taskInfo.PreviewUrl = h.PreviewUrl;
-                SaveToSession(taskInfo);
+                Store.ApplyTaskUpdate(taskInfo, t =>
+                {
+                    t.Status   = "generating";
+                    t.Progress = h.Progress;
+                    if (!string.IsNullOrEmpty(h.PreviewUrl))
+                        t.PreviewUrl = h.PreviewUrl;
+                });
             };
             handle.OnCompleted += (h) =>
             {
-                taskInfo.Status    = "completed";
-                taskInfo.Progress  = 100;
-                taskInfo.ModelPath = h.ModelPath;
-                taskInfo.PreviewUrl = h.PreviewUrl;
-                taskInfo.EndTime   = DateTime.Now;
-
-                if (!string.IsNullOrEmpty(h.ModelPath))
+                Store.ApplyTaskUpdate(taskInfo, t =>
                 {
-                    string dir      = Path.GetDirectoryName(h.ModelPath);
-                    string baseName = Path.GetFileNameWithoutExtension(h.ModelPath);
-                    taskInfo.AnimationPath        = FindAnimFile(dir, baseName, "_animation");
-                    taskInfo.WalkingAnimationPath = FindAnimFile(dir, baseName, "_walking");
-                    taskInfo.RunningAnimationPath = FindAnimFile(dir, baseName, "_running");
+                    t.Status     = "completed";
+                    t.Progress   = 100;
+                    t.ModelPath  = h.ModelPath;
+                    t.PreviewUrl = h.PreviewUrl;
+                    t.EndTime    = DateTime.Now;
 
-                    // BindModelToPrefab already replaced the Placeholder child; now ensure
-                    // the AnimatorController (auto-created during DownloadAnimationModels) is
-                    // assigned to the prefab's root Animator if it wasn't set yet.
-                    if (!string.IsNullOrEmpty(taskInfo.PrefabPath))
-                        ReplaceAnimatedCharacterModelTool.AssignAnimatorControllerIfMissing(taskInfo.PrefabPath, h.ModelPath);
-                }
+                    if (!string.IsNullOrEmpty(h.ModelPath))
+                    {
+                        string dir      = Path.GetDirectoryName(h.ModelPath);
+                        string baseName = Path.GetFileNameWithoutExtension(h.ModelPath);
+                        t.AnimationPath        = FindAnimFile(dir, baseName, "_animation");
+                        t.WalkingAnimationPath = FindAnimFile(dir, baseName, "_walking");
+                        t.RunningAnimationPath = FindAnimFile(dir, baseName, "_running");
+                    }
+                });
 
-                SaveToSession(taskInfo);
+                if (!string.IsNullOrEmpty(h.ModelPath) && !string.IsNullOrEmpty(taskInfo.PrefabPath))
+                    ReplaceAnimatedCharacterModelTool.AssignAnimatorControllerIfMissing(taskInfo.PrefabPath, h.ModelPath);
+
                 GenerationNotifier.NotifyCompleted("generate_animated_character", taskId, taskInfo.BackendTaskId,
                     new JObject
                     {
@@ -252,10 +186,12 @@ namespace UnityTcp.Editor.Tools
             };
             handle.OnFailed += (h) =>
             {
-                taskInfo.Status       = "failed";
-                taskInfo.ErrorMessage = h.ErrorMessage;
-                taskInfo.EndTime      = DateTime.Now;
-                SaveToSession(taskInfo);
+                Store.ApplyTaskUpdate(taskInfo, t =>
+                {
+                    t.Status       = "failed";
+                    t.ErrorMessage = h.ErrorMessage;
+                    t.EndTime      = DateTime.Now;
+                });
                 GenerationNotifier.NotifyFailed("generate_animated_character", taskId, taskInfo.BackendTaskId,
                     h.ErrorMessage,
                     new JObject
@@ -269,61 +205,19 @@ namespace UnityTcp.Editor.Tools
             return taskId;
         }
 
-        public static AnimatedCharacterTaskInfo GetTask(string taskId)
-        {
-            if (_activeTasks.TryGetValue(taskId, out var task))
-                return task;
+        public static AnimatedCharacterTaskInfo GetTask(string taskId) => Store.GetTask(taskId);
 
-            // Not in memory — try to restore from SessionState (survives domain reload)
-            return TryRestoreFromSession(taskId);
-        }
+        public static List<AnimatedCharacterTaskInfo> GetAllTasks() => Store.GetAllTasks();
 
-        public static List<AnimatedCharacterTaskInfo> GetAllTasks()
-        {
-            // First, restore any session tasks not yet in memory
-            string ids = SessionState.GetString(SessionKeyIds, "");
-            if (!string.IsNullOrEmpty(ids))
-            {
-                foreach (var id in ids.Split('|'))
-                {
-                    if (!string.IsNullOrEmpty(id) && !_activeTasks.ContainsKey(id))
-                        TryRestoreFromSession(id);
-                }
-            }
+        public static AnimatedCharacterTaskInfo GetTaskByBackendId(string backendTaskId) =>
+            Store.GetTaskByBackendId(backendTaskId);
 
-            return new List<AnimatedCharacterTaskInfo>(_activeTasks.Values);
-        }
-
-        /// <summary>
-        /// Finds a tracker task by its backend task ID. Used by recovery host to update status.
-        /// </summary>
-        public static AnimatedCharacterTaskInfo GetTaskByBackendId(string backendTaskId)
-        {
-            if (string.IsNullOrEmpty(backendTaskId)) return null;
-
-            var cached = _activeTasks.Values.FirstOrDefault(t => t.BackendTaskId == backendTaskId);
-            if (cached != null) return cached;
-
-            GetAllTasks();
-            return _activeTasks.Values.FirstOrDefault(t => t.BackendTaskId == backendTaskId);
-        }
-
-        /// <summary>
-        /// Creates a tracker entry for a task that was recovered from TJGeneratorsTaskRecovery
-        /// but has no SessionState data (e.g. after a full Editor restart).
-        /// This allows query_animated_character_status to return meaningful results.
-        /// </summary>
         public static AnimatedCharacterTaskInfo CreateRecoveredTask(
             string backendTaskId, string prompt, string prefabPath, long timestampMs)
         {
-            // Avoid duplicates
-            var existing = GetTaskByBackendId(backendTaskId);
-            if (existing != null) return existing;
-
-            string taskId = $"recovered_{backendTaskId}";
-            var info = new AnimatedCharacterTaskInfo
+            return Store.CreateRecoveredTask(backendTaskId, () => new AnimatedCharacterTaskInfo
             {
-                TaskId        = taskId,
+                TaskId        = $"recovered_{backendTaskId}",
                 BackendTaskId = backendTaskId,
                 Prompt        = prompt ?? "",
                 PrefabPath    = prefabPath ?? "",
@@ -332,34 +226,12 @@ namespace UnityTcp.Editor.Tools
                 StartTime     = timestampMs > 0
                                     ? DateTimeOffset.FromUnixTimeMilliseconds(timestampMs).LocalDateTime
                                     : DateTime.Now
-            };
-
-            _activeTasks[taskId] = info;
-            SaveToSession(info);
-            return info;
+            });
         }
 
-        public static void RemoveTask(string taskId)
-        {
-            _activeTasks.Remove(taskId);
-            RemoveFromSession(taskId);
-        }
+        public static void RemoveTask(string taskId) => Store.RemoveTask(taskId);
 
-        public static void CleanupCompletedTasks()
-        {
-            var toRemove = new List<string>();
-            foreach (var kvp in _activeTasks)
-            {
-                if ((kvp.Value.Status == "completed" || kvp.Value.Status == "failed" || kvp.Value.Status == "interrupted") &&
-                    kvp.Value.EndTime.HasValue &&
-                    (DateTime.Now - kvp.Value.EndTime.Value).TotalMinutes > 60)
-                {
-                    toRemove.Add(kvp.Key);
-                }
-            }
-            foreach (var id in toRemove)
-                RemoveTask(id);
-        }
+        public static void CleanupCompletedTasks() => Store.CleanupCompletedTasks();
 
         internal static string FindAnimFile(string directory, string baseName, string suffix)
         {
@@ -428,8 +300,7 @@ namespace UnityTcp.Editor.Tools
                         // to "recovering" so query_animated_character_status shows the right status.
                         CustomToolDomainReloadRecovery.MarkTrackerRecoveringIfNeeded(trackerTask.Status, () =>
                         {
-                            trackerTask.Status = "recovering";
-                            AnimatedCharacterTaskTracker.SaveToSession(trackerTask);
+                            AnimatedCharacterTaskTracker.ApplyTaskUpdate(trackerTask, t => t.Status = "recovering");
                         });
                     }
                     else
@@ -457,7 +328,7 @@ namespace UnityTcp.Editor.Tools
     /// Headless pipeline host for resuming animated character tasks after domain reload.
     /// Updates AnimatedCharacterTaskTracker on completion/failure.
     /// </summary>
-    internal class AnimatedCharacterRecoveryHost : IGenerationPipelineHost
+    internal class AnimatedCharacterRecoveryHost : HeadlessPipelineHostBase
     {
         private readonly TJGeneratorsAssetReference _targetAsset;
         private readonly string _backendTaskId;
@@ -472,9 +343,11 @@ namespace UnityTcp.Editor.Tools
             _sessionId     = sessionId;
         }
 
-        public TJGeneratorsAssetReference GetTargetAsset() => _targetAsset;
+        protected override string DialogLogTag => "AnimatedCharacterRecovery";
 
-        public void ShowPreviewModel(string modelPath)
+        public override TJGeneratorsAssetReference GetTargetAsset() => _targetAsset;
+
+        public override void OnGenerationCompleted(string modelPath)
         {
             // Called by CompleteGeneration() — model was downloaded and bound to prefab.
             // Update ALL tracker tasks that share the same backendTaskId or prefab path so that
@@ -508,14 +381,16 @@ namespace UnityTcp.Editor.Tools
 
             foreach (var trackerTask in tasksToUpdate)
             {
-                trackerTask.Status    = "completed";
-                trackerTask.Progress  = 100;
-                trackerTask.ModelPath = modelPath;
-                trackerTask.EndTime   = DateTime.Now;
-                if (animPath  != null) trackerTask.AnimationPath        = animPath;
-                if (walkPath  != null) trackerTask.WalkingAnimationPath = walkPath;
-                if (runPath   != null) trackerTask.RunningAnimationPath = runPath;
-                AnimatedCharacterTaskTracker.SaveToSession(trackerTask);
+                AnimatedCharacterTaskTracker.ApplyTaskUpdate(trackerTask, t =>
+                {
+                    t.Status    = "completed";
+                    t.Progress  = 100;
+                    t.ModelPath = modelPath;
+                    t.EndTime   = DateTime.Now;
+                    if (animPath  != null) t.AnimationPath        = animPath;
+                    if (walkPath  != null) t.WalkingAnimationPath = walkPath;
+                    if (runPath   != null) t.RunningAnimationPath = runPath;
+                });
             }
 
             // Ensure AnimatorController is assigned on the prefab (handles domain-reload recovery path)
@@ -543,9 +418,9 @@ namespace UnityTcp.Editor.Tools
                     });
         }
 
-        public void ShowDialog(string title, string message)
+        public override void ShowDialog(string title, string message)
         {
-            ErrorDialogUtils.ShowErrorDialog(title, message, "AnimatedCharacterRecovery");
+            base.ShowDialog(title, message);
 
             // If it's an error dialog, mark the task as failed
             if (ErrorDialogUtils.IsErrorDialog(title))
@@ -554,10 +429,12 @@ namespace UnityTcp.Editor.Tools
                 if (trackerTask != null)
                 {
                     var friendlyError = ErrorDialogUtils.ConvertToUserFriendlyError(title, message);
-                    trackerTask.Status       = "failed";
-                    trackerTask.ErrorMessage = friendlyError.TechnicalMessage;
-                    trackerTask.EndTime      = DateTime.Now;
-                    AnimatedCharacterTaskTracker.SaveToSession(trackerTask);
+                    AnimatedCharacterTaskTracker.ApplyTaskUpdate(trackerTask, t =>
+                    {
+                        t.Status       = "failed";
+                        t.ErrorMessage = friendlyError.TechnicalMessage;
+                        t.EndTime      = DateTime.Now;
+                    });
                     GenerationNotifier.NotifyFailed("generate_animated_character", trackerTask.TaskId, _backendTaskId,
                         friendlyError.TechnicalMessage,
                         new JObject
@@ -570,10 +447,7 @@ namespace UnityTcp.Editor.Tools
             }
         }
 
-        public void RefreshHistory()  { }
-        public void RefreshUserInfo() { }
-
-        public void Repaint()
+        public override void Repaint()
         {
             // 同步 generator 的轮询进度到 tracker，使 query_animated_character_status 能反映真实进度
             if (_generator == null) return;
@@ -584,16 +458,14 @@ namespace UnityTcp.Editor.Tools
             int progress = _generator.CurrentProgress;
             if (progress > trackerTask.Progress)
             {
-                trackerTask.Status   = "generating";
-                trackerTask.Progress = progress;
-                AnimatedCharacterTaskTracker.SaveToSession(trackerTask);
+                AnimatedCharacterTaskTracker.ApplyTaskUpdate(trackerTask, t =>
+                {
+                    t.Status   = "generating";
+                    t.Progress = progress;
+                });
             }
         }
 
-        public void StartGeneration(ModelGeneratorBase generator) { }
-
-        public string GetAssetSavePath(PipelineMediaType _type, ModelGeneratorBase generator) => null;
-        public void OnAssetSaved(PipelineMediaType _type, string savePath, ModelGeneratorBase generator) { }
     }
 #endif
 
@@ -1001,16 +873,22 @@ namespace UnityTcp.Editor.Tools
 
             if (completedItem != null)
             {
-                task.Status    = "completed";
-                task.Progress  = 100;
-                task.ModelPath = completedItem.modelPath;
-                task.EndTime   = DateTimeOffset.FromUnixTimeMilliseconds(completedItem.timestamp).LocalDateTime;
-
                 string dir      = Path.GetDirectoryName(completedItem.modelPath);
                 string baseName = Path.GetFileNameWithoutExtension(completedItem.modelPath);
-                task.AnimationPath        = AnimatedCharacterTaskTracker.FindAnimFile(dir, baseName, "_animation");
-                task.WalkingAnimationPath = AnimatedCharacterTaskTracker.FindAnimFile(dir, baseName, "_walking");
-                task.RunningAnimationPath = AnimatedCharacterTaskTracker.FindAnimFile(dir, baseName, "_running");
+                string animPath = AnimatedCharacterTaskTracker.FindAnimFile(dir, baseName, "_animation");
+                string walkPath = AnimatedCharacterTaskTracker.FindAnimFile(dir, baseName, "_walking");
+                string runPath  = AnimatedCharacterTaskTracker.FindAnimFile(dir, baseName, "_running");
+
+                AnimatedCharacterTaskTracker.ApplyTaskUpdate(task, t =>
+                {
+                    t.Status    = "completed";
+                    t.Progress  = 100;
+                    t.ModelPath = completedItem.modelPath;
+                    t.EndTime   = DateTimeOffset.FromUnixTimeMilliseconds(completedItem.timestamp).LocalDateTime;
+                    t.AnimationPath        = animPath;
+                    t.WalkingAnimationPath = walkPath;
+                    t.RunningAnimationPath = runPath;
+                });
 
                 if (!string.IsNullOrEmpty(task.PrefabPath))
                 {
@@ -1021,7 +899,6 @@ namespace UnityTcp.Editor.Tools
                     ReplaceAnimatedCharacterModelTool.AssignAnimatorControllerIfMissing(task.PrefabPath, completedItem.modelPath);
                 }
 
-                AnimatedCharacterTaskTracker.SaveToSession(task);
                 TJLog.Log($"[GenerateAnimatedCharacterTool] Recovery task completed via history: {completedItem.modelPath}");
             }
             else
@@ -1030,7 +907,7 @@ namespace UnityTcp.Editor.Tools
                 // if GeneratedModel is already bound in the target prefab, infer the source model path.
                 if (TryUpdateFromPrefabBinding(task))
                 {
-                    AnimatedCharacterTaskTracker.SaveToSession(task);
+                    AnimatedCharacterTaskTracker.ApplyTaskUpdate(task, _ => { });
                     TJLog.Log($"[GenerateAnimatedCharacterTool] Recovery task completed via prefab binding: {task.ModelPath}");
                     return;
                 }
@@ -1041,7 +918,7 @@ namespace UnityTcp.Editor.Tools
                 // neither the history record nor the prefab binding are up to date yet.
                 if (TryUpdateFromFileScan(task))
                 {
-                    AnimatedCharacterTaskTracker.SaveToSession(task);
+                    AnimatedCharacterTaskTracker.ApplyTaskUpdate(task, _ => { });
                     TJLog.Log($"[GenerateAnimatedCharacterTool] Recovery task completed via file scan: {task.ModelPath}");
                     return;
                 }
@@ -1049,10 +926,12 @@ namespace UnityTcp.Editor.Tools
                 // No completed model found. If enough time has elapsed, mark as failed.
                 if ((DateTime.Now - task.StartTime).TotalMinutes > 20)
                 {
-                    task.Status       = "failed";
-                    task.ErrorMessage = "Recovery finished but no completed model was found in history. The generation may have failed.";
-                    task.EndTime      = DateTime.Now;
-                    AnimatedCharacterTaskTracker.SaveToSession(task);
+                    AnimatedCharacterTaskTracker.ApplyTaskUpdate(task, t =>
+                    {
+                        t.Status       = "failed";
+                        t.ErrorMessage = "Recovery finished but no completed model was found in history. The generation may have failed.";
+                        t.EndTime      = DateTime.Now;
+                    });
                     TJLog.LogWarning($"[GenerateAnimatedCharacterTool] Recovery task timed out without result: {task.TaskId}");
                 }
                 // else: not enough time has passed — keep "recovering" and wait
@@ -1506,27 +1385,15 @@ namespace UnityTcp.Editor.Tools
     /// <summary>
     /// Lightweight IGenerationPipelineHost for headless model replacement in animated character prefabs.
     /// </summary>
-    internal class AnimatedCharacterReplaceHost : IGenerationPipelineHost
+    internal class AnimatedCharacterReplaceHost : HeadlessPipelineHostBase
     {
         private readonly string _prefabPath;
 
         public AnimatedCharacterReplaceHost(string prefabPath) => _prefabPath = prefabPath;
 
-        public TJGeneratorsAssetReference GetTargetAsset() => TJGeneratorsAssetReference.FromPath(_prefabPath);
+        protected override string DialogLogTag => "ReplaceAnimatedCharacterModelTool";
 
-        public void StartGeneration(ModelGeneratorBase generator) { }
-        public void RefreshHistory()  { }
-        public void RefreshUserInfo() { }
-        public void Repaint()         { }
-        public void ShowPreviewModel(string assetPath) { }
-
-        public void ShowDialog(string title, string message)
-        {
-            ErrorDialogUtils.ShowErrorDialog(title, message, "ReplaceAnimatedCharacterModelTool");
-        }
-
-        public string GetAssetSavePath(PipelineMediaType _type, ModelGeneratorBase generator) => null;
-        public void OnAssetSaved(PipelineMediaType _type, string savePath, ModelGeneratorBase generator) { }
+        public override TJGeneratorsAssetReference GetTargetAsset() => TJGeneratorsAssetReference.FromPath(_prefabPath);
     }
 #endif
 }

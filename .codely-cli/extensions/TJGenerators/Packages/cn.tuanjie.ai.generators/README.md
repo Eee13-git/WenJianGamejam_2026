@@ -29,8 +29,8 @@ TJGenerators for Unity 是一款强大的 AI 内容生成插件，集成团结 A
 | 生成器 | 功能 | 特点 |
 |--------|------|------|
 | **Frontier Game Design** | 文生图、图生图 | 游戏向图片，支持 prompt 模板、多种画幅与 PNG/JPEG 输出 |
-| **火山 SeeDream** | 文生图、图生图 | 通用图片生成，支持去背景等高级参数 |
-| **火山 SeeDream Pro** | 文生图、图生图 | 更高质量图片生成，支持多参考图与自动抠图等参数 |
+| **火山 SeeDream** | 文生图、图生图 | 通用图片生成，支持去背景等高级参数；prompt 最长 1024 字符 |
+| **火山 SeeDream Pro** | 文生图、图生图 | 更高质量图片生成，支持多参考图与自动抠图等参数；prompt 最长 1024 字符 |
 | **Frontier** | 文生图、图生图 | 风格化特效，支持多档分辨率与画幅 |
 | **Frontier Lite** | 文生图、图生图 | 轻量风格化图片生成 |
 
@@ -39,8 +39,8 @@ TJGenerators for Unity 是一款强大的 AI 内容生成插件，集成团结 A
 | 生成器 | 功能 | 特点 |
 |--------|------|------|
 | **Frontier Game Design** | 文生图、图生图 | 游戏向精灵，支持多种画幅与输出格式 |
-| **火山 SeeDream** | 文生图、图生图 | 支持 31 种内容类型（武器、护甲、消耗品、UI图标等）、30 种艺术风格（像素、卡通、写实等） |
-| **火山 SeeDream Pro** | 文生图、图生图 | 更高质量精灵生成，支持多参考图与自动抠图 |
+| **火山 SeeDream** | 文生图、图生图 | 支持 31 种内容类型（武器、护甲、消耗品、UI图标等）、30 种艺术风格（像素、卡通、写实等）；prompt 最长 1024 字符 |
+| **火山 SeeDream Pro** | 文生图、图生图 | 更高质量精灵生成，支持多参考图与自动抠图；prompt 最长 1024 字符 |
 | **Frontier** | 文生图、图生图 | 风格化特效精灵 |
 | **Frontier Lite** | 文生图、图生图 | 轻量风格化精灵 |
 
@@ -48,7 +48,7 @@ TJGenerators for Unity 是一款强大的 AI 内容生成插件，集成团结 A
 
 | 生成器 | 功能 |
 |--------|------|
-| **火山 SeeDream 表面材质** | 文生/图生表面材质，支持仅用文本提示词或参考图生成，含 15 种材质类型（PBR金属、木材、石材、布料、玻璃等） |
+| **火山 SeeDream 表面材质** | 文生/图生表面材质，支持仅用文本提示词或参考图生成，含 15 种材质类型（PBR金属、木材、石材、布料、玻璃等）；prompt 最长 1024 字符 |
 
 ### 🎵 音频生成
 
@@ -82,7 +82,7 @@ TJGenerators for Unity 是一款强大的 AI 内容生成插件，集成团结 A
 
 - **配置驱动架构**：所有生成器通过 JSON 配置文件定义，添加新生成器无需编写 C# 代码
 - **公开 C# API**：支持在编辑器脚本中调用生成功能
-- **任务恢复机制**：编辑器意外关闭后自动恢复进行中的任务；CustomTool 在 Domain Reload 后亦可继续未完成生成
+- **任务恢复机制**：编辑器意外关闭后自动恢复进行中的任务；CustomTool（图片、精灵、材质、音频、视频、特效视频、天空盒、地形、2D 序列帧、绑骨动画等）在 Domain Reload 后亦可自动恢复未完成生成；绑骨动画任务会持久化 `sessionId` 以便按会话恢复与通知
 - **Play 模式保护**：Unity 播放期间禁用生成、资产搜索、下载及场景放置操作，避免退出播放后生成内容被丢弃
 - **历史记录管理**：按资产隔离历史记录，支持快速复用与在 Project 中定位；写入 `sessionId` 便于按 Agent 会话分组，可通过 `list_session_assets` CustomTool 查询
 - **资产 Label 自动注册**：编辑器启动时自动写入 `TuanjieAI` 标签；精灵表序列帧资产额外写入 `TuanjieAI_Frontier`（代码常量 `SpriteSheetLabel`），便于 Project 搜索与 Inspector 路由
@@ -129,7 +129,7 @@ TJGenerators for Unity 是一款强大的 AI 内容生成插件，集成团结 A
 | `AI/✦ 玩转 AI 生成` | 在浏览器中打开 AI 生成工具使用文档 |
 | `AI/搜索生成的资产` | 聚焦 Project，并按 AI 生成标签过滤搜索 |
 
-上述 **Window** 菜单的开发子项（运行测试、清缓存、模板/图标工具等）需在定义 **`TJGENERATORS_DEBUG`** 后才显示，详见下文 **开发调试**。
+上述 **`AI/开发`** 菜单项（运行测试、清缓存、一键清空历史、**一键清除所有轮询任务记录**、模板/图标工具等）需在定义 **`TJGENERATORS_DEBUG`** 后才显示。
 
 #### Assets / GameObject 快捷创建
 
@@ -355,7 +355,9 @@ Editor/
     │   ├── GenerationPipeline.cs               # 统一生成流程
     │   ├── GenerationBackendTransport.cs        # 后端 HTTP 传输
     │   ├── GenerationMediaAssetHandlers.cs      # 非 3D 媒体下载与写盘
-    │   ├── IGenerationPipelineHost.cs          # 管线宿主接口
+    │   ├── IGenerationPipelineHost.cs          # 管线宿主接口（生命周期 / UI 触发 / 媒体资产）
+    │   ├── HeadlessPipelineHostBase.cs         # CustomTool 等无界面宿主基类
+    │   ├── GenerationBackendSyncSubmit.cs      # CustomTool 同步任务提交（UnityWebRequest）
     │   ├── PipelineSettings.cs                # 管线设置
     │   ├── PipelineApiModels.cs               # 管线 API 模型
     │   └── PipelineDownloadHelper.cs          # 下载与本地路径辅助
@@ -366,6 +368,7 @@ Editor/
     │   └── SpriteSequencePostProcess.cs       # 序列帧后处理
     ├── AssetSearch/                          # AI 资产生命周期与 Project 搜索
     └── Utils/                                # 通用工具（路径、图片、地形、提示词长度限制等）
+        ├── GenerationTaskTrackerStore.cs     # CustomTool 任务追踪与会话持久化（通用）
         ├── GenerationAssetFormatUtils.cs     # 资产格式检测（魔数 / URL）
         ├── GeneratedTextureImportUtils.cs  # 生成纹理 RGBA32 导入配置
         ├── ZipExtractor.cs                   # ZIP 解压

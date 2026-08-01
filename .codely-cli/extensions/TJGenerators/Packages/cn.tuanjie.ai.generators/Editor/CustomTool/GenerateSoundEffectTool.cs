@@ -342,11 +342,9 @@ namespace UnityTcp.Editor.Tools
         private static (string placeholderPath, string downloadPath) BuildSfxPaths(string outputPath, DynamicGenerator generator)
         {
             // Resolve the extension from the generator's effective AudioFormat (which reflects the
-            // user-requested output_format, falling back to the config default). The fal.ai enum
-            // (e.g. "mp3_44100_128", "pcm_44100") is mapped to a real file extension so the placeholder
-            // extension aligns with what the pipeline detects from the backend's magic bytes — keeping
-            // the download overwrite in-place instead of leaving a stale placeholder behind.
-            string ext = "." + FalEnumToAudioExtension(generator?.AudioFormat ?? "mp3");
+            // user-requested output_format, falling back to the config default). Only .mp3/.wav have
+            // blank creators; keep placeholder and download on the same path so overwrite is in-place.
+            string ext = "." + ResolveSfxFileExtension(generator?.AudioFormat);
             string audioPath;
             if (!string.IsNullOrEmpty(outputPath))
             {
@@ -370,20 +368,41 @@ namespace UnityTcp.Editor.Tools
                     "Assets/TJGenerators/History/" + uniqueName + ext);
             }
 
-            // Create a blank placeholder (extension matches the resolved format) so the AI Agent can
-            // assign it immediately. CreateBlankAudioClip forces .wav; for non-wav formats use the
-            // matching blank creator so the placeholder extension equals the download extension.
-            string placeholderPath;
-            if (string.Equals(ext, ".wav", StringComparison.OrdinalIgnoreCase))
-                placeholderPath = TJGeneratorsAudioUtils.CreateBlankAudioClip(audioPath);
-            else if (string.Equals(ext, ".mp3", StringComparison.OrdinalIgnoreCase))
-                placeholderPath = TJGeneratorsAudioUtils.CreateBlankMp3Clip(audioPath);
-            else
-                placeholderPath = TJGeneratorsAudioUtils.CreateBlankAudioClip(audioPath);
+            string placeholderPath = string.Equals(ext, ".wav", StringComparison.OrdinalIgnoreCase)
+                ? TJGeneratorsAudioUtils.CreateBlankAudioClip(audioPath)
+                : TJGeneratorsAudioUtils.CreateBlankMp3Clip(audioPath);
 
-            // downloadPath shares the same base path; the pipeline may change the extension when it
-            // detects the real format from magic bytes, but with matching formats it overwrites in-place.
+            // Harden: CreateBlank* Path.ChangeExtension must not leave a sibling with a different ext.
+            if (!string.Equals(placeholderPath, audioPath, StringComparison.OrdinalIgnoreCase))
+            {
+                TJLog.LogWarning(
+                    $"[GenerateSoundEffectTool] Placeholder path '{placeholderPath}' differs from download path '{audioPath}'; aligning download to placeholder.");
+                audioPath = placeholderPath;
+            }
+
             return (placeholderPath, audioPath);
+        }
+
+        /// <summary>
+        /// Maps generator <c>AudioFormat</c> / fal enum to a placeholder+download file extension (no dot).
+        /// Only <c>mp3</c>/<c>wav</c> are returned — those are the blank formats we can create and Unity can import.
+        /// </summary>
+        internal static string ResolveSfxFileExtension(string audioFormat)
+        {
+            if (string.IsNullOrWhiteSpace(audioFormat))
+                return "mp3";
+
+            string ext = FalEnumToAudioExtension(audioFormat);
+            if (string.IsNullOrWhiteSpace(ext))
+                ext = "mp3";
+
+            ext = ext.Trim().TrimStart('.').ToLowerInvariant();
+            if (ext == "wav" || ext == "mp3")
+                return ext;
+
+            TJLog.LogWarning(
+                $"[GenerateSoundEffectTool] Unsupported SFX file extension '{ext}' from AudioFormat '{audioFormat}'; falling back to mp3 so placeholder matches download.");
+            return "mp3";
         }
 
         private static void EnsureAssetDatabaseFolder(string folderPath)

@@ -35,12 +35,6 @@ Beyond the common report structure, include:
 - Final rotation / position applied (and whether `[0,0,0]` or `[0,180,0]` was needed)
 """
 
-[agent.model_config]
-model = "codely-core"
-
-[agent.model_config.sampling_params]
-reasoning_effort = "high"
-
 [agent.run_config]
 stream = false
 max_turns = 1000

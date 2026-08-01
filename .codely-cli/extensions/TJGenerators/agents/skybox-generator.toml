@@ -29,12 +29,6 @@ Beyond the common report structure, include:
 - Whether `RenderSettings.skybox` was successfully updated
 """
 
-[agent.model_config]
-model = "codely-core"
-
-[agent.model_config.sampling_params]
-reasoning_effort = "high"
-
 [agent.run_config]
 stream = false
 max_turns = 1000

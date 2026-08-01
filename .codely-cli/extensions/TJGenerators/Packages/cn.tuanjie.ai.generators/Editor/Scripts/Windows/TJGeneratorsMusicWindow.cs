@@ -20,7 +20,7 @@ namespace TJGenerators
     /// <summary>
     /// TJGenerators 文生音频窗口 - 使用 huoshan_music 等生成器生成音频
     /// </summary>
-    public class TJGeneratorsMusicWindow : GenerationWindowBase, IGenerationPipelineHost
+    public class TJGeneratorsMusicWindow : GenerationWindowBase, IGenerationPipelineHost, IGenerationTriggerHost, IMediaAssetPipelineHost
     {
         // ========== 基类抽象属性实现 ==========
         protected override ConfigType WindowConfigType => ConfigType.Music;
@@ -849,7 +849,7 @@ namespace TJGenerators
             _waveformCache.Clear();
         }
 
-        public void ShowPreviewModel(string assetPath)
+        public void OnGenerationCompleted(string assetPath)
         {
             if (generationHistory != null && !string.IsNullOrEmpty(assetPath))
             {
@@ -897,7 +897,6 @@ namespace TJGenerators
             Repaint();
         }
 
-        void IGenerationPipelineHost.Repaint() { Repaint(); }
     }
 }
 #endif

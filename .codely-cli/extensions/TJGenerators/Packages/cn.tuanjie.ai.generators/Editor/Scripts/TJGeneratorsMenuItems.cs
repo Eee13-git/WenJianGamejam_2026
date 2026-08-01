@@ -233,7 +233,7 @@ namespace TJGenerators
         #endregion
 
 #if TJGENERATORS_DEBUG
-        #region AI - Dev (3055–3059 / 3155–3159)
+        #region AI - Dev (3055–3060 / 3155–3160)
 
         [MenuItem("AI/开发/运行生成测试", false, 3055)]
         public static void OpenGenerationTestRunnerWindow() { TJGeneratorsGenerationTestRunner.Open(); }
@@ -306,6 +306,36 @@ namespace TJGenerators
         public static void ClearAllGenerationHistory_En() { ClearAllGenerationHistory(); }
         [MenuItem("AI/Dev/Clear All History", true)]
         public static bool Validate_ClearAllGenerationHistory_En() => true;
+
+        /// <summary>
+        /// 清除本地轮询恢复记录与「生成中」占位符。当前无后端 cancel API，无法通知服务器取消任务。
+        /// </summary>
+        public static void ClearAllPollingGenerationRecords()
+        {
+            if (!EditorUtility.DisplayDialog(
+                    TJGeneratorsL10n.L("清除轮询任务记录"),
+                    TJGeneratorsL10n.L("确定要清除所有轮询中的生成任务记录吗？将清空本地中断任务与「生成中」占位符，并停止本地继续轮询。后端暂无取消接口，服务器上的任务可能仍会继续运行。"),
+                    TJGeneratorsL10n.L("清除"),
+                    TJGeneratorsL10n.L("取消")))
+            {
+                return;
+            }
+
+            int interrupted = TJGeneratorsTaskRecovery.ClearAllInterruptedTasks();
+            int placeholders = TJGeneratorsHistoryManager.ClearAllGeneratingPlaceholders();
+            TJLog.Log(
+                $"[TJGenerators] 已清除轮询任务记录：中断任务 {interrupted} 条，「生成中」占位符 {placeholders} 条。"
+                + " 已请求停止本地轮询；未向后端发送取消请求（无 cancel API）。"
+            );
+        }
+        [MenuItem("AI/开发/一键清除所有轮询任务记录", false, 3060)]
+        public static void ClearAllPollingGenerationRecords_Cn() { ClearAllPollingGenerationRecords(); }
+        [MenuItem("AI/开发/一键清除所有轮询任务记录", true)]
+        public static bool Validate_ClearAllPollingGenerationRecords() => true;
+        [MenuItem("AI/Dev/Clear All Polling Task Records", false, 3160)]
+        public static void ClearAllPollingGenerationRecords_En() { ClearAllPollingGenerationRecords(); }
+        [MenuItem("AI/Dev/Clear All Polling Task Records", true)]
+        public static bool Validate_ClearAllPollingGenerationRecords_En() => true;
 
         #endregion
 #endif
