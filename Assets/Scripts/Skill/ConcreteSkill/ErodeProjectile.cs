@@ -7,6 +7,9 @@ using UnityEngine;
 /// </summary>
 public class ErodeProjectile : MonoBehaviour
 {
+    [Header("特效")]
+    [SerializeField] private GameObject hitEffectPrefab;
+
     private void OnTriggerEnter2D(Collider2D other)
     {
         // 只命中敌人
@@ -34,6 +37,24 @@ public class ErodeProjectile : MonoBehaviour
         else
         {
             Time.timeScale = 1f;
+        }
+    }
+
+    private void OnDestroy()
+    {
+        // 生成命中爆发特效
+        if (hitEffectPrefab != null)
+        {
+            Instantiate(hitEffectPrefab, transform.position, Quaternion.identity);
+        }
+
+        // 将拖尾粒子子物体分离，让它自然消散
+        var trail = transform.Find("TrailParticles");
+        if (trail != null)
+        {
+            trail.SetParent(null);
+            var ps = trail.GetComponent<ParticleSystem>();
+            if (ps != null) ps.Stop(true, ParticleSystemStopBehavior.StopEmitting);
         }
     }
 
