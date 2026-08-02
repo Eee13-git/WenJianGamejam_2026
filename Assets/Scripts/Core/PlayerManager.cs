@@ -87,12 +87,14 @@ public class PlayerManager : MonoBehaviour
                 CurrentPlayer = player;
                 DontDestroyOnLoad(player);
 
-                // 跨场景复用时保留当前位置，不重置
+                // 跨场景复用时不保留当前位置，重置
+                player.transform.position = Vector3.zero;
 
 #if UNITY_EDITOR
-                Debug.Log($"[PlayerManager] 复用场景中已有的 Player: '{player.name}', 位置={player.transform.position}");
+                Debug.Log($"[PlayerManager] 复用场景中已有的 Player: '{player.name}', 位置={Vector3.zero}");
 #endif
             }
+            player.transform.position = Vector3.zero;
         }
         // 无 Player —— 从预制体动态生成
         else

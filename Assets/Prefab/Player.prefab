@@ -12,10 +12,13 @@ GameObject:
   - component: {fileID: 6707821022466416210}
   - component: {fileID: 7532659181443902993}
   - component: {fileID: 5678290061829878204}
-  - component: {fileID: 694382340607450130}
-  - component: {fileID: 4912658885148182202}
-  - component: {fileID: 6473974774114581604}
-  - component: {fileID: 710153900147107810}
+  - component: {fileID: 4090916348005441232}
+  - component: {fileID: 1320552530219506828}
+  - component: {fileID: 70989725285433174}
+  - component: {fileID: 6977921527657197634}
+  - component: {fileID: 5167232238786414711}
+  - component: {fileID: 4915933017335464749}
+  - component: {fileID: 9198677811324839689}
   m_Layer: 0
   m_Name: Player
   m_TagString: Player
@@ -129,7 +132,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 71b671edc4b41fa4780c1a73329376c0, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
---- !u!58 &694382340607450130
+--- !u!58 &4090916348005441232
 CircleCollider2D:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -164,7 +167,7 @@ CircleCollider2D:
   m_Offset: {x: 0, y: 0}
   serializedVersion: 2
   m_Radius: 0.5
---- !u!114 &4912658885148182202
+--- !u!114 &1320552530219506828
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -177,7 +180,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   bulletPrefab: {fileID: 7934569598719493114, guid: 7b3a513f3f9f7354e84ced92cd2cf1c2, type: 3}
---- !u!114 &6473974774114581604
+--- !u!114 &70989725285433174
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -196,7 +199,7 @@ MonoBehaviour:
   bulletSpeed: 10
   shootCooldown: 0.2
   colliderRadius: 0.4
---- !u!114 &710153900147107810
+--- !u!114 &6977921527657197634
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -219,3 +222,46 @@ MonoBehaviour:
     isUnlocked: 1
   _skillLibrary: {fileID: 11400000, guid: 25b940d240ce07f4dbf92087a21c017a, type: 2}
   _initialSkillId: erode
+--- !u!114 &5167232238786414711
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1667234661070689864}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: da4976192c9815f4e907fb00ab224c84, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _itemDropPrefab: {fileID: 0}
+  _initialItems: []
+--- !u!114 &4915933017335464749
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1667234661070689864}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 54981fe574c0a2f4c972934f1d5bcfa4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+--- !u!114 &9198677811324839689
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1667234661070689864}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 71b16a7decbe6e241bb2a9ec5fac3892, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _detectRadius: 2
+  _scanInterval: 0.1
+  _interactKey: 102
+  _detailPopup: {fileID: 0}
+  _itemManager: {fileID: 0}

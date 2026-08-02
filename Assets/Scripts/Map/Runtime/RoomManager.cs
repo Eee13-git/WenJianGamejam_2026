@@ -207,12 +207,7 @@ public class RoomManager : MonoBehaviour
         if (roomType != RoomType.Boss && roomType != RoomType.Exit) return;
 
         var mapConfigAsset = MapManager.Instance?.MapConfigAsset;
-        if (mapConfigAsset == null || string.IsNullOrEmpty(mapConfigAsset.nextSceneName)) return;
-        if (mapConfigAsset.nextLevelExitPrefab == null)
-        {
-            Debug.LogWarning("RoomManager: MapConfig.nextLevelExitPrefab 未配置");
-            return;
-        }
+        if (mapConfigAsset == null) return;
 
         var exitGo = Instantiate(mapConfigAsset.nextLevelExitPrefab, roomRoot.Center, Quaternion.identity, transform);
         exitGo.name = "NextLevelExit";

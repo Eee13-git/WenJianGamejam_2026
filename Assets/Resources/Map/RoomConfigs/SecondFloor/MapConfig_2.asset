@@ -1,0 +1,37 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3a796d72d30aed34981304b44ac28461, type: 3}
+  m_Name: MapConfig_2
+  m_EditorClassIdentifier: 
+  useRandomSeed: 1
+  seed: 0
+  normalRoomCount: 4
+  treasureRoomCount: 1
+  shopRoomCount: 1
+  hasBoss: 1
+  bossRoomCount: 1
+  normalRoomPool:
+  - {fileID: 11400000, guid: 898c86e09375b6e43b72e322195e5de4, type: 2}
+  treasureRoomPool:
+  - {fileID: 11400000, guid: bc93fe99c11f224498972a46854cc49b, type: 2}
+  bossRoomPool:
+  - {fileID: 11400000, guid: c2aa86b23bb94d8488946a53ef05569e, type: 2}
+  shopRoomPool:
+  - {fileID: 11400000, guid: 9f53db9265586f543b1de9389e2a9d22, type: 2}
+  hiddenRoomPool:
+  - {fileID: 11400000, guid: d031146952195d0469e6a716d6771702, type: 2}
+  hiddenRoomCount: 1
+  startRoom: {fileID: 11400000, guid: 7fc7aba151af26a41b2ddb1687371e4f, type: 2}
+  exitRoom: {fileID: 11400000, guid: d228b3977a0d4704497f5c7b8501e2a1, type: 2}
+  nextLevelExitPrefab: {fileID: 1545090001272162127, guid: a406fdbcb83c908458718ff928f1dbd4, type: 3}
+  nextSceneName: 
+  roomSpacing: 0.5

@@ -8,8 +8,9 @@ using UnityEngine.SceneManagement;
 [RequireComponent(typeof(Collider2D))]
 public class NextLevelExit : MonoBehaviour
 {
-    [Tooltip("目标场景名 (在 Build Settings 中)")]
+    [Tooltip("目标场景名 (在 Build Settings 中)，如果为空则进入胜利界面")]
     public string nextSceneName;
+    public string winningSceneName = "Winning";
 
     private void Awake()
     {
@@ -22,9 +23,21 @@ public class NextLevelExit : MonoBehaviour
         if (!other.CompareTag("Player")) return;
         if (other.GetComponent<PlayerStats>() == null) return;
 
+        // 如果为空则进入胜利界面
         if (string.IsNullOrEmpty(nextSceneName))
         {
-            Debug.LogWarning("NextLevelExit: nextSceneName 为空");
+            if (string.IsNullOrEmpty(winningSceneName))
+            {
+                if (!Application.CanStreamedLevelBeLoaded(winningSceneName))
+                {
+                    Debug.LogError($"场景 '{winningSceneName}' 未在 Build Settings 中添加或启用，无法加载！");
+                    return; // 直接返回，不会触发报错
+                }
+                Debug.LogWarning("NextLevelExit: nextSceneName 为空");
+                return;
+            }
+
+            SceneManager.LoadScene(winningSceneName);
             return;
         }
 
@@ -38,5 +51,6 @@ public class NextLevelExit : MonoBehaviour
         DontDestroyOnLoad(other.gameObject);
 
         SceneManager.LoadScene(nextSceneName);
+        return;
     }
 }
