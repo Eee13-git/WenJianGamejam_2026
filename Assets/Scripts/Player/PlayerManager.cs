@@ -125,7 +125,7 @@ public class PlayerManager : MonoBehaviour
     {
 #if UNITY_EDITOR
         // Editor 模式: 通过 AssetDatabase 按路径加载
-        var prefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefab/Player.prefab");
+        var prefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/Player.prefab");
         if (prefab != null)
         {
             Debug.Log("[PlayerManager] 已自动加载 Player 预制体: Assets/Prefab/Player.prefab");

@@ -3,7 +3,7 @@ using UnityEngine;
 /// <summary>
 /// Boss 阶段配置 — 定义单个阶段的技能列表和行为参数。
 /// </summary>
-[CreateAssetMenu(fileName = "BossPhaseData", menuName = "Boss/Phase Data")]
+[CreateAssetMenu(fileName = "BossPhaseData", menuName = "Enemy/Phase Data")]
 public class BossPhaseData : ScriptableObject
 {
     [Header("阶段信息")]

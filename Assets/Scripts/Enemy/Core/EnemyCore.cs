@@ -20,7 +20,7 @@ public class EnemyCore : MonoBehaviour, IEnemy
     public IAttackBehavior AttackBehavior { get; private set; }
 
     // 缓存玩家引用 + 最后已知位置（供状态机读取）
-    public Transform PlayerTarget { get; private set; }
+    public Transform PlayerTarget { get; set; }
     public Vector2 LastKnownPlayerPosition { get; set; }
 
     public Transform EnemyTransform => transform;

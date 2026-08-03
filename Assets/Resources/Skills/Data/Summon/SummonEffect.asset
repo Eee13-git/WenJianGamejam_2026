@@ -9,10 +9,11 @@ MonoBehaviour:
   m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 227bcd822210761439e23a412a5a2ac9, type: 3}
-  m_Name: GroundSmashEffect
+  m_Script: {fileID: 11500000, guid: 5223916dedf03ca4184b9508498e318e, type: 3}
+  m_Name: SummonEffect
   m_EditorClassIdentifier: 
-  radius: 3.5
-  warningDuration: 0.5
-  stunDuration: 0.5
-  warningVfx: {fileID: 0}
+  enemyPrefabs:
+  - {fileID: 2633800766284816993, guid: f164b6a17b3542a4ca28580a82e33f3f, type: 3}
+  count: 3
+  spawnRadius: 4
+  spawnInterval: 0.3

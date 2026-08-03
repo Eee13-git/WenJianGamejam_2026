@@ -169,6 +169,9 @@ Assets/
 ### Project
 - [2026-08-03 20:16:04] 新增技能时，资产按技能名分散到子文件夹：Prefab/Projectiles/{技能名}/ 放预制体+材质+特效；Resources/Skills/Data/{技能名}/ 放 SkillData.asset + SkillEffect.asset。共享资产（通用 Bullet/Skilltest 等）保留在 Projectiles/ 根目录。
 - [2026-08-03 20:39:51] 新增技能时，只在 ConcreteSkill/ 中建脚本（投射物命中逻辑等），不要动 Effects/ 文件夹。如果必须新增 Effects/，类必须是泛用的（接口/抽象基类），能被多个技能复用。如 HomingProjectileSkillEffect + IHomingProjectile。效果资产仍用具体命名（如 BacteriophageEffect.asset），但引用的类类型是泛用的。
+- [2026-08-03 21:43:19] Boss技能已整合入主技能架构：BossConfig.skillLibrary 须指向主 SkillLibrary；BossPhaseData 引用 SkillData[] 通过 GUID；BossCore 使用 EnemySkillManager.LoadSkills() 而非自维护列表；Boss 上 EnemySkillManager 须设 _manualTick=true 避免与 BossCore.Update() 双重 Tick。
+- [2026-08-03 22:40:26] SummonSkillEffect 根据 ownerType 区分阵营：Player 方用 playerMinionPrefabs（Tag=Player，以 Enemy 为目标），Enemy 方用 enemyMinionPrefabs（Tag=Enemy，以 Player 为目标）。EnemyCore.PlayerTarget setter 为 public 以支持召唤后设初始目标。
+- [2026-08-03 22:40:26] 场景 UI 统一在单个 UICanvas（1920×1080, ScaleWithScreenSize, Match 0.5）下，功能分区为：SkillUI（技能面板+Popups）、ItemUI（物品+详情弹窗）、CurrencyPanel、MinimapUI。所有弹出面板（SkillStealPopup/ErodeChoicePopup）放在 SkillUI/Popups 下。
 
 ### Reference
 

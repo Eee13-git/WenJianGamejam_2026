@@ -17,6 +17,17 @@ public class AoESkillEffect : SkillEffectBase
     [Tooltip("打击特效预制体（可选）")]
     public GameObject impactVfx;
 
+    [Header("预警（可选）")]
+    [Tooltip("预警时间（秒），>0 则延迟生效并播放预警特效")]
+    public float warningDuration;
+
+    [Tooltip("预警特效（可选，须配合 warningDuration 使用）")]
+    public GameObject warningVfx;
+
+    [Header("眩晕（可选）")]
+    [Tooltip("玩家被击中后眩晕时间（秒），0=不眩晕")]
+    public float stunDuration;
+
     public override void Execute(ISkillCaster caster, Vector2 direction,
                                   float damageMultiplier, Projectile.OwnerType ownerType)
     {
@@ -26,8 +37,29 @@ public class AoESkillEffect : SkillEffectBase
 
         float damage = caster.GetAttackStrength() * damageMultiplier;
 
+        MonoBehaviour mono = caster.CasterTransform.GetComponent<MonoBehaviour>();
+        if (mono != null)
+            mono.StartCoroutine(DelayedExecute(center, damage, ownerType));
+        else
+            ApplyDamage(center, damage, ownerType);
+    }
+
+    private System.Collections.IEnumerator DelayedExecute(Vector2 center,
+        float damage, Projectile.OwnerType ownerType)
+    {
+        if (warningVfx != null)
+            Object.Instantiate(warningVfx, center, Quaternion.identity);
+
+        if (warningDuration > 0f)
+            yield return new WaitForSeconds(warningDuration);
+
+        ApplyDamage(center, damage, ownerType);
+    }
+
+    private void ApplyDamage(Vector2 center, float damage, Projectile.OwnerType ownerType)
+    {
         if (impactVfx != null)
-            Instantiate(impactVfx, center, Quaternion.identity);
+            Object.Instantiate(impactVfx, center, Quaternion.identity);
 
         Collider2D[] hits = Physics2D.OverlapCircleAll(center, radius);
         string enemyTag = ownerType == Projectile.OwnerType.Player ? "Enemy" : "Player";
@@ -37,6 +69,17 @@ public class AoESkillEffect : SkillEffectBase
             if (!hit.CompareTag(enemyTag)) continue;
             if (hit.TryGetComponent<IDamageable>(out var d))
                 d.TakeDamage(damage);
+
+            if (stunDuration > 0f && hit.CompareTag("Player")
+                && hit.TryGetComponent<PlayerController>(out var pc))
+                pc.StartCoroutine(StunRoutine(pc, stunDuration));
         }
+    }
+
+    private static System.Collections.IEnumerator StunRoutine(PlayerController pc, float duration)
+    {
+        pc.InputLocked = true;
+        yield return new WaitForSeconds(duration);
+        pc.InputLocked = false;
     }
 }
