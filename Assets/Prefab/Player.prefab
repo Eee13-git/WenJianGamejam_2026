@@ -199,7 +199,7 @@ MonoBehaviour:
   maxHealth: 10000
   health: 10000
   moveSpeed: 5
-  attackStrength: 1000
+  attackStrength: 10
   bulletSpeed: 10
   shotsPerMinute: 90
   colliderRadius: 0.4
@@ -218,14 +218,17 @@ MonoBehaviour:
   _slots:
   - keyBinding: 113
     isUnlocked: 1
-  - keyBinding: 102
-    isUnlocked: 1
   - keyBinding: 101
     isUnlocked: 1
-  - keyBinding: 114
+  - keyBinding: 122
+    isUnlocked: 1
+  - keyBinding: 120
     isUnlocked: 1
   _skillLibrary: {fileID: 11400000, guid: 25b940d240ce07f4dbf92087a21c017a, type: 2}
-  _initialSkillId: erode
+  _initialSkillId0: erode
+  _initialSkillId1: bacteriophage
+  _initialSkillId2: 
+  _initialSkillId3: 
 --- !u!114 &5167232238786414711
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -310,7 +313,10 @@ MonoBehaviour:
   - keyBinding: 114
     isUnlocked: 1
   _skillLibrary: {fileID: 11400000, guid: 25b940d240ce07f4dbf92087a21c017a, type: 2}
-  _initialSkillId: erode
+  _initialSkillId0: 
+  _initialSkillId1: 
+  _initialSkillId2: 
+  _initialSkillId3: 
 --- !u!114 &7676127947450236638
 MonoBehaviour:
   m_ObjectHideFlags: 0

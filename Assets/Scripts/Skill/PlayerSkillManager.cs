@@ -11,17 +11,20 @@ public class PlayerSkillManager : MonoBehaviour, ISkillCaster
     [SerializeField] private List<SkillSlot> _slots = new()
     {
         new SkillSlot { keyBinding = KeyCode.Q },
-        new SkillSlot { keyBinding = KeyCode.F },
         new SkillSlot { keyBinding = KeyCode.E },
-        new SkillSlot { keyBinding = KeyCode.R },
+        new SkillSlot { keyBinding = KeyCode.Z },
+        new SkillSlot { keyBinding = KeyCode.X },
     };
 
     [Header("技能库")]
     [SerializeField] private SkillLibrary _skillLibrary;
 
     [Header("初始技能")]
-    [Tooltip("游戏开始时自动装备的技能 ID（留空则不装备）")]
-    [SerializeField] private string _initialSkillId;
+    [Tooltip("游戏开始时自动装备的技能 ID（槽位 0~3，留空则不装备）")]
+    [SerializeField] private string _initialSkillId0;
+    [SerializeField] private string _initialSkillId1;
+    [SerializeField] private string _initialSkillId2;
+    [SerializeField] private string _initialSkillId3;
 
     // ---------- ISkillCaster ----------
     public Transform CasterTransform => transform;
@@ -47,13 +50,17 @@ public class PlayerSkillManager : MonoBehaviour, ISkillCaster
     private void Awake()
     {
         _stats = GetComponent<PlayerStats>();
-        EquipInitialSkill();
+        EquipInitialSkills();
     }
 
-    private void EquipInitialSkill()
+    private void EquipInitialSkills()
     {
-        if (string.IsNullOrEmpty(_initialSkillId)) return;
-        EquipSkill(0, _initialSkillId);
+        var ids = new[] { _initialSkillId0, _initialSkillId1, _initialSkillId2, _initialSkillId3 };
+        for (int i = 0; i < ids.Length; i++)
+        {
+            if (!string.IsNullOrEmpty(ids[i]))
+                EquipSkill(i, ids[i]);
+        }
     }
 
     void Update()

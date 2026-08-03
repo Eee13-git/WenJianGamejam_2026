@@ -48,13 +48,21 @@ public class ErodeProjectile : MonoBehaviour
             Instantiate(hitEffectPrefab, transform.position, Quaternion.identity);
         }
 
-        // 将拖尾粒子子物体分离，让它自然消散
+        // 将拖尾粒子子物体分离并定时销毁
         var trail = transform.Find("TrailParticles");
         if (trail != null)
         {
             trail.SetParent(null);
             var ps = trail.GetComponent<ParticleSystem>();
-            if (ps != null) ps.Stop(true, ParticleSystemStopBehavior.StopEmitting);
+            if (ps != null)
+            {
+                ps.Stop(true, ParticleSystemStopBehavior.StopEmitting);
+                Destroy(trail.gameObject, ps.main.startLifetime.constantMax + 1f);
+            }
+            else
+            {
+                Destroy(trail.gameObject, 2f);
+            }
         }
     }
 

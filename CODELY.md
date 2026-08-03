@@ -167,6 +167,8 @@ Assets/
 ### Feedback
 
 ### Project
+- [2026-08-03 20:16:04] 新增技能时，资产按技能名分散到子文件夹：Prefab/Projectiles/{技能名}/ 放预制体+材质+特效；Resources/Skills/Data/{技能名}/ 放 SkillData.asset + SkillEffect.asset。共享资产（通用 Bullet/Skilltest 等）保留在 Projectiles/ 根目录。
+- [2026-08-03 20:39:51] 新增技能时，只在 ConcreteSkill/ 中建脚本（投射物命中逻辑等），不要动 Effects/ 文件夹。如果必须新增 Effects/，类必须是泛用的（接口/抽象基类），能被多个技能复用。如 HomingProjectileSkillEffect + IHomingProjectile。效果资产仍用具体命名（如 BacteriophageEffect.asset），但引用的类类型是泛用的。
 
 ### Reference
 

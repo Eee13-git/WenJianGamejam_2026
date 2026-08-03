@@ -22,7 +22,7 @@ public class SkillLibrary : ScriptableObject
 
     /// <summary>
     /// 创建完整可用的技能实例（SkillLibrary 是唯一工厂入口）。
-    /// 自动注入 OnExecute 委托，优先使用 skillEffect 策略，其次 projectilePrefab。
+    /// 通过 skillEffect 策略注入 OnExecute 委托。
     /// </summary>
     public SkillInstance CreateSkillInstance(string skillId)
     {
@@ -35,27 +35,13 @@ public class SkillLibrary : ScriptableObject
 
         SkillInstance instance = new SkillInstance(data);
 
-        // 注入 OnExecute 委托
         instance.OnExecute += (caster, direction) =>
         {
-            Projectile.OwnerType ownerType = caster.GetOwnerType();
+            if (data.skillEffect == null) return;
 
-            if (data.skillEffect != null)
-            {
-                data.skillEffect.Execute(caster, direction,
-                    instance.CurrentDamageMultiplier, ownerType);
-            }
-            else if (data.projectilePrefab != null)
-            {
-                // 旧方式兼容：直接生成投射物
-                GameObject go = Instantiate(data.projectilePrefab,
-                    caster.CasterTransform.position, Quaternion.identity);
-                Projectile proj = go.GetComponent<Projectile>();
-                if (proj == null) proj = go.AddComponent<Projectile>();
-                proj.Initialize(direction, data.castRange,
-                    caster.GetAttackStrength() * instance.CurrentDamageMultiplier,
-                    ownerType, caster.CasterTransform.gameObject);
-            }
+            Projectile.OwnerType ownerType = caster.GetOwnerType();
+            data.skillEffect.Execute(caster, direction,
+                instance.CurrentDamageMultiplier, ownerType);
         };
 
         return instance;

@@ -19,9 +19,6 @@ public class SkillData : ScriptableObject
     public float damageMultiplier = 1.5f; // 伤害系数（乘以施法者攻击力）
     public int maxLevel = 5;              // 最大升级等级
 
-    [Header("表现")]
-    public GameObject projectilePrefab;   // 投射物预制体（可为空，旧方式兼容）
-
-    [Header("效果策略（优先于 projectilePrefab）")]
+    [Header("效果策略")]
     public SkillEffectBase skillEffect;   // 拖入具体效果资产，如 ProjectileSkillEffect
 }
