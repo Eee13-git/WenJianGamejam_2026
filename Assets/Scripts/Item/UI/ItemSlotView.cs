@@ -1,12 +1,13 @@
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.EventSystems;
 using TMPro;
 
 /// <summary>
-/// 道具槽位 View — 纯渲染，不引用任何游戏逻辑。
+/// 道具槽位 View — 纯渲染，鼠标悬停时弹出详情 tooltip。
 /// 由 ItemPanel 管理，由 ItemUIController 调用 Refresh() 更新。
 /// </summary>
-public class ItemSlotView : MonoBehaviour
+public class ItemSlotView : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
 {
     [Header("图标")]
     [SerializeField] private Image _icon;
@@ -17,27 +18,25 @@ public class ItemSlotView : MonoBehaviour
 
     [Header("信息")]
     [SerializeField] private TMP_Text _nameText;
-    [SerializeField] private TMP_Text _descText;
     [SerializeField] private TMP_Text _countText;
-
-    [Header("Tooltip触发器")]
-    [SerializeField] private Button _tooltipTrigger;
 
     /// <summary>当前绑定的道具数据</summary>
     public ItemData BoundItem { get; private set; }
 
+    private Image _background;
+
     private void Awake()
     {
-        if (_tooltipTrigger != null)
-        {
-            _tooltipTrigger.onClick.AddListener(() =>
-                ItemPanel.Instance?.OnSlotClicked(this));
-        }
+        _background = GetComponent<Image>();
     }
 
     public void Refresh(in ItemViewData data, ItemData boundItem)
     {
         BoundItem = boundItem;
+
+        // 有道具时显示极微弱的暗底
+        if (_background != null)
+            _background.color = new Color(0.1f, 0.1f, 0.12f, 0.3f);
 
         if (_icon != null)
         {
@@ -49,7 +48,12 @@ public class ItemSlotView : MonoBehaviour
 
         if (_qualityFrame != null)
         {
-            _qualityFrame.color = QualityToColor(data.Quality);
+            // 品质框只显示为颜色边框，Image 设为透明底色 + 薄边框效果
+            _qualityFrame.color = new Color(
+                QualityToColor(data.Quality).r,
+                QualityToColor(data.Quality).g,
+                QualityToColor(data.Quality).b,
+                0.35f);
             _qualityFrame.gameObject.SetActive(true);
         }
 
@@ -58,9 +62,6 @@ public class ItemSlotView : MonoBehaviour
             _nameText.text = data.Name;
             _nameText.color = QualityToColor(data.Quality);
         }
-
-        if (_descText != null)
-            _descText.text = data.Description;
 
         if (_countText != null)
         {
@@ -73,13 +74,29 @@ public class ItemSlotView : MonoBehaviour
     {
         BoundItem = null;
 
+        if (_background != null)
+            _background.color = new Color(0f, 0f, 0f, 0f); // 完全透明
+
         if (_icon != null) _icon.enabled = false;
-        if (_emptyIcon != null) _emptyIcon.SetActive(true);
+        if (_emptyIcon != null) _emptyIcon.SetActive(false);
         if (_qualityFrame != null) _qualityFrame.gameObject.SetActive(false);
         if (_nameText != null) _nameText.text = "";
-        if (_descText != null) _descText.text = "";
         if (_countText != null) _countText.text = "";
     }
+
+    // ==================== 鼠标悬停 ====================
+
+    public void OnPointerEnter(PointerEventData eventData)
+    {
+        ItemPanel.Instance?.ShowHoverTooltip(this);
+    }
+
+    public void OnPointerExit(PointerEventData eventData)
+    {
+        ItemPanel.Instance?.HideHoverTooltip();
+    }
+
+    // ==================== 工具 ====================
 
     private static Color QualityToColor(ItemQuality quality) => quality switch
     {

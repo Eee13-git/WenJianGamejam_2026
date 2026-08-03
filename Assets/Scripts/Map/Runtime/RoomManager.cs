@@ -11,6 +11,10 @@ public class RoomManager : MonoBehaviour
     [Header("组件引用")]
     public RoomRoot roomRoot;
 
+    [Header("货币掉落")]
+    [SerializeField] private int _currencyPerEnemy = 3;
+    [SerializeField] private Sprite _currencyIcon;
+
     [Header("房间状态")]
     [SerializeField] private bool _isCleared;
     private bool _isFirstEnter = true;
@@ -33,6 +37,10 @@ public class RoomManager : MonoBehaviour
     {
         if (roomRoot == null)
             roomRoot = GetComponent<RoomRoot>();
+
+        // 自动加载货币图标
+        if (_currencyIcon == null)
+            _currencyIcon = Resources.Load<Sprite>("TestAssets/Icons/icon_atp");
 
         _portals.AddRange(GetComponentsInChildren<RoomPortal>());
 
@@ -160,6 +168,9 @@ public class RoomManager : MonoBehaviour
     private void OnEnemyDied(GameObject enemy)
     {
         _aliveEnemies.Remove(enemy);
+
+        // 生成货币掉落
+        SpawnCurrency(enemy.transform.position, _currencyPerEnemy);
 
         if (_aliveEnemies.Count == 0)
         {
@@ -291,5 +302,27 @@ public class RoomManager : MonoBehaviour
             int j = Random.Range(0, i + 1);
             (list[i], list[j]) = (list[j], list[i]);
         }
+    }
+
+    /// <summary>在指定位置生成货币掉落物</summary>
+    private void SpawnCurrency(Vector3 position, int amount)
+    {
+        var go = new GameObject("CurrencyPickup", typeof(SpriteRenderer), typeof(CircleCollider2D), typeof(CurrencyPickup));
+
+        var sr = go.GetComponent<SpriteRenderer>();
+        sr.sprite = _currencyIcon;
+        sr.sortingOrder = 5;
+
+        var col = go.GetComponent<CircleCollider2D>();
+        col.isTrigger = true;
+        col.radius = 0.4f;
+
+        var pickup = go.GetComponent<CurrencyPickup>();
+        pickup.amount = amount;
+
+        // 随机散布
+        position += (Vector3)(Random.insideUnitCircle * 0.5f);
+        go.transform.position = position;
+        go.transform.SetParent(transform);
     }
 }

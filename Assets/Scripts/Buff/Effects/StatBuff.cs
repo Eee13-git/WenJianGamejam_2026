@@ -11,7 +11,7 @@ using UnityEngine;
 public class StatBuff : BuffEffectBase
 {
     [Header("属性修改")]
-    [Tooltip("属性名: MaxHealth / MoveSpeed / AttackStrength / BulletSpeed / ShootCooldown / ColliderRadius")]
+    [Tooltip("属性名: MaxHealth / MoveSpeed / AttackStrength / BulletSpeed / ShotsPerMinute / ColliderRadius")]
     public string statName;
 
     [Tooltip("修改器（加算/乘算/覆盖 + 值）")]

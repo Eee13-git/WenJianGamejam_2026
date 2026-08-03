@@ -23,6 +23,11 @@ public class PlayerCombat : MonoBehaviour
             Debug.LogWarning("PlayerCombat: 未指定子弹预制体！");
 #endif
         }
+        else
+        {
+            // 预热对象池，避免首帧给卡
+            ProjectilePool.Prewarm(bulletPrefab, 10);
+        }
     }
 
     /// <summary>尝试射击，由 PlayerController 通过委托调用</summary>
@@ -43,8 +48,8 @@ public class PlayerCombat : MonoBehaviour
         float bulletSpeed = _stats.BulletSpeed;
         float attackStrength = _stats.AttackStrength;
 
-        // 生成子弹
-        GameObject bullet = Instantiate(bulletPrefab, transform.position, Quaternion.identity);
+        // 从对象池获取子弹
+        GameObject bullet = ProjectilePool.Get(bulletPrefab, transform.position, Quaternion.identity);
         Projectile proj = bullet.GetComponent<Projectile>();
         if (proj != null)
         {

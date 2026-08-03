@@ -66,7 +66,7 @@ public class PlayerController : MonoBehaviour
         _moveInput = new Vector2(horizontal, vertical);
         _moveInput = Vector2.ClampMagnitude(_moveInput, 1f);
 
-        if (Input.GetMouseButtonDown(0))
+        if (Input.GetMouseButton(0))
         {
             OnAttackInput?.Invoke();
         }

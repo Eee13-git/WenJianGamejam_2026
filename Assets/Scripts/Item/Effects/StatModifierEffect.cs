@@ -12,7 +12,7 @@ using UnityEngine;
 public class StatModifierEffect : ItemEffectBase
 {
     [Header("属性修改")]
-    [Tooltip("属性名: MaxHealth / MoveSpeed / AttackStrength / BulletSpeed / ShootCooldown / ColliderRadius")]
+    [Tooltip("属性名: MaxHealth / MoveSpeed / AttackStrength / BulletSpeed / ShotsPerMinute / ColliderRadius")]
     public string statName;
 
     [Tooltip("固定加成值（加算模式下每次加减此值）")]

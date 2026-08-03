@@ -1,9 +1,9 @@
 using UnityEngine;
-using UnityEngine.UI;
+using TMPro;
 
 /// <summary>
-/// 道具 UI 面板 — 管理 ItemSlotView 的创建与刷新。
-/// 类似 SkillUIPanel 的职责，使用 ScrollRect 支持大量道具。
+/// 道具 UI 面板 — 左上角水平排列，透明背景，鼠标悬停显示详情。
+/// 仅在有道具时显示槽位，空槽不留占位。
 /// </summary>
 public class ItemPanel : MonoBehaviour
 {
@@ -11,76 +11,87 @@ public class ItemPanel : MonoBehaviour
     [SerializeField] private ItemSlotView _slotPrefab;
     [SerializeField] private Transform _container;
 
-    [Header("滚动")]
-    [SerializeField] private ScrollRect _scrollRect;
-    [SerializeField] private RectTransform _viewport;
+    [Header("悬停提示")]
+    [SerializeField] private GameObject _hoverTooltip;
+    [SerializeField] private TMP_Text _hoverName;
+    [SerializeField] private TMP_Text _hoverDesc;
 
     [Header("布局")]
     [SerializeField] private int _maxSlots = 30;
-    [SerializeField] private GridLayoutGroup _gridLayout;
 
-    [Header("详情面板")]
-    [SerializeField] private ItemDetailPanel _detailPanel;
-
-    /// <summary>单例（供 ItemSlotView 回调）</summary>
     public static ItemPanel Instance { get; private set; }
 
     private ItemSlotView[] _views = System.Array.Empty<ItemSlotView>();
-    private int _currentItemCount;
 
     private void Awake()
     {
         Instance = this;
+        if (_hoverTooltip != null) _hoverTooltip.SetActive(false);
     }
 
+    /// <summary>初始化，不预建空槽位（透明背景策略）</summary>
     public void Initialize(int slotCount)
     {
         int count = Mathf.Min(slotCount, _maxSlots);
-
-        for (int i = _container.childCount - 1; i >= 0; i--)
-            SafeDestroy(_container.GetChild(i).gameObject);
-
         _views = new ItemSlotView[count];
-        _currentItemCount = 0;
-
-        for (int i = 0; i < count; i++)
-        {
-            ItemSlotView view = Instantiate(_slotPrefab, _container);
-            view.name = $"ItemSlot_{i}";
-            view.SetEmpty();
-            _views[i] = view;
-        }
-
-        if (_detailPanel != null)
-            _detailPanel.gameObject.SetActive(false);
     }
 
     public void RefreshSlot(int index, in ItemViewData data, ItemData boundItem)
     {
-        if (index < 0 || index >= _views.Length)
+        if (index < 0 || index >= _maxSlots) return;
+
+        // 按需扩容
+        if (index >= _views.Length)
             ExpandSlots(index + 1);
 
-        if (index < _views.Length)
+        // 按需创建（懒加载）
+        if (_views[index] == null)
         {
-            _views[index]?.Refresh(data, boundItem);
-            _currentItemCount = Mathf.Max(_currentItemCount, index + 1);
+            var view = Instantiate(_slotPrefab, _container);
+            view.name = $"ItemSlot_{index}";
+            _views[index] = view;
         }
+
+        _views[index].Refresh(data, boundItem);
     }
 
     public void ClearSlot(int index)
     {
         if (index < 0 || index >= _views.Length) return;
-        _views[index]?.SetEmpty();
+        if (_views[index] == null) return;
+
+        SafeDestroy(_views[index].gameObject);
+        _views[index] = null;
     }
 
-    /// <summary>槽位被点击 — 显示详情</summary>
-    public void OnSlotClicked(ItemSlotView slot)
+    /// <summary>鼠标悬停到槽位时显示详情</summary>
+    public void ShowHoverTooltip(ItemSlotView slot)
     {
-        if (slot == null || slot.BoundItem == null) return;
-        if (_detailPanel != null)
+        if (slot?.BoundItem == null) return;
+
+        var item = slot.BoundItem;
+        if (_hoverName != null)
         {
-            _detailPanel.Show(slot.BoundItem);
+            _hoverName.text = item.itemName;
+            _hoverName.color = ItemPickup.QualityToColor(item.quality);
         }
+        if (_hoverDesc != null)
+            _hoverDesc.text = item.description;
+
+        if (_hoverTooltip != null)
+        {
+            _hoverTooltip.SetActive(true);
+            var rt = _hoverTooltip.GetComponent<RectTransform>();
+            if (rt != null)
+                rt.position = slot.transform.position + new Vector3(40f, 40f, 0f);
+        }
+    }
+
+    /// <summary>鼠标离开时隐藏详情</summary>
+    public void HideHoverTooltip()
+    {
+        if (_hoverTooltip != null)
+            _hoverTooltip.SetActive(false);
     }
 
     private void ExpandSlots(int newSize)
@@ -91,15 +102,6 @@ public class ItemPanel : MonoBehaviour
         var newViews = new ItemSlotView[target];
         for (int i = 0; i < _views.Length; i++)
             newViews[i] = _views[i];
-
-        for (int i = _views.Length; i < target; i++)
-        {
-            ItemSlotView view = Instantiate(_slotPrefab, _container);
-            view.name = $"ItemSlot_{i}";
-            view.SetEmpty();
-            newViews[i] = view;
-        }
-
         _views = newViews;
     }
 

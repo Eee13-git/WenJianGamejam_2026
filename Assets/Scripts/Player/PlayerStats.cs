@@ -20,7 +20,8 @@ public class PlayerStats : MonoBehaviour, IDamageable, IHealable
 
     [Header("射击属性")]
     [SerializeField] private float bulletSpeed = 10f;
-    [SerializeField] private float shootCooldown = 0.2f;
+    [Tooltip("每分钟射击次数，300 = 每秒5发")]
+    [SerializeField] private float shotsPerMinute = 300f;
 
     [Header("碰撞属性")]
     [SerializeField] private float colliderRadius = 0.4f;
@@ -34,7 +35,8 @@ public class PlayerStats : MonoBehaviour, IDamageable, IHealable
     public float MoveSpeed => moveSpeed;
     public float AttackStrength => attackStrength;
     public float BulletSpeed => bulletSpeed;
-    public float ShootCooldown => shootCooldown;
+    public float ShootCooldown => 60f / shotsPerMinute;
+    public float ShotsPerMinute => shotsPerMinute;
     public float ColliderRadius
     {
         get => colliderRadius;
@@ -61,6 +63,9 @@ public class PlayerStats : MonoBehaviour, IDamageable, IHealable
 
         health -= damage;
         health = Mathf.Max(health, 0);
+
+        // 弹出伤害数字（玩家受伤用红色）
+        DamagePopup.Spawn(transform.position, damage, isPlayerDamage: true);
 
 #if UNITY_EDITOR
         Debug.Log($"玩家受击！剩余生命：{health}");
@@ -109,7 +114,7 @@ public class PlayerStats : MonoBehaviour, IDamageable, IHealable
             "MoveSpeed"      => moveSpeed,
             "AttackStrength"  => attackStrength,
             "BulletSpeed"    => bulletSpeed,
-            "ShootCooldown"  => shootCooldown,
+            "ShotsPerMinute" => shotsPerMinute,
             "ColliderRadius" => colliderRadius,
             _                => throw new System.ArgumentException($"PlayerStats: 未知属性名 '{statName}'")
         };
@@ -132,8 +137,8 @@ public class PlayerStats : MonoBehaviour, IDamageable, IHealable
             case "BulletSpeed":
                 bulletSpeed = Mathf.Max(value, 0f);
                 break;
-            case "ShootCooldown":
-                shootCooldown = Mathf.Max(value, 0f);
+            case "ShotsPerMinute":
+                shotsPerMinute = Mathf.Max(value, 0f);
                 break;
             case "ColliderRadius":
                 colliderRadius = Mathf.Max(value, 0.01f);
@@ -152,7 +157,7 @@ public class PlayerStats : MonoBehaviour, IDamageable, IHealable
         moveSpeed = Mathf.Max(moveSpeed, 0);
         attackStrength = Mathf.Max(attackStrength, 0);
         bulletSpeed = Mathf.Max(bulletSpeed, 0f);
-        shootCooldown = Mathf.Max(shootCooldown, 0f);
+        shotsPerMinute = Mathf.Max(shotsPerMinute, 1f);
         colliderRadius = Mathf.Max(colliderRadius, 0.01f);
     }
 }

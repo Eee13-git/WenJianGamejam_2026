@@ -49,6 +49,9 @@ public class EnemyHealth : MonoBehaviour, IDamageable
         _health -= damage;
         _health = Mathf.Max(_health, 0f);
 
+        // 弹出伤害数字
+        DamagePopup.Spawn(transform.position, damage);
+
         OnDamaged?.Invoke(damage);
         OnHealthChanged?.Invoke(_health, MaxHealth);
 
