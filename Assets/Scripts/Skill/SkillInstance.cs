@@ -37,7 +37,7 @@ public class SkillInstance
     /// <summary>技能执行委托：参数为 (施法者, 目标方向)</summary>
     public event Action<ISkillCaster, Vector2> OnExecute;
 
-    public SkillInstance(SkillData data)
+    internal SkillInstance(SkillData data)
     {
         Data = data;
         Level = 1;

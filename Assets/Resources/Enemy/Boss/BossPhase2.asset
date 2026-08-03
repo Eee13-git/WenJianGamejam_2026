@@ -1,0 +1,22 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 989d8a00efa92b746b2815665fa0961f, type: 3}
+  m_Name: BossPhase2
+  m_EditorClassIdentifier: 
+  phaseName: "\u4E8C\u9636\u6BB5"
+  skills:
+  - {fileID: 11400000, guid: 4de05162fbc7e4b489abdb53655ac859, type: 2}
+  - {fileID: 11400000, guid: ff113bacc25c4e9428aff817d5c3e555, type: 2}
+  skillInterval: 2.5
+  moveSpeedMult: 1.3
+  attackIntervalMult: 0.7
+  healthThreshold: 0.5
