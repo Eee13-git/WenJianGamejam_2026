@@ -18,8 +18,9 @@ GameObject:
   - component: {fileID: -1835988335155249550}
   - component: {fileID: 8251191102875698079}
   - component: {fileID: -7519626331256482733}
+  - component: {fileID: 886496704620171153}
   m_Layer: 0
-  m_Name: Enemy
+  m_Name: Boss
   m_TagString: Enemy
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -82,7 +83,7 @@ SpriteRenderer:
   m_SortingLayer: 0
   m_SortingOrder: 2
   m_Sprite: {fileID: -2413806693520163455, guid: a86470a33a6bf42c4b3595704624658b, type: 3}
-  m_Color: {r: 0.9496855, g: 0.5527483, b: 0.1284164, a: 1}
+  m_Color: {r: 0.8867924, g: 0.79737973, b: 0.14222129, a: 1}
   m_FlipX: 0
   m_FlipY: 0
   m_DrawMode: 0
@@ -166,7 +167,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3174571a06cfd6d479d850b02fc70d44, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  config: {fileID: 11400000, guid: 67d528c9840e98a4781b43e2b0de16eb, type: 2}
+  config: {fileID: 11400000, guid: 3692451c9118ad940baa6fcbae6ddf72, type: 2}
 --- !u!114 &5684893595642856022
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -231,3 +232,21 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   damage: 10
   attackCooldown: 1.5
+  ownerType: 1
+--- !u!114 &886496704620171153
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2633800766284816993}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 559bcc8bffa4bf343bdae412f5a49b3e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _phases:
+  - {fileID: 11400000, guid: 66e5b20416e2f664aadec08e04aba7e8, type: 2}
+  - {fileID: 11400000, guid: db1508c9c86d4734e9f8c9b1e94bfb9a, type: 2}
+  _currentPhaseIndex: 0
+  _nextSkillTime: 0

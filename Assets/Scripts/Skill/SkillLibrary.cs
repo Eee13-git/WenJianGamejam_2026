@@ -55,12 +55,12 @@ public class SkillLibrary : ScriptableObject
     }
 
     /// <summary>
-    /// 随机创建一个技能实例
+    /// 随机创建一个完整可用的技能实例（已注入 OnExecute）。
     /// </summary>
     public SkillInstance CreateRandomInstance()
     {
         SkillData data = GetRandom();
-        return data != null ? new SkillInstance(data) : null;
+        return data != null ? CreateSkillInstance(data.skillId) : null;
     }
 
     /// <summary>随机获取 N 个不重复的技能数据</summary>
