@@ -19,9 +19,6 @@ GameObject:
   - component: {fileID: 5167232238786414711}
   - component: {fileID: 4915933017335464749}
   - component: {fileID: 9198677811324839689}
-  - component: {fileID: 7377569140006681865}
-  - component: {fileID: 4151881163284183139}
-  - component: {fileID: 7676127947450236638}
   - component: {fileID: 892591079521295444}
   m_Layer: 0
   m_Name: Player
@@ -226,7 +223,7 @@ MonoBehaviour:
     isUnlocked: 1
   _skillLibrary: {fileID: 11400000, guid: 25b940d240ce07f4dbf92087a21c017a, type: 2}
   _initialSkillId0: erode
-  _initialSkillId1: bacteriophage
+  _initialSkillId1: streptomyces
   _initialSkillId2: boss_summon
   _initialSkillId3: 
 --- !u!114 &5167232238786414711
@@ -272,63 +269,6 @@ MonoBehaviour:
   _interactKey: 102
   _detailPopup: {fileID: 0}
   _itemManager: {fileID: 0}
---- !u!114 &7377569140006681865
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1667234661070689864}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: d78c870aacc96a94fafa8976f0b6aa83, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  maxHealth: 10000
-  health: 10000
-  moveSpeed: 5
-  attackStrength: 1000
-  bulletSpeed: 10
-  shotsPerMinute: 300
-  colliderRadius: 0.4
---- !u!114 &4151881163284183139
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1667234661070689864}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 20251f40817251244b4620639db4f57c, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  _slots:
-  - keyBinding: 113
-    isUnlocked: 1
-  - keyBinding: 102
-    isUnlocked: 1
-  - keyBinding: 101
-    isUnlocked: 1
-  - keyBinding: 114
-    isUnlocked: 1
-  _skillLibrary: {fileID: 11400000, guid: 25b940d240ce07f4dbf92087a21c017a, type: 2}
-  _initialSkillId0: 
-  _initialSkillId1: 
-  _initialSkillId2: 
-  _initialSkillId3: 
---- !u!114 &7676127947450236638
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1667234661070689864}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 54981fe574c0a2f4c972934f1d5bcfa4, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
 --- !u!114 &892591079521295444
 MonoBehaviour:
   m_ObjectHideFlags: 0

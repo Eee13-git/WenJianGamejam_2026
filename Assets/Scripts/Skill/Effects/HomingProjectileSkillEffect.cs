@@ -33,6 +33,8 @@ public class HomingProjectileSkillEffect : SkillEffectBase
         // Cache prefab statically for chain reaction (avoids Unity prefab self-reference serialization issue)
         if (BacteriophageProjectile.S_PhagePrefab == null)
             BacteriophageProjectile.S_PhagePrefab = homingProjectilePrefab;
+        if (StreptomycesProjectile.S_StreptoPrefab == null)
+            StreptomycesProjectile.S_StreptoPrefab = homingProjectilePrefab;
 
         Vector3 origin = caster.CasterTransform.position;
         float casterAttack = caster.GetAttackStrength();
