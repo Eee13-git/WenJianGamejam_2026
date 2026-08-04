@@ -20,6 +20,18 @@ public class StreptomycesProjectile : MonoBehaviour, IHomingProjectile
     [Header("Hit Effect")]
     [SerializeField] private GameObject _hitEffectPrefab;
 
+    [Header("Chain Lightning Arc")]
+    [Tooltip("闪电弧段数（锯齿点数 = segments+1）")]
+    [SerializeField] private int _arcSegments = 6;
+    [Tooltip("闪电弧最大偏移量")]
+    [SerializeField] private float _arcJitter = 0.3f;
+    [Tooltip("闪电弧持续时间")]
+    [SerializeField] private float _arcDuration = 0.15f;
+    [Tooltip("闪电弧宽度")]
+    [SerializeField] private float _arcWidth = 0.08f;
+    [Tooltip("闪电弧材质（电弧 shader），留空则自动加载）")]
+    [SerializeField] private Material _arcMaterial;
+
     private Transform _target;
     private float _speed = 14f;
     private float _damage;
@@ -116,6 +128,9 @@ public class StreptomycesProjectile : MonoBehaviour, IHomingProjectile
         Transform nextTarget = FindNextTarget(hitTarget.position);
         if (nextTarget == null) return;
 
+        // 生成连锁闪电弧视觉
+        SpawnChainLightningArc(hitTarget.position, nextTarget.position);
+
         // Spawn next chain bolt from the prefab asset
         var go = S_StreptoPrefab != null
             ? Instantiate(S_StreptoPrefab, hitTarget.position, Quaternion.identity)
@@ -127,6 +142,66 @@ public class StreptomycesProjectile : MonoBehaviour, IHomingProjectile
             sb.InitializeAsChain(nextTarget, _speed, _damage,
                 _ownerType, _jumpsRemaining - 1, _alreadyHitIds);
         }
+    }
+
+    /// <summary>
+    /// 生成锯齿状闪电弧连接两个目标，短暂显示后自动销毁。
+    /// </summary>
+    private void SpawnChainLightningArc(Vector2 from, Vector2 to)
+    {
+        float distance = Vector2.Distance(from, to);
+        if (distance < 0.01f) return;
+
+        var arcGo = new GameObject("ChainLightningArc");
+        arcGo.transform.position = from;
+
+        var lr = arcGo.AddComponent<LineRenderer>();
+        lr.useWorldSpace = true;
+        lr.positionCount = _arcSegments + 1;
+        lr.startWidth = _arcWidth;
+        lr.endWidth = _arcWidth * 0.5f;
+        lr.numCornerVertices = 0;
+        lr.numCapVertices = 2;
+        lr.sortingOrder = 25;
+
+        // 使用电弧材质（加法混合）
+        Material arcMat = _arcMaterial;
+        if (arcMat == null)
+        {
+            // 从粒子拖尾材质获取电弧 shader 材质
+            var trail = transform.Find("TrailParticles");
+            if (trail != null)
+            {
+                var psr = trail.GetComponent<ParticleSystemRenderer>();
+                if (psr != null && psr.sharedMaterial != null)
+                    arcMat = psr.sharedMaterial;
+            }
+        }
+        if (arcMat == null && _spriteRenderer != null && _spriteRenderer.sharedMaterial != null)
+            arcMat = _spriteRenderer.sharedMaterial;
+
+        lr.material = arcMat != null ? arcMat : new Material(Shader.Find("Universal Render Pipeline/Particles/Unlit"));
+
+        lr.startColor = new Color(0.5f, 1f, 1f, 0.9f);
+        lr.endColor = new Color(0.2f, 0.6f, 1f, 0.5f);
+
+        // 生成锯齿点
+        Vector2 direction = (to - from).normalized;
+        Vector2 perpendicular = new Vector2(-direction.y, direction.x);
+
+        lr.SetPosition(0, from);
+        lr.SetPosition(_arcSegments, to);
+
+        for (int i = 1; i < _arcSegments; i++)
+        {
+            float t = (float)i / _arcSegments;
+            Vector2 point = Vector2.Lerp(from, to, t);
+            float jitter = (Random.value - 0.5f) * 2f * _arcJitter;
+            point += perpendicular * jitter;
+            lr.SetPosition(i, point);
+        }
+
+        Destroy(arcGo, _arcDuration);
     }
 
     private Transform FindNextTarget(Vector2 origin)
