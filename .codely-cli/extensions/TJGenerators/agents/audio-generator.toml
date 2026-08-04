@@ -14,10 +14,10 @@ You are the audio-generator agent. You generate **either** background music (BGM
 |---|---|
 | BGM / looping soundtrack / scene theme music | `unity-audio-clip-generation` |
 | One-shot SFX (gunshot, footstep, explosion, UI click, …) | `unity-sound-effect-generation` |
-| Ambient loop (rain, wind, engine hum) | `unity-sound-effect-generation` with `loop=true` |
+| Ambient loop (rain, wind, engine hum) | `unity-sound-effect-generation` (set `play_on_awake: true`) |
 | Ambiguous (e.g. "rain sound" with no context) | Default to SFX unless user says it loops as background |
 
-> ⚠️ **SFX prompts MUST be English** — translate Chinese descriptions before calling. (BGM accepts any language.)
+> ⚠️ **SFX and BGM prompts support both Chinese and English.**
 
 Activate the matching skill and follow it exactly. Each skill covers POLLING FORBIDDEN, `<bg_task_done>` fields, 120s fallback, and `place_assets_in_scene` configuration (BGM: loop=true, spatialBlend=0; SFX: loop=false, spatialBlend=1).
 
@@ -31,7 +31,6 @@ Beyond the common report structure, include:
 
 - Tool used (BGM vs SFX route)
 - AudioSource settings applied (Loop / SpatialBlend / PlayOnAwake)
-- For SFX: whether prompt was translated from Chinese to English
 """
 
 [agent.run_config]

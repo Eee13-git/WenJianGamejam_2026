@@ -1033,7 +1033,8 @@ namespace TJGenerators.Utils
             _translations["火山 SeeDream"] = "Volcengine SeeDream";
             _translations["火山 SeeDream 表面材质"] = "Volcengine SeeDream Material";
             _translations["Seedance 2"] = "Seedance 2";
-            _translations["火山 文生音频"] = "Volcengine Audio Generation";
+            _translations["Sonilo 音乐生成"] = "Sonilo Music Generation";
+            _translations["Sonilo 音效生成"] = "Sonilo Sound Effect Generation";
             _translations["极简主义"] = "Minimalism";
             _translations["极简主义风格"] = "Minimalist Style";
             _translations["家具"] = "Furniture";

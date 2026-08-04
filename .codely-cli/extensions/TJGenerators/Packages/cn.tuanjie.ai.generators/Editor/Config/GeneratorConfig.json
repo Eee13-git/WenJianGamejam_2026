@@ -2282,6 +2282,122 @@
       "responseMapping": {
         "downloadUrlPath": "imageUrls"
       }
+    },
+    {
+      "id": "esrgan",
+      "displayName": "ESRGAN 图片放大",
+      "enabled": false,
+      "outputType": "image",
+      "modelSelector": {
+        "name": "ESRGAN 图片放大",
+        "description": "AI 超分辨率放大",
+        "functionTags": [
+          "图片放大"
+        ],
+        "vendorTags": [
+          "fal.ai"
+        ],
+        "iconPath": "",
+        "pinned": false
+      },
+      "endpoints": [
+        {
+          "key": "default",
+          "value": "task/fal-esrgan"
+        }
+      ],
+      "uiLayout": {
+        "showTextInput": false,
+        "showImageUpload": true,
+        "showMultiView": false,
+        "advancedFoldout": true,
+        "imageUploadLabel": "待放大图片",
+        "advancedLabel": "高级设置",
+        "primaryParameterIds": ["scale"]
+      },
+      "parameters": [
+        {
+          "id": "imageUrl",
+          "type": "string",
+          "label": "图片URL",
+          "apiFieldName": "imageUrl"
+        },
+        {
+          "id": "scale",
+          "type": "int",
+          "label": "放大倍数",
+          "apiFieldName": "scale",
+          "defaultValue": "4",
+          "min": 1,
+          "max": 8,
+          "tooltip": "放大倍数 1-8"
+        },
+        {
+          "id": "model",
+          "type": "dropdown",
+          "label": "模型",
+          "apiFieldName": "model",
+          "options": [
+            {
+              "value": "",
+              "label": "自动选择"
+            },
+            {
+              "value": "RealESRGAN_x4plus",
+              "label": "RealESRGAN_x4plus"
+            },
+            {
+              "value": "RealESRGAN_x2plus",
+              "label": "RealESRGAN_x2plus"
+            },
+            {
+              "value": "RealESRGAN_x4plus_anime_6B",
+              "label": "RealESRGAN_x4plus_anime_6B"
+            },
+            {
+              "value": "RealESRGAN_x4_v3",
+              "label": "RealESRGAN_x4_v3"
+            },
+            {
+              "value": "RealESRGAN_x4_wdn_v3",
+              "label": "RealESRGAN_x4_wdn_v3"
+            },
+            {
+              "value": "RealESRGAN_x4_anime_v3",
+              "label": "RealESRGAN_x4_anime_v3"
+            }
+          ],
+          "defaultValue": ""
+        },
+        {
+          "id": "face",
+          "type": "bool",
+          "label": "人脸增强",
+          "apiFieldName": "face",
+          "defaultValue": "false",
+          "tooltip": "启用人脸增强"
+        },
+        {
+          "id": "outputFormat",
+          "type": "dropdown",
+          "label": "输出格式",
+          "apiFieldName": "outputFormat",
+          "options": [
+            {
+              "value": "png",
+              "label": "PNG"
+            },
+            {
+              "value": "jpeg",
+              "label": "JPEG"
+            }
+          ],
+          "defaultValue": "png"
+        }
+      ],
+      "responseMapping": {
+        "downloadUrlPath": "image_urls"
+      }
     }
   ],
   "skyboxGenerators": [
@@ -3426,27 +3542,28 @@
   ],
   "musicGenerators": [
     {
-      "id": "huoshan_music",
-      "displayName": "火山 文生音频",
+      "id": "sonilo-music",
+      "displayName": "Sonilo 音乐生成",
       "enabled": true,
       "outputType": "audio",
-      "audioFormat": "mp4",
+      "audioFormat": "wav",
+      "textInputFieldName": "prompt",
       "modelSelector": {
-        "name": "火山 文生音频",
-        "description": "文生音频、背景音乐",
+        "name": "Sonilo 音乐生成",
+        "description": "文生音乐、背景音乐",
         "functionTags": [
           "文生音频"
         ],
         "vendorTags": [
-          "火山"
+          "Sonilo"
         ],
-        "iconPath": "Packages/cn.tuanjie.ai.generators/Editor/EditorTextures/Logo/volcengine-color.png",
+        "iconPath": "",
         "pinned": true
       },
       "endpoints": [
         {
           "key": "default",
-          "value": "task/huoshan-music"
+          "value": "task/sonilo-music"
         }
       ],
       "uiLayout": {
@@ -3461,50 +3578,47 @@
       },
       "parameters": [
         {
-          "id": "duration",
-          "type": "int",
+          "id": "durationSeconds",
+          "type": "float",
           "label": "时长(秒)",
-          "apiFieldName": "duration",
-          "defaultValue": "60",
-          "min": 30,
-          "max": 120,
-          "tooltip": "v5.0 有效范围 [30,120]。优先级：Text 中指定 > 本参数"
+          "apiFieldName": "durationSeconds",
+          "defaultValue": "90",
+          "min": 1,
+          "max": 180,
+          "tooltip": "音乐时长（秒），1-180"
         },
         {
-          "id": "version",
+          "id": "outputFormat",
           "type": "dropdown",
-          "label": "模型版本",
-          "apiFieldName": "version",
+          "label": "输出格式",
+          "apiFieldName": "outputFormat",
           "options": [
             {
-              "value": "v5.0",
-              "label": "v5.0"
+              "value": "wav",
+              "label": "WAV"
+            },
+            {
+              "value": "mp3",
+              "label": "MP3"
             }
           ],
-          "defaultValue": "v5.0"
-        },
-        {
-          "id": "enableInputRewrite",
-          "type": "bool",
-          "label": "启用输入重写",
-          "apiFieldName": "enableInputRewrite",
-          "defaultValue": "false",
-          "tooltip": "是否使用模型改写输入 prompt"
+          "defaultValue": "wav"
         }
       ],
       "responseMapping": {
-        "downloadUrlPath": "audio_url",
-        "previewUrlPath": "audio_url"
+        "downloadUrlPath": "audioUrl",
+        "previewUrlPath": "audioUrl"
       }
     },
     {
-      "id": "sound-effect",
-      "displayName": "音效生成",
+      "id": "sonilo-sfx",
+      "displayName": "Sonilo 音效生成",
       "enabled": true,
       "outputType": "audio",
-      "audioFormat": "mp3",
+      "audioFormat": "wav",
+      "textInputFieldName": "prompt",
       "modelSelector": {
-        "name": "音效生成",
+        "name": "Sonilo 音效生成",
         "description": "文生音效",
         "functionTags": [
           "文生音频",
@@ -3516,7 +3630,7 @@
       "endpoints": [
         {
           "key": "default",
-          "value": "task/sound-effect"
+          "value": "task/sonilo-sfx"
         }
       ],
       "uiLayout": {
@@ -3524,8 +3638,8 @@
         "showImageUpload": false,
         "showMultiView": false,
         "advancedFoldout": true,
-        "textInputLabel": "文本提示词（仅支持英文描述）",
-        "textInputPlaceholder": "用英文描述你想要生成的音效，例如：雷声、爆炸、鸟鸣...",
+        "textInputLabel": "文本提示词",
+        "textInputPlaceholder": "描述你想要生成的音效，例如：雷声、爆炸、鸟鸣...",
         "advancedLabel": "高级设置",
         "primaryParameterIds": ["animation"]
       },
@@ -3535,20 +3649,10 @@
           "type": "float",
           "label": "时长(秒)",
           "apiFieldName": "durationSeconds",
-          "defaultValue": "5",
+          "defaultValue": "8",
           "min": 1,
-          "max": 22,
-          "tooltip": "音效时长（秒）"
-        },
-        {
-          "id": "promptInfluence",
-          "type": "float",
-          "label": "提示词影响度",
-          "apiFieldName": "promptInfluence",
-          "defaultValue": "0.5",
-          "min": 0,
-          "max": 1,
-          "tooltip": "提示词对生成结果的影响程度"
+          "max": 180,
+          "tooltip": "音效时长（秒），1-180"
         },
         {
           "id": "outputFormat",
@@ -3557,67 +3661,15 @@
           "apiFieldName": "outputFormat",
           "options": [
             {
-              "value": "",
-              "label": "Default"
+              "value": "wav",
+              "label": "WAV"
             },
             {
-              "value": "mp3_22050_32",
-              "label": "mp3_22050_32"
-            },
-            {
-              "value": "mp3_44100_32",
-              "label": "mp3_44100_32"
-            },
-            {
-              "value": "mp3_44100_64",
-              "label": "mp3_44100_64"
-            },
-            {
-              "value": "mp3_44100_96",
-              "label": "mp3_44100_96"
-            },
-            {
-              "value": "mp3_44100_128",
-              "label": "mp3_44100_128"
-            },
-            {
-              "value": "mp3_44100_192",
-              "label": "mp3_44100_192"
-            },
-            {
-              "value": "pcm_8000",
-              "label": "pcm_8000"
-            },
-            {
-              "value": "pcm_16000",
-              "label": "pcm_16000"
-            },
-            {
-              "value": "pcm_22050",
-              "label": "pcm_22050"
-            },
-            {
-              "value": "pcm_24000",
-              "label": "pcm_24000"
-            },
-            {
-              "value": "pcm_44100",
-              "label": "pcm_44100"
-            },
-            {
-              "value": "pcm_48000",
-              "label": "pcm_48000"
+              "value": "mp3",
+              "label": "MP3"
             }
           ],
-          "defaultValue": "mp3_44100_128"
-        },
-        {
-          "id": "loop",
-          "type": "bool",
-          "label": "循环",
-          "apiFieldName": "loop",
-          "defaultValue": "false",
-          "tooltip": "是否生成可循环音效"
+          "defaultValue": "wav"
         }
       ],
       "responseMapping": {
@@ -3708,6 +3760,50 @@
       "responseMapping": {
         "downloadUrlPath": "audioUrl",
         "previewUrlPath": "audioUrl"
+      }
+    },
+    {
+      "id": "voice-clone",
+      "displayName": "声音克隆",
+      "enabled": false,
+      "outputType": "audio",
+      "audioFormat": "mp3",
+      "modelSelector": {
+        "name": "声音克隆",
+        "description": "从音频样本克隆语音",
+        "functionTags": [
+          "语音克隆"
+        ],
+        "vendorTags": [
+          "fal.ai"
+        ],
+        "iconPath": "",
+        "pinned": false
+      },
+      "endpoints": [
+        {
+          "key": "default",
+          "value": "task/fal-voice-clone"
+        }
+      ],
+      "uiLayout": {
+        "showTextInput": false,
+        "showImageUpload": false,
+        "showMultiView": false,
+        "advancedFoldout": false,
+        "primaryParameterIds": []
+      },
+      "parameters": [
+        {
+          "id": "audioUrl",
+          "type": "string",
+          "label": "音频URL",
+          "apiFieldName": "audioUrl"
+        }
+      ],
+      "responseMapping": {
+        "downloadUrlPath": "previewAudioUrl",
+        "previewUrlPath": "previewAudioUrl"
       }
     }
   ],

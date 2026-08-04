@@ -17,10 +17,12 @@ namespace TJGenerators.Utils
                 // fal.go backend binding max
                 case "frontier-game-design": return 4000;
                 case "frontier-effect":      return 2000;
-                case "sound-effect":         return 500;
+                case "sonilo-sfx":           return 500;
+                case "sonilo-music":         return 2000;
                 case "minimax-tts":          return 10000;
                 // client-only limits (backend has no binding max but documents a recommended cap)
                 case "tencent-generation":   return 1000;
+                case "rodin":                return 1000;
                 case "tripo-p1":             return 1024;
                 case "meshy-animation":      return 600;
                 case "huoshan_seedream":           return 1024;

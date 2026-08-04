@@ -18,7 +18,7 @@ using Unity.EditorCoroutines.Editor;
 namespace UnityTcp.Editor.Tools
 {
     /// <summary>
-    /// CustomTool for generating sound effects (SFX) using TJGenerators Music pipeline (sound-effect generator).
+    /// CustomTool for generating sound effects (SFX) using TJGenerators Music pipeline (sonilo-sfx generator).
     /// Supports text-to-audio generation for one-shot sound effects such as gunshots, footsteps, explosions, UI clicks, etc.
     /// Output is an audio asset saved to Assets/TJGenerators/History/.
     /// Domain-reload recovery is handled by AudioDomainReloadRecovery in GenerateAudioClipTool.cs
@@ -31,14 +31,9 @@ namespace UnityTcp.Editor.Tools
             "This tool is for one-shot sound effects ONLY — NOT for background music or looping ambient audio. " +
             "Use for: gunshots, footsteps, explosions, UI clicks, item pickups, environmental sounds, etc. " +
             "Output is an AudioClip asset (format depends on output_format) saved to Assets/TJGenerators/History/. " +
-            "Parameters: prompt (text description of the sound effect, required), " +
-            "duration_seconds (optional float, 1-22 seconds, default 5), " +
-            "prompt_influence (optional float, 0-1, default 0.5 — how strongly the prompt shapes the result), " +
-            "output_format (optional fal enum, default 'mp3_44100_128'; " +
-            "valid: 'mp3_22050_32'|'mp3_44100_32'|'mp3_44100_64'|'mp3_44100_96'|'mp3_44100_128'|'mp3_44100_192'|" +
-            "'pcm_8000'|'pcm_16000'|'pcm_22050'|'pcm_24000'|'pcm_44100'|'pcm_48000'; " +
-            "do NOT pass file extensions like 'wav' or 'mp3'), " +
-            "loop (optional bool, default false — whether to generate a loopable sound effect), " +
+            "Parameters: prompt (text description of the sound effect, required, supports Chinese and English), " +
+            "duration_seconds (optional float, 1-180 seconds, default 8), " +
+            "output_format (optional, 'wav'|'mp3', default 'wav'), " +
             "output_path (optional asset save path). " +
             "IMPORTANT: Generation takes 10-60 seconds. After calling this tool, wait at least 5 seconds " +
             "before the first query_sound_effect_status call, then poll every 5-10 seconds. " +
@@ -64,7 +59,7 @@ namespace UnityTcp.Editor.Tools
                     };
                 }
 
-                int maxLen = TJGeneratorsPromptLimits.GetMaxLength("sound-effect");
+                int maxLen = TJGeneratorsPromptLimits.GetMaxLength("sonilo-sfx");
                 if (prompt.Length > maxLen)
                 {
                     return new Dictionary<string, object>
@@ -76,13 +71,13 @@ namespace UnityTcp.Editor.Tools
                 }
 
                 // Load sound-effect generator config
-                var config = ConfigManager.GetGeneratorConfig(ConfigType.Music, "sound-effect");
+                var config = ConfigManager.GetGeneratorConfig(ConfigType.Music, "sonilo-sfx");
                 if (config == null)
                 {
                     return new Dictionary<string, object>
                     {
                         { "success", false },
-                        { "message", "Cannot find generator config for 'sound-effect'. Ensure the TJGenerators package is installed and the Editor has finished compiling." }
+                        { "message", "Cannot find generator config for 'sonilo-sfx'. Ensure the TJGenerators package is installed and the Editor has finished compiling." }
                     };
                 }
 
@@ -113,7 +108,7 @@ namespace UnityTcp.Editor.Tools
 
                 // Create tracked task (reuse shared AudioClipTaskTracker)
                 string capturedBackendTaskId = submitResult.BackendTaskId;
-                string taskId = AudioClipTaskTracker.CreateTask("sound-effect", prompt, placeholderPath, capturedBackendTaskId);
+                string taskId = AudioClipTaskTracker.CreateTask("sonilo-sfx", prompt, placeholderPath, capturedBackendTaskId);
 
                 // Create pipeline host with audio-specific callbacks
                 var host = new AudioPipelineHost(placeholderPath, audioDownloadPath, sessionId, isBgm: false, playOnAwake: playOnAwake,
@@ -125,7 +120,7 @@ namespace UnityTcp.Editor.Tools
                             new JObject
                             {
                                 ["session_id"]       = sessionId,
-                                ["generator_id"]     = "sound-effect",
+                                ["generator_id"]     = "sonilo-sfx",
                                 ["prompt"]           = prompt ?? "",
                                 ["audio_path"]       = savedPath ?? "",
                                 ["preview_url"]      = previewUrl ?? "",
@@ -139,7 +134,7 @@ namespace UnityTcp.Editor.Tools
                     {
                         AudioClipTaskTracker.MarkFailed(taskId, errorMsg);
                         GenerationNotifier.NotifyFailed("generate_sound_effect", taskId, capturedBackendTaskId, errorMsg,
-                            new JObject { ["session_id"] = sessionId, ["generator_id"] = "sound-effect", ["prompt"] = prompt ?? "" });
+                            new JObject { ["session_id"] = sessionId, ["generator_id"] = "sonilo-sfx", ["prompt"] = prompt ?? "" });
                     });
 
                 // 阶段2：异步轮询（跳过提交）。Domain reload 恢复见 GenerateAudioClipTool.AudioDomainReloadRecovery。
@@ -165,7 +160,7 @@ namespace UnityTcp.Editor.Tools
                     { "task_id",            taskId },
                     { "backend_task_id",    submitResult.BackendTaskId },
                     { "status",             "submitted" },
-                    { "generator_id",       "sound-effect" },
+                    { "generator_id",       "sonilo-sfx" },
                     { "prompt",             prompt },
                     { "placeholder_path",   placeholderPath },
                     { "estimated_wait_seconds", 30 },
@@ -286,7 +281,7 @@ namespace UnityTcp.Editor.Tools
 
                 foreach (var task in allTasks)
                 {
-                    if (task.GeneratorId != "sound-effect")
+                    if (task.GeneratorId != "sonilo-sfx")
                         continue;
 
                     var taskData = new Dictionary<string, object>
@@ -390,19 +385,19 @@ namespace UnityTcp.Editor.Tools
         internal static string ResolveSfxFileExtension(string audioFormat)
         {
             if (string.IsNullOrWhiteSpace(audioFormat))
-                return "mp3";
+                return "wav";
 
             string ext = FalEnumToAudioExtension(audioFormat);
             if (string.IsNullOrWhiteSpace(ext))
-                ext = "mp3";
+                ext = "wav";
 
             ext = ext.Trim().TrimStart('.').ToLowerInvariant();
             if (ext == "wav" || ext == "mp3")
                 return ext;
 
             TJLog.LogWarning(
-                $"[GenerateSoundEffectTool] Unsupported SFX file extension '{ext}' from AudioFormat '{audioFormat}'; falling back to mp3 so placeholder matches download.");
-            return "mp3";
+                $"[GenerateSoundEffectTool] Unsupported SFX file extension '{ext}' from AudioFormat '{audioFormat}'; falling back to wav so placeholder matches download.");
+            return "wav";
         }
 
         private static void EnsureAssetDatabaseFolder(string folderPath)
@@ -424,17 +419,9 @@ namespace UnityTcp.Editor.Tools
             if (parameters["duration_seconds"] != null)
                 generator.SetParameter("durationSeconds", parameters["duration_seconds"].ToObject<float>());
 
-            if (parameters["prompt_influence"] != null)
-                generator.SetParameter("promptInfluence", parameters["prompt_influence"].ToObject<float>());
-
-            // fal.ai expects codec_rate_bitrate enums (e.g. mp3_44100_128), not file extensions
-            // like "wav"/"mp3". Agents often confuse the two; normalize before submit.
             generator.SetParameter(
                 "outputFormat",
                 NormalizeSfxOutputFormat(parameters["output_format"]?.ToString()));
-
-            if (parameters["loop"] != null)
-                generator.SetParameter("loop", parameters["loop"].ToObject<bool>());
         }
 
         /// <summary>Test hook for offline parameter-mapping checks.</summary>
@@ -442,8 +429,8 @@ namespace UnityTcp.Editor.Tools
             => ApplySfxParameters(generator, parameters);
 
         /// <summary>
-        /// Maps fal.ai sound-effect <c>output_format</c> enums (or plain aliases) to a file
-        /// extension without the leading dot (e.g. <c>mp3_44100_128</c> → <c>mp3</c>).
+        /// Maps a Sonilo audio format string to a file extension without the leading dot
+        /// (e.g. <c>wav</c> → <c>wav</c>, <c>mp3</c> → <c>mp3</c>).
         /// </summary>
         internal static string FalEnumToAudioExtension(string format)
         {
@@ -452,26 +439,25 @@ namespace UnityTcp.Editor.Tools
         }
 
         /// <summary>
-        /// Maps aliases / empty values to fal.ai sound-effects <c>output_format</c> enums.
-        /// Default matches fal docs (mp3_44100_128); the placeholder extension is derived from the
-        /// resolved AudioFormat so it stays aligned with the generated audio.
+        /// Normalizes the output_format parameter to a valid Sonilo audio format.
+        /// Valid values: wav, mp3. Default: wav. aac/flac are mapped to wav because
+        /// Unity cannot import them as AudioClips.
         /// </summary>
         internal static string NormalizeSfxOutputFormat(string format)
         {
-            const string defaultFormat = "mp3_44100_128";
+            const string defaultFormat = "wav";
             if (string.IsNullOrWhiteSpace(format))
                 return defaultFormat;
 
-            string fmt = format.Trim();
-            // File-extension aliases are not valid fal enums; map to the default enum. The placeholder
-            // extension is resolved from generator.AudioFormat, so it tracks the actual output format.
-            if (string.Equals(fmt, "mp3", StringComparison.OrdinalIgnoreCase)
-                || string.Equals(fmt, "wav", StringComparison.OrdinalIgnoreCase))
-                return defaultFormat;
-            if (string.Equals(fmt, "pcm", StringComparison.OrdinalIgnoreCase))
-                return "pcm_44100";
-
-            return fmt;
+            string fmt = format.Trim().ToLowerInvariant();
+            switch (fmt)
+            {
+                case "wav":
+                case "mp3":
+                    return fmt;
+                default:
+                    return defaultFormat;
+            }
         }
 #endif
     }

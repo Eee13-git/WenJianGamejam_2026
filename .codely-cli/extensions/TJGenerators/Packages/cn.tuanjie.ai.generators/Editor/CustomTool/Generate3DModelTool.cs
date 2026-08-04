@@ -18,7 +18,7 @@ using Unity.EditorCoroutines.Editor;
 namespace UnityTcp.Editor.Tools
 {
     /// <summary>
-    /// Tracks active static 3D model generation tasks (tencent-generation / Hunyuan 3.1 and tripo-p1 / Tripo P1).
+    /// Tracks active static 3D model generation tasks (rodin / Rodin Gen-2.5 and tripo-p1 / Tripo P1).
     /// Uses SessionState to persist task info across script recompilation (domain reload).
     /// After domain reload, in-progress tasks are automatically resumed via TJGeneratorsTaskRecovery —
     /// the same mechanism used by the window UI.
@@ -175,7 +175,7 @@ namespace UnityTcp.Editor.Tools
                 GenerationNotifier.NotifyCompleted(
                     toolName: taskInfo.GeneratorType == "tripo-p1"
                               ? "generate_3d_model_by_tripo_p1"
-                              : "generate_3d_model_by_tencent_generation",
+                              : "generate_3d_model_by_rodin",
                     taskId:        taskInfo.TaskId,
                     backendTaskId: taskInfo.BackendTaskId,
                     extraData: new JObject
@@ -204,7 +204,7 @@ namespace UnityTcp.Editor.Tools
                 GenerationNotifier.NotifyFailed(
                     toolName: taskInfo.GeneratorType == "tripo-p1"
                               ? "generate_3d_model_by_tripo_p1"
-                              : "generate_3d_model_by_tencent_generation",
+                              : "generate_3d_model_by_rodin",
                     taskId:        taskInfo.TaskId,
                     backendTaskId: taskInfo.BackendTaskId,
                     errorMessage:  h.ErrorMessage,
@@ -251,7 +251,7 @@ namespace UnityTcp.Editor.Tools
 
 #if UNITY_EDITOR
     /// <summary>
-    /// Automatically resumes interrupted tencent-generation and tripo-p1 tasks after domain reload,
+    /// Automatically resumes interrupted rodin and tripo-p1 tasks after domain reload,
     /// using the same TJGeneratorsTaskRecovery mechanism as the window UI.
     /// </summary>
     [InitializeOnLoad]
@@ -267,7 +267,7 @@ namespace UnityTcp.Editor.Tools
             CustomToolDomainReloadRecovery.Resume(
                 "Generate3DModelTool",
                 ConfigType.Generator,
-                t => t.modelVersion == "tencent-generation" || t.modelVersion == "tripo-p1",
+                t => t.modelVersion == "rodin" || t.modelVersion == "tencent-generation" || t.modelVersion == "tripo-p1",
                 () => StaticModelTaskTracker.GetAllTasks(),
                 (interrupted, _, generator) =>
                 {
@@ -293,7 +293,7 @@ namespace UnityTcp.Editor.Tools
                     var host = new StaticModelRecoveryHost(targetAsset, interrupted.backendTaskId, generator);
                     string toolName = interrupted.modelVersion == "tripo-p1"
                         ? "generate_3d_model_by_tripo_p1"
-                        : "generate_3d_model_by_tencent_generation";
+                        : "generate_3d_model_by_rodin";
                     CustomToolDomainReloadRecovery.StartPolling(
                         "Generate3DModelTool", host, ConfigType.Generator,
                         interrupted.sessionId, toolName, generator, interrupted.backendTaskId);
@@ -361,7 +361,7 @@ namespace UnityTcp.Editor.Tools
                 GenerationNotifier.NotifyCompleted(
                     toolName: notifyTask.GeneratorType == "tripo-p1"
                               ? "generate_3d_model_by_tripo_p1"
-                              : "generate_3d_model_by_tencent_generation",
+                              : "generate_3d_model_by_rodin",
                     taskId:        notifyTask.TaskId,
                     backendTaskId: _backendTaskId,
                     extraData: new JObject
@@ -399,7 +399,7 @@ namespace UnityTcp.Editor.Tools
                     GenerationNotifier.NotifyFailed(
                         toolName: trackerTask.GeneratorType == "tripo-p1"
                                   ? "generate_3d_model_by_tripo_p1"
-                                  : "generate_3d_model_by_tencent_generation",
+                                  : "generate_3d_model_by_rodin",
                         taskId:        trackerTask.TaskId,
                         backendTaskId: _backendTaskId,
                         errorMessage:  friendlyError.TechnicalMessage,
@@ -435,30 +435,33 @@ namespace UnityTcp.Editor.Tools
 #endif
 
     /// <summary>
-    /// CustomTool for generating static (non-animated) 3D models using Hunyuan 3.1 (tencent-generation).
+    /// CustomTool for generating static (non-animated) 3D models using Rodin Gen-2.5 (rodin).
     /// Produces an FBX model bound to a prefab. A Cube placeholder is shown in the scene
     /// during generation and automatically replaced when the model is ready.
     /// </summary>
     public static class Generate3DModelTool
     {
-        private const string GeneratorId = "tencent-generation";
+        private const string GeneratorId = "rodin";
 
-        [ExecuteCustomTool.CustomTool("generate_3d_model_by_tencent_generation",
-            "Generate a static (non-animated) 3D model from a text prompt and/or reference image using Hunyuan 3.1. " +
-            "Use this for generic 3D objects: furniture, vehicles, weapons, props, architecture, food, etc. " +
+        [ExecuteCustomTool.CustomTool("generate_3d_model_by_rodin",
+            "Generate a static (non-animated) 3D model from a text prompt and/or reference image using Rodin Gen-2.5 (Extreme-High tier by default). " +
+            "Use this for high-precision 3D objects: hero assets, detailed props, PBR materials, architecture, etc. " +
             "For rigged HUMANOID characters with animations, use generate_animated_character instead. " +
             "Key parameters: " +
             "prompt (string, text description — required if image_path is not provided), " +
             "image_path (string, Unity asset path or absolute path to a reference image — required if prompt is not provided; can be combined with prompt), " +
             "prefab_output_path (string, optional, default auto-generated under Assets/TJGenerators/History/), " +
             "force_overwrite (bool, default false — set true to replace an existing prefab at the same path), " +
-            "face_count (int, default 50000, Tencent API allows 3000-500000 — higher = more detail but slower), " +
-            "enable_pbr (bool, default false — set true for PBR material textures), " +
-            "result_format (string, 'FBX', default 'FBX'). " +
+            "tier (string, default 'Gen-2.5-Extreme-High' — options: Gen-2.5-Extreme-Low/Low/Medium/High/Extreme-High), " +
+            "quality (string, default 'medium' — options: extra-low/low/medium/high), " +
+            "material (string, default 'PBR' — options: PBR/Shaded), " +
+            "mesh_mode (string, default 'Quad' — options: Quad/Raw), " +
+            "ta_pose (bool, default false), " +
+            "geometry_format (string, default 'fbx'). " +
             "Generation takes 3–15 minutes. This call SYNCHRONOUSLY submits the task to the backend " +
             "before returning. " +
             "On success, instantiate the prefab immediately (it contains a Cube placeholder). " +
-            "Call query_3d_model_status_by_tencent_generation after 5 seconds to confirm the task is running, then poll every 10-15 seconds. " +
+            "Call query_3d_model_status_by_rodin after 5 seconds to confirm the task is running, then poll every 10-15 seconds. " +
             "NOTE: If a domain reload (script compilation) occurs mid-generation, the task is automatically " +
             "resumed in the background — status will show 'recovering' until polling restarts.")]
         public static object Generate3DModel(JObject parameters)
@@ -594,9 +597,9 @@ namespace UnityTcp.Editor.Tools
                         "STEP 2 (critical): END THIS RESPONSE TURN immediately. " +
                         "STEP 3 (automatic): A <bg_task_done> notification will appear in your next turn (~10 min) " +
                         "containing ALL generation results (model_path, prefab_path, preview_url, timing, etc.). " +
-                        "*** POLLING IS STRICTLY FORBIDDEN — do NOT call query_3d_model_status_by_tencent_generation repeatedly. " +
+                        "*** POLLING IS STRICTLY FORBIDDEN — do NOT call query_3d_model_status_by_rodin repeatedly. " +
                         "Only call it ONCE as a last-resort fallback if no notification arrives. ***" +
-                        "*** RE-SUBMISSION IS STRICTLY FORBIDDEN — do NOT call generate_3d_model_by_tencent_generation " +
+                        "*** RE-SUBMISSION IS STRICTLY FORBIDDEN — do NOT call generate_3d_model_by_rodin " +
                         "again for the same model, regardless of outcome. Report errors and stop. ***" },
                     { "estimated_wait_seconds", 600 },
                     { "preview_url", PreviewUrlHelper.BuildFixedPreviewUrl(submitResult.BackendTaskId) },
@@ -613,8 +616,8 @@ namespace UnityTcp.Editor.Tools
 #endif
         }
 
-        [ExecuteCustomTool.CustomTool("query_3d_model_status_by_tencent_generation",
-            "Query the status of a static 3D model generation task (Hunyuan 3.1). Use ONLY as a one-time fallback if no <bg_task_done> notification arrives. " +
+        [ExecuteCustomTool.CustomTool("query_3d_model_status_by_rodin",
+            "Query the status of a static 3D model generation task (Rodin Gen-2.5). Use ONLY as a one-time fallback if no <bg_task_done> notification arrives. " +
             "Status values: 'initializing', 'generating', 'recovering', 'completed', 'failed', 'interrupted'. " +
             "'recovering' means Unity recompiled scripts (domain reload) and the task was automatically resumed. " +
             "'interrupted' means the backend task record was lost and recovery is not possible — re-generate. " +
@@ -661,7 +664,7 @@ namespace UnityTcp.Editor.Tools
                     result["result_summary"] = $"Generation completed. Model: {task.ModelPath}. Prefab: {task.PrefabPath ?? "N/A"}.";
 
                 if (task.Status == "interrupted")
-                    result["hint"] = "Re-generate using generate_3d_model_by_tencent_generation with force_overwrite=true and the same prefab_output_path.";
+                    result["hint"] = "Re-generate using generate_3d_model_by_rodin with force_overwrite=true and the same prefab_output_path.";
 
                 if (task.Status == "recovering" && !string.IsNullOrEmpty(task.BackendTaskId))
                 {
@@ -717,8 +720,8 @@ namespace UnityTcp.Editor.Tools
 #endif
         }
 
-        [ExecuteCustomTool.CustomTool("list_3d_model_tasks_by_tencent_generation",
-            "List all active and recent static 3D model generation tasks (Hunyuan 3.1). " +
+        [ExecuteCustomTool.CustomTool("list_3d_model_tasks_by_rodin",
+            "List all active and recent static 3D model generation tasks (Rodin Gen-2.5). " +
             "Tasks survive script recompilation (domain reload) within the same Editor session — " +
             "in-progress tasks are automatically resumed and show status 'recovering'. " +
             "Tasks with status 'interrupted' lost their backend record and must be re-generated.")]
@@ -794,7 +797,7 @@ namespace UnityTcp.Editor.Tools
             {
                 if (h == null || h.isGenerating || string.IsNullOrEmpty(h.modelPath))
                     continue;
-                if (h.modelVersion != GeneratorId && h.modelVersion != "tencent-generation")
+                if (h.modelVersion != GeneratorId && h.modelVersion != "rodin" && h.modelVersion != "tencent-generation")
                     continue;
 
                 bool guidMatch   = !string.IsNullOrEmpty(guid) && (h.assetGuid ?? "") == guid;
@@ -869,18 +872,26 @@ namespace UnityTcp.Editor.Tools
 
         private static void ApplyParameters(DynamicGenerator generator, JObject parameters)
         {
-            if (parameters["face_count"] != null)
-                generator.SetParameter("faceCount", parameters["face_count"].ToObject<int>());
+            // Default to Extreme-High tier for high-precision generation
+            string tier = parameters["tier"]?.ToString();
+            if (string.IsNullOrEmpty(tier))
+                tier = "Gen-2.5-Extreme-High";
+            generator.SetParameter("tier", tier);
 
-            if (parameters["enable_pbr"] != null)
-                generator.SetParameter("enablePBR", parameters["enable_pbr"].ToObject<bool>());
+            if (parameters["quality"] != null)
+                generator.SetParameter("quality", parameters["quality"].ToString());
 
-            if (parameters["result_format"] != null)
-            {
-                string fmt = parameters["result_format"].ToString().ToUpper();
-                if (fmt != "FBX")
-                    generator.SetParameter("resultFormat", fmt);
-            }
+            if (parameters["material"] != null)
+                generator.SetParameter("material", parameters["material"].ToString());
+
+            if (parameters["mesh_mode"] != null)
+                generator.SetParameter("meshMode", parameters["mesh_mode"].ToString());
+
+            if (parameters["ta_pose"] != null)
+                generator.SetParameter("taPose", parameters["ta_pose"].ToObject<bool>());
+
+            if (parameters["geometry_format"] != null)
+                generator.SetParameter("geometryFormat", parameters["geometry_format"].ToString());
         }
 
         internal static void ApplyParametersInternal(DynamicGenerator generator, JObject parameters)

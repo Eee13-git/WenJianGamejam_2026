@@ -1,6 +1,6 @@
 # TJGenerators for Unity
 
-TJGenerators for Unity 是一款强大的 AI 内容生成插件，集成团结 AI 平台的多模态生成能力，无缝嵌入 Unity 编辑器工作流。支持 3D 模型、天空盒、2D 精灵、表面材质、2D 动作/精灵表序列帧、背景音乐、视频、3D 世界等多种游戏资产的 AI 生成，帮助开发者和创作者大幅提升内容创作效率。
+TJGenerators for Unity 是一款强大的 AI 内容生成插件，集成团结 AI 平台的多模态生成能力，无缝嵌入 Unity 编辑器工作流。支持 3D 模型、天空盒、2D 精灵、表面材质、2D 动作/精灵表序列帧、背景音乐、音效、语音合成与声音克隆、图片放大、Game UI Kit、视频、3D 世界等多种游戏资产的 AI 生成，帮助开发者和创作者大幅提升内容创作效率。
 
 ## 功能特性
 
@@ -17,6 +17,8 @@ TJGenerators for Unity 是一款强大的 AI 内容生成插件，集成团结 A
 | 工具 | 功能 |
 |------|------|
 | **图片切割** | 对大图进行传统 CV 自动区域检测，预览并批量导出独立精灵（`AI/工具/图片切割`） |
+| **ESRGAN 图片放大** | Real-ESRGAN 超分（CustomTool `upscale_image`），支持 1x–8x、多种模型与可选人脸增强 |
+| **Game UI Kit** | 两步工作流（CustomTool `generate_game_ui_kit`）：文生游戏 UI 截图 → 品红底 UI 抠图拼版，便于提取 HUD/按钮等元素 |
 
 ### 🌌 天空盒生成
 
@@ -54,8 +56,10 @@ TJGenerators for Unity 是一款强大的 AI 内容生成插件，集成团结 A
 
 | 生成器 | 功能 |
 |--------|------|
-| **火山 文生音频** | 文生背景音乐，支持 30-120 秒时长，v5.0 模型 |
+| **Sonilo 音乐生成** | 文生背景音乐，支持 1-180 秒时长，WAV/MP3 输出 |
+| **Sonilo 音效生成** | 文生音效（SFX），支持中英文，1-180 秒，WAV/MP3 输出 |
 | **MiniMax 语音合成** | 文生语音（TTS），支持预设语音角色与自定义 Voice ID |
+| **声音克隆** | 从音频样本克隆音色（CustomTool `voice_clone`），返回 `custom_voice_id` 可交给 TTS 使用 |
 
 ### 🎬 视频生成
 
@@ -82,7 +86,7 @@ TJGenerators for Unity 是一款强大的 AI 内容生成插件，集成团结 A
 
 - **配置驱动架构**：所有生成器通过 JSON 配置文件定义，添加新生成器无需编写 C# 代码
 - **公开 C# API**：支持在编辑器脚本中调用生成功能
-- **任务恢复机制**：编辑器意外关闭后自动恢复进行中的任务；CustomTool（图片、精灵、材质、音频、视频、特效视频、天空盒、地形、2D 序列帧、绑骨动画等）在 Domain Reload 后亦可自动恢复未完成生成；绑骨动画任务会持久化 `sessionId` 以便按会话恢复与通知
+- **任务恢复机制**：编辑器意外关闭后自动恢复进行中的任务；CustomTool（图片、精灵、材质、音频、视频、特效视频、天空盒、地形、2D 序列帧、绑骨动画、图片放大、Game UI Kit 等）在 Domain Reload 后亦可自动恢复未完成生成；绑骨动画任务会持久化 `sessionId` 以便按会话恢复与通知
 - **Play 模式保护**：Unity 播放期间禁用生成、资产搜索、下载及场景放置操作，避免退出播放后生成内容被丢弃
 - **历史记录管理**：按资产隔离历史记录，支持快速复用与在 Project 中定位；写入 `sessionId` 便于按 Agent 会话分组，可通过 `list_session_assets` CustomTool 查询
 - **资产 Label 自动注册**：编辑器启动时自动写入 `TuanjieAI` 标签；精灵表序列帧资产额外写入 `TuanjieAI_Frontier`（代码常量 `SpriteSheetLabel`），便于 Project 搜索与 Inspector 路由

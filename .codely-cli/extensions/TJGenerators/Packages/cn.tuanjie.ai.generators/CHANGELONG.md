@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.20] - 2026-08-04
+
+### Added
+
+- 新增 Game UI Kit CustomTool（`generate_game_ui_kit`）：两步工作流先文生游戏 UI 截图，再生成品红底 UI 抠图拼版，并配套 skill / agent
+- 新增 ESRGAN 图片放大 CustomTool（`upscale_image`）：Real-ESRGAN 支持 1x–8x 超分与多种模型/人脸增强选项，并配套 skill / agent
+- 新增声音克隆 CustomTool（`voice_clone`）：从音频样本克隆音色并返回 `custom_voice_id`，可交给 TTS 使用，并配套 skill / agent
+- AI 生成规划 agent 纳入 Game UI Kit、图片放大、声音克隆的分派与依赖规则
+
+### Fixed
+
+- 3D 模型预览改为相机 yaw/pitch 环绕旋转，修复模型转到背面时俯仰/偏航控制反向的问题
+
+### Changed
+
+- 音乐生成从火山文生音频（huoshan_music）切换到 Sonilo（sonilo-music）：参数从 duration(int 30-120)/version/enableInputRewrite 改为 durationSeconds(float 1-180)/outputFormat(wav|mp3)
+- 音效生成从旧 fal 音效（sound-effect）切换到 Sonilo（sonilo-sfx）：移除 promptInfluence/loop 参数，outputFormat 改为 wav|mp3，时长范围从 1-22 扩展到 1-180 秒，支持中文 prompt
+- output_format 只暴露 wav/mp3（Unity 可导入的格式），aac/flac 归一化为 wav；BGM 工具新增 prompt 长度校验（2000 字符上限）
+
 ## [1.0.19] - 2026-07-30
 
 ### Added
@@ -21,6 +40,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - 修复 Unity 2019 下 2D 骨骼动画生成工具任务恢复逻辑中 lambda 变量遮蔽导致的编译报错
+
+### Changed
+
+- 音乐生成从火山文生音频（huoshan_music）切换到 Sonilo（sonilo-music）：参数从 duration(int 30-120)/version/enableInputRewrite 改为 durationSeconds(float 1-180)/outputFormat(wav|mp3)
+- 音效生成从旧 fal 音效（sound-effect）切换到 Sonilo（sonilo-sfx）：移除 promptInfluence/loop 参数，outputFormat 从 fal 枚举改为 wav|mp3，时长范围从 1-22 扩展到 1-180 秒，支持中文 prompt
+- output_format 只暴露 wav/mp3（Unity 可导入的格式），aac/flac 归一化为 wav
+- BGM 工具新增 prompt 长度校验（2000 字符上限）
 
 ## [1.0.17] - 2026-07-29
 

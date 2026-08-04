@@ -60,6 +60,11 @@ namespace TJGenerators
         public string lyrics;
         public string mood;
 
+        /// <summary>Voice clone output: the cloned voice ID for use with generate_tts.</summary>
+        public string customVoiceId;
+        /// <summary>Voice clone output: preview audio URL.</summary>
+        public string previewAudioUrl;
+
         /// <summary>WorldLabs 世界生成输出：output.data.assets</summary>
         public WorldAssets assets;
     }

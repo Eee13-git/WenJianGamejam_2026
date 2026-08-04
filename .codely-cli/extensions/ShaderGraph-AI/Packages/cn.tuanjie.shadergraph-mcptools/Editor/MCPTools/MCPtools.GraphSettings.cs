@@ -134,13 +134,9 @@ namespace UnityTcp.ShaderTools
                 // Check if it's HDTarget
 #if HDRP_INSTALLED
                 bool isHDTarget = SGReflection.T_HDTarget != null && SGReflection.T_HDTarget.IsAssignableFrom(t.GetType());
-#else
-                bool isHDTarget = false;
-#endif
                 string subTargetName = null;
                 string materialType = null;
 
-#if HDRP_INSTALLED
                 if (isHDTarget)
                 {
                     var sub = SGReflection.GetActiveSubTarget(t);
@@ -150,7 +146,6 @@ namespace UnityTcp.ShaderTools
                         materialType = (string)SGReflection.Prop(sub, "displayName");
                     }
                 }
-#endif
 
                 activeTargets.Add(new
                 {
@@ -160,6 +155,16 @@ namespace UnityTcp.ShaderTools
                     subTarget = subTargetName,
                     materialType
                 });
+#else
+                activeTargets.Add(new
+                {
+                    typeName = targetName,
+                    displayName,
+                    isHDTarget = false,
+                    subTarget = (string)null,
+                    materialType = (string)null
+                });
+#endif
             }
 
             var potentialTargets = new List<object>();
@@ -294,9 +299,9 @@ namespace UnityTcp.ShaderTools
         //  Region 2: HDRP Target Settings
         // ================================================================
 
-#if HDRP_INSTALLED
         #region HDRP Target Settings
 
+#if HDRP_INSTALLED
         /// <summary>
         /// 获取 HDRP Target 的设置（Material 类型、Custom Editor GUI、VFX 支持、Compute Vertex 支持）
         /// </summary>
@@ -456,14 +461,14 @@ namespace UnityTcp.ShaderTools
             return new { success = true, message = $"Compute for Vertex Setup: {enabled}" };
         }
 
-        #endregion
 #endif // HDRP_INSTALLED
+
+        #endregion
 
         // ================================================================
         //  Region 3: Surface Options (SystemData + BuiltinData + LightingData)
         // ================================================================
 
-#if URP_INSTALLED || HDRP_INSTALLED
         #region Surface Options
 
         /// <summary>
@@ -481,7 +486,6 @@ namespace UnityTcp.ShaderTools
             if (universalTarget != null)
                 return GetURPSurfaceOptions(universalTarget);
 #endif
-
 #if HDRP_INSTALLED
             var hdTarget = SGReflection.GetHDTarget(graph);
             if (hdTarget == null) return new { success = false, message = "No HDRP or URP target active" };
@@ -558,7 +562,9 @@ namespace UnityTcp.ShaderTools
             }
 
             return result;
-#endif // HDRP_INSTALLED
+#else
+            return new { success = false, message = "No HDRP or URP target active" };
+#endif
         }
 
         /// <summary>
@@ -577,7 +583,6 @@ namespace UnityTcp.ShaderTools
             if (universalTarget != null)
                 return SetURPSurfaceOptions(graph, universalTarget, parameters);
 #endif
-
 #if HDRP_INSTALLED
             var hdTarget = SGReflection.GetHDTarget(graph);
             if (hdTarget == null) return new { success = false, message = "No HDRP or URP target active" };
@@ -616,19 +621,20 @@ namespace UnityTcp.ShaderTools
             RefreshAfterChange(graph);
 
             return new { success = true, pipeline = "HDRP", message = $"Updated {changes.Count} properties", changes };
-#endif // HDRP_INSTALLED
+#else
+            return new { success = false, message = "No HDRP or URP target active" };
+#endif
         }
 
         #endregion
-#endif // URP_INSTALLED || HDRP_INSTALLED
 
         // ================================================================
         //  Region 4: Advanced Options
         // ================================================================
 
-#if HDRP_INSTALLED
         #region Advanced Options
 
+#if HDRP_INSTALLED
         /// <summary>
         /// 获取 Advanced Options 的所有设置
         /// </summary>
@@ -729,16 +735,17 @@ namespace UnityTcp.ShaderTools
             return new { success = true, message = $"Updated {changes.Count} properties", changes };
         }
 
-        #endregion
 #endif // HDRP_INSTALLED
+
+        #endregion
 
         // ================================================================
         //  Region 5: Lit-Specific Options (HDLitData)
         // ================================================================
 
-#if HDRP_INSTALLED
         #region Lit-Specific Options
 
+#if HDRP_INSTALLED
         /// <summary>
         /// 获取 Lit 特有的选项（Material Type、Clear Coat、SSS、Refraction、Energy Conserving Specular）
         /// </summary>
@@ -859,16 +866,17 @@ namespace UnityTcp.ShaderTools
             return new { success = true, message = $"Updated {changes.Count} properties", changes };
         }
 
-        #endregion
 #endif // HDRP_INSTALLED
+
+        #endregion
 
         // ================================================================
         //  Internal: Property Setter Helpers
         // ================================================================
 
-#if HDRP_INSTALLED
         #region Property Setter Helpers
 
+#if HDRP_INSTALLED
         private static List<string> SetSystemDataProperties(object systemData, object hdTarget, JObject parameters)
         {
             var changes = new List<string>();
@@ -1140,16 +1148,17 @@ namespace UnityTcp.ShaderTools
             }
         }
 
-        #endregion
 #endif // HDRP_INSTALLED
+
+        #endregion
 
         // ================================================================
         //  URP Surface Options
         // ================================================================
 
-#if URP_INSTALLED
         #region URP Surface Options
 
+#if URP_INSTALLED
         private static object GetURPSurfaceOptions(object universalTarget)
         {
             var result = new Dictionary<string, object> { { "success", true }, { "pipeline", "URP" } };
@@ -1303,7 +1312,8 @@ namespace UnityTcp.ShaderTools
             }
         }
 
-        #endregion
 #endif // URP_INSTALLED
+
+        #endregion
     }
 }

@@ -18,7 +18,7 @@ using Unity.EditorCoroutines.Editor;
 namespace TJGenerators
 {
     /// <summary>
-    /// TJGenerators 文生音频窗口 - 使用 huoshan_music 等生成器生成音频
+    /// TJGenerators 文生音频窗口 - 使用 sonilo-music 等生成器生成音频
     /// </summary>
     public class TJGeneratorsMusicWindow : GenerationWindowBase, IGenerationPipelineHost, IGenerationTriggerHost, IMediaAssetPipelineHost
     {

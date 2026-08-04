@@ -53,6 +53,9 @@ Every specialist generator agent already follows the shared async discipline:
 | `material-generator` | PBR surface texture for a 3D object: floor, wall, rock, metal, wood, brick, leather, tile |
 | `audio-generator` | BGM (looping music) OR one-shot SFX (footstep / gunshot / explosion / UI click) |
 | `sprite-and-sprite-sequence-generator` | 2D sprites (icons, portraits, items, UI art) AND/OR sprite sequence animations |
+| `game-ui-kit-generator` | Game UI kits: HUD layouts, inventory screens, skill bars, menu UI, dialogue boxes — two-step (screenshot → cutout sheet) |
+| `image-upscaler` | Image super-resolution: upscale existing images 1x-8x using Real-ESRGAN |
+| `voice-cloner` | Voice cloning: create custom voice profile from audio sample for use with TTS — produces voice ID, not scene asset |
 
 ### Disambiguation
 
@@ -61,6 +64,11 @@ Every specialist generator agent already follows the shared async discipline:
 - **"Rain sound" / "wind"**: default `audio-generator` SFX unless explicitly looping background → BGM.
 - **Sprite vs Material when ambiguous**: placed on 3D mesh surface → material; 2D image / UI → sprite.
 - **Sprite + Sprite Sequence (same subject, no existing image)**: treat as ONE task → `sprite-and-sprite-sequence-generator` Mode C. Do NOT split — agent handles two-stage pipeline internally.
+- **Game UI Kit vs Sprite**: full UI layout with multiple elements (HUD, inventory, skill bar) → `game-ui-kit-generator`. Single icon/item/portrait → `sprite-and-sprite-sequence-generator`.
+- **Game UI Kit vs Image**: game UI with element extraction (cutout sheet) → `game-ui-kit-generator`. General concept art / background / texture → `image-generator`.
+- **Upscale vs Generate**: enlarging/enhancing an EXISTING image → `image-upscaler`. Creating a NEW image from text → `image-generator`.
+- **Voice Clone vs TTS**: cloning a voice from audio sample → `voice-cloner`. Synthesizing speech from text → `audio-generator` (TTS). Typical flow: `voice-cloner` → `generate_tts(voice_id=custom_voice_id)`.
+- **Voice Clone vs Audio**: voice cloning produces a voice ID (not an audio file) → `voice-cloner`. BGM/SFX produces audio assets → `audio-generator`.
 
 ---
 
@@ -71,6 +79,9 @@ Mandatory dependency rules:
 | Dependency | Rule |
 |---|---|
 | Sprite → Sprite Sequence (same subject, no image) | **MERGE into one task** → `sprite-and-sprite-sequence-generator` Mode C |
+| Voice Clone → TTS (same voice) | Sequential: `voice-cloner` must complete, read `custom_voice_id` from notification, then `audio-generator` calls `generate_tts(voice_id=custom_voice_id)` |
+| Game UI Kit Step 1 → Step 2 | Handled internally by `game-ui-kit-generator` — do NOT split. Step 2 uses Step 1's `image_path` as `screenshot_path` |
+| Image → Upscale (enhance generated image) | Sequential: `image-generator` must complete, then `image-upscaler` on the result `image_path` |
 | Task references the OUTPUT of another task | Sequential: Phase N+1 depends on Phase N |
 | Tasks share the same prefab/asset path | Sequential: avoid concurrent writes |
 | `material-generator` tasks > 5 | Batch into groups of ≤ 5 concurrent |
@@ -90,7 +101,10 @@ Tasks with no dependencies can always run in parallel.
 | Secondary 3D objects | Spread on X-axis: `(±3, 0, 0)`, `(±6, 0, 0)` |
 | Wall / backdrop Cube | `(0, 1.5, 5)` with scale `(5, 3, 0.5)` |
 | 2D sprites | `(-3, 1, 0)`, `(-5, 1, 0)` etc. |
+| Game UI Kit cutout sheet | `(0, 2, 3)` as RawImage on Canvas or Texture2D on Quad |
+| Upscaled image | Same position as original (replacement) |
 | Audio sources | `(0, 0, 0)` — position irrelevant for BGM |
+| Voice clone | N/A — produces voice ID, not a scene object |
 | Skybox | N/A |
 
 Pass via `constraints`:
@@ -112,6 +126,9 @@ Pass via `constraints`:
 | `audio-generator` SFX | 20–60 s |
 | `sprite-and-sprite-sequence-generator` Mode A/B | 1–3 min |
 | `sprite-and-sprite-sequence-generator` Mode C | 2–6 min (two stages) |
+| `game-ui-kit-generator` (both steps) | 2–4 min (two async stages) |
+| `image-upscaler` | 10–60 s |
+| `voice-cloner` | 10–60 s |
 | `search-assets` (download) | 30 s – several min depending on asset size |
 
 ---
@@ -251,6 +268,9 @@ After ALL agents complete:
 - [ ] **Audio**: BGM `loop=true, spatialBlend=0`; SFX `loop=false, spatialBlend=1`
 - [ ] **Sprites**: `localScale` explicitly set (default 2048px/100PPU = 20.48 units wide!)
 - [ ] **Sprite sequences**: AnimationClip wired to AnimatorController; preview in Edit Mode via `animator.Play(state, 0, 0f); animator.Update(0f)`
+- [ ] **Game UI Kit**: cutout sheet placed as Texture2D; element extraction guide provided to user
+- [ ] **Upscaled images**: replaced original or saved as new asset; Texture2D import settings correct
+- [ ] **Voice clone**: `custom_voice_id` reported to caller; TTS chain initiated if requested
 - [ ] **Scene saved**; do NOT press Play
 
 ## 7. Risks & Fallbacks
@@ -265,6 +285,9 @@ After ALL agents complete:
 | Material concurrency > 5 | Medium | Batch ≤5 |
 | Animated character concurrency > 3 | Medium | Batch ≤3 |
 | `generating @ 100%` (animated char) | Medium | Local download — wait for `completed`, do NOT retry |
+| Game UI Kit Step 1 URL expired before Step 2 | Low | Re-run Step 1 to get fresh screenshot URL |
+| Upscale on very large image (8x 4K) | Medium | May timeout; use lower scale or smaller source image |
+| Voice clone sample quality poor | Medium | Use longer, cleaner audio sample; minimum 10s |
 | No active scene at startup | Low | Phase 0 creates `Assets/Scenes/GenerationScene.unity` |
 | Camera not framing all assets | Medium | Adjust position/FOV in Phase 0 |
 

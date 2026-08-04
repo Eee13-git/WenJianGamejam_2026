@@ -9,7 +9,7 @@ namespace TJGenerators.Utils
     /// 更早版本回退到 isDone / isNetworkError / isHttpError。
     /// 调用方统一走本类，无需在各处写 #if。
     /// </summary>
-    internal static class UnityWebRequestCompat
+    public static class UnityWebRequestCompat
     {
         public static bool IsInProgress(UnityWebRequest request)
         {

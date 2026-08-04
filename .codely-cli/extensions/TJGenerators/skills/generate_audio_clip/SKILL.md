@@ -15,7 +15,7 @@ description: Generate background music (BGM) and ambient audio clips in Unity us
 
 # Generate Audio Clip (BGM / Ambient Music) in Unity 🎵
 
-Generate **background music and ambient audio** assets in Unity using Huoshan Music AI, from text descriptions of music style, mood, or scene.
+Generate **background music and ambient audio** assets in Unity using Sonilo AI, from text descriptions of music style, mood, or scene.
 Output: WAV file auto-imported as **AudioClip**, saved到 `Assets/TJGenerators/History/`。
 
 > ⚠️ **仅 BGM 和环境音乐。** 一次性音效（枪声、脚步、UI 点击、爆炸等）用 `generate_sound_effect` skill。
@@ -31,8 +31,8 @@ Output: WAV file auto-imported as **AudioClip**, saved到 `Assets/TJGenerators/H
 
 ## ⚠️ Skill 独有约束
 
-1. **`prompt` required**——必须描述音乐风格/情绪/乐器/场景。
-2. **`duration` 范围 30–120**（int，秒）——超出会被拒绝；也可以在 prompt 里写如 `"30-second intro track"`。
+1. **`prompt` required**——必须描述音乐风格/情绪/乐器/场景。支持中文和英文。
+2. **`duration_seconds` 范围 1–180**（float，秒）——超出会被拒绝；默认 90。
 3. **资产类型用 `AudioClip BGM` 不是 `AudioClip SFX`**——`place_assets_in_scene` 会按 BGM 类型配置 AudioSource：`loop=true`、`spatialBlend=0`（2D，无空间衰减）。
 4. **`play_on_awake` 直接控 AudioSource**——这个参数不影响生成本身，而是控制 `place_assets_in_scene` 创建 AudioSource 时是否自动播放（默认 `true`）。需要脚本触发时设 `false`。
 
@@ -56,9 +56,9 @@ execute_custom_tool(
   tool_name="generate_audio_clip",
   parameters={
     "prompt": "epic orchestral battle music, intense drums, rising tension",  # Required
-    "generator_id": "huoshan_music",      # 唯一可用 generator（默认）
-    "duration": 60,                       # 30–120 秒，默认 60
-    "enable_input_rewrite": True,        # 让 AI 改写 prompt 以提升效果
+    "generator_id": "sonilo-music",      # 唯一可用 generator（默认）
+    "duration_seconds": 90,               # 1–180 秒，默认 90
+    "output_format": "wav",              # wav|mp3，默认 wav
     "play_on_awake": True,               # 创建的 AudioSource 是否自动播放，默认 true
     # output_path: 不建议指定，默认 Assets/TJGenerators/History/
   }
@@ -97,10 +97,10 @@ execute_custom_tool(
 
 | 参数 | 类型 | 默认 | 说明 |
 |---|---|---|---|
-| `generator_id` | string | `"huoshan_music"` | 唯一可用 |
-| `prompt` | string | **required** | 风格/情绪/乐器/场景描述 |
-| `duration` | int | `60` | 输出长度秒数（**30–120**） |
-| `enable_input_rewrite` | bool | `true` | 让 AI 改写 prompt 以提升结果 |
+| `generator_id` | string | `"sonilo-music"` | 唯一可用 |
+| `prompt` | string | **required** | 风格/情绪/乐器/场景描述（支持中文和英文） |
+| `duration_seconds` | float | `90` | 输出长度秒数（**1–180**） |
+| `output_format` | string | `"wav"` | `wav` / `mp3` |
 | `play_on_awake` | bool | `true` | 创建的 AudioSource 是否在 Play Mode 自动播放 |
 | `output_path` | string | — | 自定义路径（**不建议指定**） |
 
@@ -113,7 +113,7 @@ result = execute_custom_tool(
     tool_name="generate_audio_clip",
     parameters={
         "prompt": "calm ambient fantasy RPG town music, gentle flute and strings, peaceful atmosphere",
-        "duration": 60
+        "duration_seconds": 60
     }
 )
 if not result.get("success", True):
@@ -131,7 +131,7 @@ placeholder_path = result["placeholder_path"]
 ```python
 parameters={
     "prompt": "tense boss fight music, heavy brass, fast percussion",
-    "duration": 90,
+    "duration_seconds": 90,
     "play_on_awake": False        # 脚本里手动 audioSource.Play() 触发
 }
 ```
@@ -173,8 +173,8 @@ Scene side-effect：创建 `BGMPlayer` GameObject + AudioSource，`loop=true`、
 
 | 问题 | 原因 | 解决 |
 |---|---|---|
-| 音乐与 prompt 不符 | prompt 太模糊 / 描述矛盾 | 写更具体的乐器 + 情绪；启用 `enable_input_rewrite: true`；避免矛盾描述 |
-| 想快速试错 prompt | duration 默认 60 太长 | 临时设 `duration: 30` 加快迭代 |
+| 音乐与 prompt 不符 | prompt 太模糊 / 描述矛盾 | 写更具体的乐器 + 情绪；避免矛盾描述 |
+| 想快速试错 prompt | duration 默认 90 太长 | 临时设 `duration_seconds: 30` 加快迭代 |
 | AudioClip 在 Unity 没显示 | output_path 目录不存在 | 不要自定义 `output_path`，用默认路径 |
 
 ### Domain reload 后 task 丢失

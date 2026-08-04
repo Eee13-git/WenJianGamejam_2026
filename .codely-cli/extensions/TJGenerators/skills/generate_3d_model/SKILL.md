@@ -1,6 +1,6 @@
 ---
 name: unity-3d-model-generation
-description: Generate static (non-animated) 3D models in Unity using AI (defaults to Tripo P1; use Hunyuan 3.1 for high-poly / PBR / OBJ zip output). Use this skill whenever the user wants to create a standalone 3D object, prop, or asset WITHOUT animation — e.g., "生成一个3D模型", "生成一把椅子", "create a 3D rock", "make a sword model", "生成一个道具", "generate a 3D asset". Trigger for furniture, weapons, vehicles, buildings, food, props, environment assets, etc. DO NOT use for terrain, landscape, canyon, valley, mountain range, or any large-scale ground/environment — use unity-terrain-generation instead. For rigged humanoid characters with animations, use generate_animated_character instead.
+description: Generate static (non-animated) 3D models in Unity using AI (defaults to Tripo P1; use Rodin Gen-2.5 Extreme-High for high-poly / PBR / FBX output). Use this skill whenever the user wants to create a standalone 3D object, prop, or asset WITHOUT animation — e.g., "生成一个3D模型", "生成一把椅子", "create a 3D rock", "make a sword model", "生成一个道具", "generate a 3D asset". Trigger for furniture, weapons, vehicles, buildings, food, props, environment assets, etc. DO NOT use for terrain, landscape, canyon, valley, mountain range, or any large-scale ground/environment — use unity-terrain-generation instead. For rigged humanoid characters with animations, use generate_animated_character instead.
 ---
 
 > ⚠️ **执行约束**
@@ -17,11 +17,11 @@ description: Generate static (non-animated) 3D models in Unity using AI (default
 
 生成静态（非动画）3D 模型资产。本 skill 是 **路由文档**：决定使用哪个 generator，再读对应 `generators/*.md` 子文档拿完整参数。
 
-输出：3D 模型文件（Tripo 依 API 返回；混元 3.1 为 **OBJ zip**）+ 自动生成的 Prefab，保存到 `Assets/TJGenerators/History/`。
+输出：3D 模型文件（Tripo 依 API 返回；Rodin 为 **FBX**）+ 自动生成的 Prefab，保存到 `Assets/TJGenerators/History/`。
 
 ## 🚦 执行四步（不要跳读外链）
 
-1. 调 `generate_3d_model_by_tripo_p1` / `..._by_tencent_generation` → 拿 `task_id` + `prefab_output_path`
+1. 调 `generate_3d_model_by_tripo_p1` / `..._by_rodin` → 拿 `task_id` + `prefab_output_path`
 2. 立即 `place_assets_in_scene`（资产类型 `Prefab`，路径用 `prefab_output_path`）→ 场景出现 Cube 占位
 3. **END RESPONSE TURN** — 不要 poll、不要 `query_3d_model_status_by_*`、不要继续操作
 4. 下一轮收到 `<bg_task_done>` → 读 `model_path` / `prefab_path`（Cube 子节点已原地替换为真实模型，**不要再 place**）
@@ -30,8 +30,8 @@ description: Generate static (non-animated) 3D models in Unity using AI (default
 
 ## ⚠️ Skill 独有约束
 
-1. **必须先选 generator 再调工具**——本 skill 没有"统一入口工具"，只有按 generator 区分的 `generate_3d_model_by_tripo_p1` 和 `generate_3d_model_by_tencent_generation`。
-2. **必须先读子文档再调工具**——两个 generator 的参数集差异较大（Tripo P1 不支持 `quad`/`smart_low_poly`/`generate_parts`/`geometry_quality`，Hunyuan 不支持 `face_limit`/`pbr` 这些 Tripo 参数）。直接照搬错 generator 的参数会被官方 API 拒绝。
+1. **必须先选 generator 再调工具**——本 skill 没有"统一入口工具"，只有按 generator 区分的 `generate_3d_model_by_tripo_p1` 和 `generate_3d_model_by_rodin`。
+2. **必须先读子文档再调工具**——两个 generator 的参数集差异较大（Tripo P1 不支持 `tier`/`quality`/`material`/`mesh_mode`/`ta_pose`，Rodin 不支持 `face_limit`/`pbr` 这些 Tripo 参数）。直接照搬错 generator 的参数会被官方 API 拒绝。
 3. **`prompt` 与 `image_path` 至少一个**——两个 generator 都可文生 / 图生 / 文+图混合。Tripo P1 还支持 4 视图模式（`multiview_image_paths`，顺序 `[front, left, back, right]`，front 必须）。
 4. **占位 Prefab 是 Cube 子节点**——生成完成后 Cube 被替换为真实 model 子节点。**不要**把场景里的实例当 Cube 删掉重建。
 
@@ -40,14 +40,14 @@ description: Generate static (non-animated) 3D models in Unity using AI (default
 | 场景 | 选择 | 工具前缀 | 子文档 |
 |------|------|----------|--------|
 | 默认 / 通用 / 低面 / 小游戏 / 移动端 / 试玩广告 | **Tripo P1** | `generate_3d_model_by_tripo_p1` | [`generators/tripo-p1.md`](generators/tripo-p1.md) |
-| 高精度 / hero 资产 / PBR / OBJ zip 输出 | **Hunyuan 3.1** | `generate_3d_model_by_tencent_generation` | [`generators/tencent-generation.md`](generators/tencent-generation.md) |
+| 高精度 / hero 资产 / PBR / FBX 输出 | **Rodin Gen-2.5** | `generate_3d_model_by_rodin` | [`generators/rodin.md`](generators/rodin.md) |
 
 ### 选择决策树
 
 - 用户没明确说精度要求 → **Tripo P1**（默认）
 - 用户说"低面 / 低模 / 移动端 / 包体限制" → **Tripo P1**（独有 `face_limit` 控制）
-- 用户说"高精度 / hero / 主角资产 / PBR" → **Hunyuan 3.1**（输出 OBJ zip）
-- 用户明确指定 face_count > 20000 → **Hunyuan 3.1**（Tripo P1 上限约 20000）
+- 用户说"高精度 / hero / 主角资产 / PBR" → **Rodin Gen-2.5**（输出 FBX，默认 Extreme-High tier）
+- 用户明确指定 face_count > 20000 → **Rodin Gen-2.5**（Tripo P1 上限约 20000）
 - 批量生成需要稳定面数与体积 → **Tripo P1**
 
 > **调用前必须 `Read` 对应子文档**，获取完整参数表与该 generator 的独有约束。
@@ -86,24 +86,25 @@ execute_custom_tool(
 - `query_3d_model_status_by_tripo_p1` — fallback 查询（仅一次）
 - `list_3d_model_tasks_by_tripo_p1` — 列出 session 内所有任务
 
-### Hunyuan 3.1（详见 [tencent-generation.md](generators/tencent-generation.md)）
+### Rodin Gen-2.5（详见 [rodin.md](generators/rodin.md)）
 
 ```python
 execute_custom_tool(
-  tool_name="generate_3d_model_by_tencent_generation",
+  tool_name="generate_3d_model_by_rodin",
   parameters={
     "prompt": "ornate medieval sword, high detail",   # 与 image_path 至少一个
-    "face_count": 500000,                              # 3000~500000（混元 3.1 配置）
-    "enable_pbr": True,
-    # 完整参数读 generators/tencent-generation.md
+    "tier": "Gen-2.5-Extreme-High",                    # 默认极高（Extreme-High）
+    "quality": "high",
+    "material": "PBR",
+    # 完整参数读 generators/rodin.md
   }
 )
 ```
 
 `tool_name` 可选：
-- `generate_3d_model_by_tencent_generation` — 提交生成
-- `query_3d_model_status_by_tencent_generation` — fallback 查询（仅一次）
-- `list_3d_model_tasks_by_tencent_generation` — 列出 session 内所有任务
+- `generate_3d_model_by_rodin` — 提交生成
+- `query_3d_model_status_by_rodin` — fallback 查询（仅一次）
+- `list_3d_model_tasks_by_rodin` — 列出 session 内所有任务
 
 ## `<bg_task_done>` 通知字段（两个 generator 共享）
 
@@ -111,10 +112,10 @@ execute_custom_tool(
 
 | 字段 | 说明 |
 |---|---|
-| `model_path` | 最终 3D 模型路径（Tripo 依 API；混元 3.1 为解压后的 `.obj` 或 zip 内模型） |
+| `model_path` | 最终 3D 模型路径（Tripo 依 API；Rodin 为 `.fbx`） |
 | `prefab_path` | 最终 Prefab 路径（== 提交时的 `prefab_output_path`） |
 | `preview_url` | 渲染预览缩略图 URL（可能为空） |
-| `generator_type` | `"tripo-p1"` 或 `"tencent-generation"` |
+| `generator_type` | `"tripo-p1"` 或 `"rodin"` |
 | `prompt` | 原始 prompt |
 | `image_path` | 原始参考图（如有） |
 
@@ -144,13 +145,14 @@ prefab_output_path = result["prefab_output_path"]
 # 然后 END RESPONSE TURN，等 bg_task_done 通知（3–15 分钟）
 ```
 
-### Hunyuan 3.1 —— 高精度 hero 武器
+### Rodin Gen-2.5 Extreme-High —— 高精度 hero 武器
 
 ```python
 parameters={
     "prompt": "ornate golden sword with gem-encrusted hilt, magical runes engraved on blade",
-    "face_count": 1000000,
-    "enable_pbr": True
+    "tier": "Gen-2.5-Extreme-High",
+    "quality": "high",
+    "material": "PBR"
 }
 ```
 
@@ -186,10 +188,10 @@ parameters={
 
 | 问题 | 原因 | 解决 |
 |---|---|---|
-| 调用 Tripo 工具传了 Hunyuan 参数（如 `face_count` / `enable_pbr`） | 参数集不通用 | Tripo 用 `face_limit` / `pbr`；查 `generators/tripo-p1.md` |
-| 调用 Tripo 工具传了 `quad` / `smart_low_poly` / `generate_parts` / `geometry_quality` | P1-20260311 不支持这些 | 直接删掉这些参数，或改用 Hunyuan |
-| 调用 Hunyuan 工具传了 `face_limit` / `multiview_image_paths` | Hunyuan 不支持这些 | Hunyuan 用 `face_count`；多视图只 Tripo 支持 |
-| 状态变 `interrupted`（仅 Hunyuan） | domain reload 丢失后端记录 | 用 `generate_3d_model_by_tencent_generation` + `force_overwrite=true` + 相同 `prefab_output_path` 重新提交 |
+| 调用 Tripo 工具传了 Rodin 参数（如 `tier` / `quality`） | 参数集不通用 | Tripo 用 `face_limit` / `pbr`；查 `generators/tripo-p1.md` |
+| 调用 Tripo 工具传了 `quad` / `smart_low_poly` / `generate_parts` / `geometry_quality` | P1-20260311 不支持这些 | 直接删掉这些参数，或改用 Rodin |
+| 调用 Rodin 工具传了 `face_limit` / `multiview_image_paths` | Rodin 不支持这些 | Rodin 用 `tier` / `quality`；多视图只 Tripo 支持 |
+| 状态变 `interrupted`（仅 Rodin） | domain reload 丢失后端记录 | 用 `generate_3d_model_by_rodin` + `force_overwrite=true` + 相同 `prefab_output_path` 重新提交 |
 
 ### Domain reload 后 task 丢失
 
@@ -197,19 +199,19 @@ parameters={
 
 - Prefab 内 Cube 子节点 → 仍是占位
 - Prefab 内已绑定真实 model 子节点 → 已生成完成
-- `Assets/TJGenerators/History/<name>_model/` 目录存在且包含 `.obj` / `.fbx` / `.zip` → 已生成完成
+- `Assets/TJGenerators/History/<name>_model/` 目录存在且包含 `.fbx` / `.obj` / `.zip` → 已生成完成
 
-可用 `glob("Assets/TJGenerators/History/*_model/*.{obj,fbx,zip}")` 找已完成任务。
+可用 `glob("Assets/TJGenerators/History/*_model/*.{fbx,obj,zip}")` 找已完成任务。
 
 ---
 
 **Task ID Format**：
 - Tripo P1：`tripo_model_{counter}_{timestamp}`
-- Hunyuan：`static_model_{counter}_{timestamp}`
+- Rodin：`static_model_{counter}_{timestamp}`
 
 **Notes**：
 - 输出模型由 Unity 原生 FBX / OBJ 导入（插件已移除 GLTFast / GLB 专用链路）；Prefab 自动绑定模型为子节点
 - 自动应用 `TuanjieAI` 标签
 - 长任务（3–15 分钟），需 Unity Editor 一直在线
-- domain reload 任务自动恢复（除非 Hunyuan 显示 `interrupted`）
+- domain reload 任务自动恢复（除非 Rodin 显示 `interrupted`）
 - 消耗 AI 服务额度

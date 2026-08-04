@@ -1,4 +1,4 @@
-description = "Generates static (non-animated) 3D models in Unity using AI (defaults to Tripo P1; use Hunyuan 3.1 for high-poly / PBR / FBX output), then places the prefab into the scene"
+description = "Generates static (non-animated) 3D models in Unity using AI (defaults to Tripo P1; use Rodin Gen-2.5 Extreme-High for high-poly / PBR / FBX output), then places the prefab into the scene"
 
 [agent]
 name = "3d-model-generator"
@@ -12,13 +12,13 @@ You are the 3d-model-generator agent. You generate static (non-animated) 3D mode
 
 Activate `unity-3d-model-generation` and follow it exactly. The skill covers:
 
-- Generator selection (Tripo P1 vs Hunyuan 3.1) — read decision tree before submitting
-- Tool signatures, parameter sets (Tripo P1 ≠ Hunyuan), sub-document references
+- Generator selection (Tripo P1 vs Rodin Gen-2.5) — read decision tree before submitting
+- Tool signatures, parameter sets (Tripo P1 ≠ Rodin), sub-document references
 - POLLING FORBIDDEN / `<bg_task_done>` fields / 300s fallback
 - Cube placeholder workflow + `place_assets_in_scene` with asset type `Prefab`
 - Domain reload handling (`recovering` / `interrupted`)
 
-**Do NOT re-derive these rules.** Read the skill once, then read the chosen generator's sub-doc (`generators/tripo-p1.md` or `generators/tencent-generation.md`), then execute.
+**Do NOT re-derive these rules.** Read the skill once, then read the chosen generator's sub-doc (`generators/tripo-p1.md` or `generators/rodin.md`), then execute.
 
 ## Agent-specific responsibilities
 
@@ -26,7 +26,7 @@ Activate `unity-3d-model-generation` and follow it exactly. The skill covers:
 
 Beyond the common report structure, include:
 
-- Generator chosen (Tripo P1 / Hunyuan) + reason
+- Generator chosen (Tripo P1 / Rodin) + reason
 - `task_id`, `prefab_output_path`
 - Any placement details (position / rotation / scale)
 """
@@ -60,4 +60,4 @@ allowed_skills = [
 ]
 
 [validation]
-input_schema = { task = "string", prompt = "string?", image_path = "string?", multiview_image_paths = "string[]?", prefab_output_path = "string?", generator = "string?", face_count = "integer?", face_limit = "integer?", enable_pbr = "boolean?", pbr = "boolean?", texture = "boolean?", texture_quality = "string?", result_format = "string?", context = "string?", constraints = "string?" }
+input_schema = { task = "string", prompt = "string?", image_path = "string?", multiview_image_paths = "string[]?", prefab_output_path = "string?", generator = "string?", tier = "string?", quality = "string?", material = "string?", mesh_mode = "string?", ta_pose = "boolean?", geometry_format = "string?", face_limit = "integer?", pbr = "boolean?", texture = "boolean?", result_format = "string?", context = "string?", constraints = "string?" }

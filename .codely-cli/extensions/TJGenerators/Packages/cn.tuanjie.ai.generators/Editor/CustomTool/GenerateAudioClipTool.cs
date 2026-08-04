@@ -171,8 +171,8 @@ namespace UnityTcp.Editor.Tools
 
     /// <summary>
     /// CustomTool for generating audio clips (background music / SFX) using TJGenerators Music pipeline.
-    /// Supports text-to-audio generation via Huoshan Music.
-    /// Output is an AudioClip asset (MP3) saved to Assets/TJGenerators/History/.
+    /// Supports text-to-audio generation via Sonilo.
+    /// Output is an AudioClip asset (WAV) saved to Assets/TJGenerators/History/.
     /// Domain-reload recovery for generate_sound_effect and generate_tts is also implemented in
     /// AudioDomainReloadRecovery below (same file); those tools share AudioClipTaskTracker and AudioPipelineHost.
     /// </summary>
@@ -182,9 +182,9 @@ namespace UnityTcp.Editor.Tools
             "Generate a background music (BGM) or ambient audio clip from a text prompt using AI. " +
             "This tool is for looping music tracks and ambient soundscapes ONLY — NOT for sound effects (SFX). " +
             "The output is a WAV AudioClip asset saved to Assets/TJGenerators/History/. " +
-            "Parameters: generator_id (optional, default 'huoshan_music'), prompt (text description of music style/mood/scene), " +
-            "output_path (optional asset save path), duration (optional int, seconds, 30-120, default 60), " +
-            "enable_input_rewrite (optional bool, default false). " +
+            "Parameters: generator_id (optional, default 'sonilo-music'), prompt (text description of music style/mood/scene), " +
+            "output_path (optional asset save path), duration_seconds (optional float, seconds, 1-180, default 90), " +
+            "output_format (optional, 'wav'|'mp3', default 'wav'). " +
             "IMPORTANT: Generation takes 1-3 minutes. After calling this tool, wait at least 5 seconds " +
             "before the first query_audio_clip_status call, then poll every 10-15 seconds. " +
             "A placeholder_path (WAV) is returned immediately — you can assign it to an AudioSource right away.")]
@@ -195,7 +195,7 @@ namespace UnityTcp.Editor.Tools
             {
                 TJLog.Log($"[GenerateAudioClipTool] Generating audio clip with parameters: {parameters}");
 
-                string generatorId = parameters["generator_id"]?.ToString() ?? "huoshan_music";
+                string generatorId = parameters["generator_id"]?.ToString() ?? "sonilo-music";
                 string prompt = parameters["prompt"]?.ToString();
                 string outputPath = parameters["output_path"]?.ToString();
                 string sessionId = parameters["session_id"]?.ToString() ?? "";
@@ -210,6 +210,17 @@ namespace UnityTcp.Editor.Tools
                     };
                 }
 
+                int maxLen = TJGeneratorsPromptLimits.GetMaxLength("sonilo-music");
+                if (maxLen > 0 && prompt.Length > maxLen)
+                {
+                    return new Dictionary<string, object>
+                    {
+                        { "success", false },
+                        { "error_code", "INVALID_PARAMS" },
+                        { "message", $"Prompt length ({prompt.Length}) exceeds the {maxLen} character limit. Please shorten your music description." }
+                    };
+                }
+
                 // Load music generator config
                 var config = ConfigManager.GetGeneratorConfig(ConfigType.Music, generatorId);
                 if (config == null)
@@ -217,7 +228,7 @@ namespace UnityTcp.Editor.Tools
                     return new Dictionary<string, object>
                     {
                         { "success", false },
-                        { "message", $"Cannot find music generator config for '{generatorId}'. Valid value: 'huoshan_music'." }
+                        { "message", $"Cannot find music generator config for '{generatorId}'. Valid value: 'sonilo-music'." }
                     };
                 }
 
@@ -523,11 +534,15 @@ namespace UnityTcp.Editor.Tools
 
         private static void ApplyAudioParameters(DynamicGenerator generator, JObject parameters)
         {
-            if (parameters["duration"] != null)
-                generator.SetParameter("duration", parameters["duration"].ToObject<int>());
+            if (parameters["duration_seconds"] != null)
+                generator.SetParameter("durationSeconds", parameters["duration_seconds"].ToObject<float>());
 
-            if (parameters["enable_input_rewrite"] != null)
-                generator.SetParameter("enableInputRewrite", parameters["enable_input_rewrite"].ToObject<bool>());
+            // Always set outputFormat — if omitted, default to "wav" so fal.ai doesn't
+            // fall back to aac (which Unity can't import without ffmpeg).
+            string fmt = parameters["output_format"]?.ToString();
+            if (string.IsNullOrWhiteSpace(fmt) || (fmt != "wav" && fmt != "mp3"))
+                fmt = "wav";
+            generator.SetParameter("outputFormat", fmt);
         }
 #endif
     }
@@ -588,7 +603,7 @@ namespace UnityTcp.Editor.Tools
                         placeholderPathForHost = CustomToolDomainReloadRecovery.ResolveAssetPath(interrupted.targetAssetGuid);
 
                     string ext = "." + TJGenerators.Utils.TJGeneratorsAudioAssetPathUtility.NormalizeImportedAudioFileExtension(
-                        generator.AudioFormat ?? "mp3");
+                        generator.AudioFormat ?? "wav");
                     string audioDownloadPath = placeholderPathForHost;
                     if (!string.IsNullOrEmpty(placeholderPathForHost))
                     {
@@ -695,7 +710,7 @@ namespace UnityTcp.Editor.Tools
             {
                 TJLog.LogError(
                     $"[GenerateAudioClipTool] 无法将 {savePath} 导入为 AudioClip。"
-                    + " 火山文生音频返回 AAC/MP4 时需安装 ffmpeg 并加入 PATH 以自动转 WAV。"
+                    + " 后端返回 AAC/MP4 时需安装 ffmpeg 并加入 PATH 以自动转 WAV。"
                 );
             }
 

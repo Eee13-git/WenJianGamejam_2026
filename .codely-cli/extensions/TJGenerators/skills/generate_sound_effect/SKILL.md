@@ -16,7 +16,7 @@ description: Generate sound effects (SFX) in Unity using AI via text description
 # Generate Sound Effect (SFX) in Unity 💥
 
 Generate **one-shot sound effect** assets in Unity using AI, from text descriptions of the sound.
-Output: 默认 MP3 文件，自动导入为 **AudioClip**，保存到 `Assets/TJGenerators/History/`。
+Output: 默认 WAV 文件，自动导入为 **AudioClip**，保存到 `Assets/TJGenerators/History/`。
 
 > ⚠️ **仅一次性 SFX。** BGM、环境音乐、循环音轨用 `generate_audio_clip` skill。
 
@@ -31,22 +31,21 @@ Output: 默认 MP3 文件，自动导入为 **AudioClip**，保存到 `Assets/TJ
 
 ## ⚠️ Skill 独有约束
 
-1. **`prompt` 必须英文**——SFX 生成 API 只支持英文。用户给中文先翻译再调用。
+1. **`prompt` 支持中文和英文**——Sonilo 音效生成 API 支持中英文描述。
    - ✅ `"sharp wooden door knock, three rapid knocks"`
-   - ❌ `"木门敲击声"`
-2. **`duration_seconds` 范围 1–22**（**float**，不是 int）——超出会被拒绝。
+   - ✅ `"木门敲击声"`
+2. **`duration_seconds` 范围 1–180**（**float**，不是 int）——超出会被拒绝。默认 8。
 3. **资产类型用 `AudioClip SFX` 不是 `AudioClip BGM`**——`place_assets_in_scene` 会按 SFX 类型配置 AudioSource：`loop=false`、`spatialBlend=1`（**3D，有空间衰减**）。
-4. **`loop` 参数 ≠ AudioSource 的 `loop`**——这里的 `loop=true` 是**让 AI 生成可无缝循环的音频内容**（雨声、引擎声），与 AudioSource 的循环播放设置无关。AudioSource 的 loop 由资产类型 `AudioClip SFX` 强制设为 `false`。
-5. **`play_on_awake` 默认 false**——SFX 一般由脚本触发，不自动播放。环境氛围 loop 才设 `true`。
+4. **`play_on_awake` 默认 false**——SFX 一般由脚本触发，不自动播放。环境氛围才设 `true`。
 
 ## 与 BGM 的差异速查
 
 | 维度 | BGM (`generate_audio_clip`) | SFX (本 skill) |
 |---|---|---|
 | 用途 | 背景音乐、loop 音轨 | 一次性音效（枪声、点击、爆炸） |
-| 输出格式 | WAV | **MP3**（可选 PCM/Opus） |
-| Duration | 30–120 秒 (int) | **1–22 秒 (float)** |
-| Prompt 语言 | 任意 | **英文** |
+| 输出格式 | WAV | **WAV**（可选 MP3） |
+| Duration | 1–180 秒 (float, 默认 90) | **1–180 秒 (float, 默认 8)** |
+| Prompt 语言 | 中文 / 英文 | **中文 / 英文** |
 | AudioSource Loop | true | **false** |
 | AudioSource SpatialBlend | 0 (2D) | **1 (3D)** |
 | `play_on_awake` 默认 | true | **false** |
@@ -70,11 +69,9 @@ Output: 默认 MP3 文件，自动导入为 **AudioClip**，保存到 `Assets/TJ
 execute_custom_tool(
   tool_name="generate_sound_effect",
   parameters={
-    "prompt": "powerful explosion with debris, low rumble and sharp crack",  # Required, English
-    "duration_seconds": 5,          # 1–22 秒（float），默认 5
-    "prompt_influence": 0.5,        # 0–1，prompt 严格度，默认 0.5
-    "output_format": "mp3_44100_128",  # 可选枚举见下方速查；省略则默认 mp3_44100_128。禁止 "wav"/"mp3"
-    "loop": False,                  # 让 AI 生成可循环内容（雨/引擎），默认 false
+    "prompt": "powerful explosion with debris, low rumble and sharp crack",  # Required, Chinese or English
+    "duration_seconds": 8,          # 1–180 秒（float），默认 8
+    "output_format": "wav",         # wav|mp3，默认 wav
     "play_on_awake": False,         # AudioSource 是否自动播放，默认 false
     # output_path: 不建议指定，默认 Assets/TJGenerators/History/
   }
@@ -111,12 +108,10 @@ execute_custom_tool(
 
 | 参数 | 类型 | 默认 | 说明 |
 |---|---|---|---|
-| `prompt` | string | **required** | 英文描述（source / action / material / acoustic context） |
-| `duration_seconds` | float | `5` | 1–22 秒。短：0.5–2；爆炸/碰撞：2–5；长环境 one-shot：5–22 |
-| `prompt_influence` | float | `0.5` | `0.0` = 创意发挥多；`0.5` = 平衡；`1.0` = 严格按 prompt |
-| `output_format` | string | `mp3_44100_128` | fal 枚举（任选其一）：`mp3_22050_32` / `mp3_44100_32` / `mp3_44100_64` / `mp3_44100_96` / `mp3_44100_128` / `mp3_44100_192` / `pcm_8000` / `pcm_16000` / `pcm_22050` / `pcm_24000` / `pcm_44100` / `pcm_48000`。**禁止** `"wav"` / `"mp3"`（会 422） |
-| `loop` | bool | `false` | **让 AI 生成可无缝循环内容**（雨/引擎/人群嘈杂），不是 AudioSource 设置 |
-| `play_on_awake` | bool | `false` | 创建的 AudioSource 是否在 Play Mode 自动播放（环境 loop 时才设 true） |
+| `prompt` | string | **required** | 中文或英文描述（source / action / material / acoustic context），max 500 字符 |
+| `duration_seconds` | float | `8` | 1–180 秒。短：1–3；爆炸/碰撞：3–8；长环境：8–180 |
+| `output_format` | string | `"wav"` | `wav` / `mp3` |
+| `play_on_awake` | bool | `false` | 创建的 AudioSource 是否在 Play Mode 自动播放（环境音时才设 true） |
 | `output_path` | string | — | 自定义路径（不建议指定） |
 
 ## 使用示例
@@ -141,13 +136,12 @@ placeholder_path = result["placeholder_path"]
 # 然后 END RESPONSE TURN，等 bg_task_done 通知
 ```
 
-### 可循环环境音
+### 环境氛围音
 
 ```python
 parameters={
     "prompt": "steady rainfall on a window, medium intensity",
     "duration_seconds": 10,
-    "loop": True,             # AI 生成无缝循环音频
     "play_on_awake": True,    # 环境音自动开始
 }
 # 注意：AudioSource 的 loop 仍由资产类型 AudioClip SFX 决定（默认 false）
@@ -159,9 +153,8 @@ parameters={
 ```python
 parameters={
     "prompt": "massive explosion, deep bass rumble, scattered debris falling",
-    "duration_seconds": 4,
-    "prompt_influence": 0.8,           # 严格按 prompt
-    "output_format": "mp3_44100_192"   # 192 kbps 高码率
+    "duration_seconds": 5,
+    "output_format": "wav"    # 无损 WAV
 }
 ```
 
@@ -206,26 +199,25 @@ Scene side-effect：创建 AudioSource，`loop=false`、`spatialBlend=1`（3D �
 
 | 问题 | 原因 | 解决 |
 |---|---|---|
-| 音效与 prompt 不符 | prompt 太模糊 / 多声源混淆 | 写更具体的来源 + 材质 + 动作；提高 `prompt_influence` 到 `0.8`；一次只描述一种声音 |
-| 中文 prompt 输出奇怪 | API 不支持中文 | 翻译成英文再生成 |
-| 循环音播放有接缝 | 没设 `loop=true` | 重新生成时设 `loop: True`，让 AI 生成无缝循环内容 |
+| 音效与 prompt 不符 | prompt 太模糊 / 多声源混淆 | 写更具体的来源 + 材质 + 动作；一次只描述一种声音 |
+| 循环音播放有接缝 | Sonilo SFX 不支持 loop 参数 | 如需循环播放，在脚本里手动设 `audioSource.loop = true` |
 | 环境 loop 不自动播放 | `play_on_awake` 默认 false | 设 `play_on_awake: True`；同时 AudioSource.loop 需要手动设 true（资产类型 SFX 默认不 loop） |
-| 时长不对 | 默认 5 秒可能不匹配音效类型 | 短音效（点击）：1 秒；爆炸：3–5 秒；长环境：10–22 秒 |
+| 时长不对 | 默认 8 秒可能不匹配音效类型 | 短音效（点击）：1–3 秒；爆炸：3–8 秒；长环境：10–180 秒 |
 
 ### Domain reload 后 task 丢失
 
 通用恢复流程见 [generator-async-pattern §6](../../experience/templates/generator-async-pattern.md#6-domain-reload-recovery)。本 skill 完成态阈值（覆盖通用 `<1KB` 占位规则）：
 
-- MP3 < 5 KB → 仍是 placeholder（无声占位）
-- MP3 ≥ 50 KB → 真实音效已就绪（5 秒 MP3 通常 50–200 KB）
+- WAV < 5 KB → 仍是 placeholder（无声占位）
+- WAV ≥ 50 KB → 真实音效已就绪（8 秒 WAV 通常 50–500 KB）
 
-可用 `glob("Assets/TJGenerators/History/*.mp3")` + 文件大小恢复。
+可用 `glob("Assets/TJGenerators/History/*.wav")` + 文件大小恢复。
 
 ---
 
 **Task ID Format**：`audio_{counter}_{timestamp}`（与 BGM 共用 audio 前缀）
 
 **Notes**：
-- 默认输出 MP3（`output_format=mp3_44100_128`）自动导入为 `AudioClip`；可改为其他 fal 枚举（PCM/Opus）。**不要**传 `"wav"` / `"mp3"` 扩展名字符串
+- 默认输出 WAV（`output_format=wav`）自动导入为 `AudioClip`；也可改为 `mp3`。
 - 自动应用 `TuanjieAI` 标签
 - 需 Unity Editor 在线运行；消耗 AI 服务额度
