@@ -33,6 +33,12 @@ public class ItemPickup : MonoBehaviour
     /// <summary>当前是否在玩家交互范围内</summary>
     public bool IsInRange { get; private set; }
 
+    /// <summary>是否为商店商品（靠近时走购买流程而非拾取）</summary>
+    public bool IsShopItem { get; set; }
+
+    /// <summary>商店价格（从 ItemData.price 读取）</summary>
+    public int ShopPrice => itemData != null ? itemData.price : 10;
+
     private Vector3 _startPosition;
     private SpriteRenderer _spriteRenderer;
     private Color _baseColor;

@@ -21,6 +21,10 @@ public class ItemData : ScriptableObject
     [Tooltip("拖入具体效果资产: ItemEffectBase 子类")]
     public ItemEffectBase effect;      // 道具效果策略
 
+    [Header("商店")]
+    [Tooltip("在商店购买时的 ATP 价格（0 = 不可购买）")]
+    [Min(0)] public int price = 10;
+
     [Header("获取限制")]
     [Tooltip("可获取的数量上限。0 = 无限制，>0 = 最多持有该数量")]
     [Min(0)] public int maxCount;     // 数量上限

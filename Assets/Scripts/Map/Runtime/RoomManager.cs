@@ -55,6 +55,17 @@ public class RoomManager : MonoBehaviour
         if (roomRoot == null) roomRoot = GetComponent<RoomRoot>();
         if (roomRoot == null || roomRoot.config == null) return;
 
+        // Shop 房间特殊处理：开张商店
+        if (roomRoot.config.roomType == RoomType.Shop)
+        {
+            if (_isFirstEnter)
+            {
+                _isFirstEnter = false;
+                OpenShopRoom();
+            }
+            return;
+        }
+
         Debug.Log($"[RoomManager] Room{roomRoot.roomId} OnPlayerEnter: _isFirstEnter={_isFirstEnter}, enemyPool={roomRoot.config.enemyPool?.Count}, minEnemies={roomRoot.config.minEnemies}");
 
         if (_isFirstEnter)
@@ -75,7 +86,7 @@ public class RoomManager : MonoBehaviour
     /// <summary>玩家离开房间时调用</summary>
     public void OnPlayerExit()
     {
-        // 暂不需要特殊处理
+        // 道具现在是普通 ItemPickup，离开后保留在地图中
     }
 
     /// <summary>锁定所有门 (启用阻挡物 + 禁用触发器)</summary>
@@ -302,6 +313,29 @@ public class RoomManager : MonoBehaviour
             int j = Random.Range(0, i + 1);
             (list[i], list[j]) = (list[j], list[i]);
         }
+    }
+
+    // ==================== Shop 房间 ====================
+
+    /// <summary>开张商店</summary>
+    private void OpenShopRoom()
+    {
+        var shopManager = GetComponent<ShopManager>();
+        if (shopManager == null)
+        {
+            Debug.LogWarning($"[RoomManager] Room{roomRoot.roomId}: Shop 房间但未挂载 ShopManager 组件");
+            return;
+        }
+
+        shopManager.OpenShop();
+    }
+
+    /// <summary>打烊商店</summary>
+    private void CloseShopRoom()
+    {
+        var shopManager = GetComponent<ShopManager>();
+        if (shopManager != null)
+            shopManager.CloseShop();
     }
 
     /// <summary>在指定位置生成货币掉落物</summary>
