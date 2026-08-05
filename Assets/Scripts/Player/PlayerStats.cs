@@ -74,6 +74,13 @@ public class PlayerStats : MonoBehaviour, IDamageable, IHealable
         // 弹出伤害数字（玩家受伤用红色）
         DamagePopup.Spawn(transform.position, damage, isPlayerDamage: true);
 
+        // 角色受击 → 屏幕振动 + 全屏红闪
+        if (CameraShake.Instance != null)
+        {
+            CameraShake.Instance.Shake(1f);
+            CameraShake.Instance.FlashRed();
+        }
+
 #if UNITY_EDITOR
         Debug.Log($"玩家受击！剩余生命：{health}");
 #endif

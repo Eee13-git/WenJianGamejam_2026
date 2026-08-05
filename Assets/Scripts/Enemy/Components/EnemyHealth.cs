@@ -52,6 +52,10 @@ public class EnemyHealth : MonoBehaviour, IDamageable
         // 弹出伤害数字
         DamagePopup.Spawn(transform.position, damage);
 
+        // 敌人受击 → 屏幕振动
+        if (CameraShake.Instance != null)
+            CameraShake.Instance.Shake(0.7f);
+
         OnDamaged?.Invoke(damage);
         OnHealthChanged?.Invoke(_health, MaxHealth);
 
