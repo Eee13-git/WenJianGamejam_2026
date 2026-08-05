@@ -71,6 +71,10 @@ public class RoomManager : MonoBehaviour
         if (_isFirstEnter)
         {
             _isFirstEnter = false;
+
+            // 统计：首次进入房间
+            GameStatistics.Instance?.RecordRoomVisited(roomRoot.config.roomType);
+
             SpawnEnemies();
             Debug.Log($"[RoomManager] Room{roomRoot.roomId} spawned enemies, _aliveEnemies.Count={_aliveEnemies.Count}");
 
@@ -218,6 +222,10 @@ public class RoomManager : MonoBehaviour
         TrySpawnNextLevelExit();
 
         Debug.Log($"Room {roomRoot.roomId}: 已清空!");
+
+        // 统计：清空房间
+        GameStatistics.Instance?.RecordRoomCleared(roomRoot.config.roomType);
+
         OnRoomCleared?.Invoke();
     }
 

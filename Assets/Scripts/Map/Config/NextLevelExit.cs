@@ -10,7 +10,7 @@ public class NextLevelExit : MonoBehaviour
 {
     [Tooltip("目标场景名 (在 Build Settings 中)，如果为空则进入胜利界面")]
     public string nextSceneName;
-    public string winningSceneName = "Winning";
+    public string ResultSceneName = "Result";
 
     private void Awake()
     {
@@ -26,18 +26,18 @@ public class NextLevelExit : MonoBehaviour
         // 如果为空则进入胜利界面
         if (string.IsNullOrEmpty(nextSceneName))
         {
-            if (string.IsNullOrEmpty(winningSceneName))
+            if (string.IsNullOrEmpty(ResultSceneName))
             {
-                if (!Application.CanStreamedLevelBeLoaded(winningSceneName))
+                if (!Application.CanStreamedLevelBeLoaded(ResultSceneName))
                 {
-                    Debug.LogError($"场景 '{winningSceneName}' 未在 Build Settings 中添加或启用，无法加载！");
+                    Debug.LogError($"场景 '{ResultSceneName}' 未在 Build Settings 中添加或启用，无法加载！");
                     return; // 直接返回，不会触发报错
                 }
                 Debug.LogWarning("NextLevelExit: nextSceneName 为空");
                 return;
             }
 
-            SceneManager.LoadScene(winningSceneName);
+            SceneManager.LoadScene(ResultSceneName);
             return;
         }
 

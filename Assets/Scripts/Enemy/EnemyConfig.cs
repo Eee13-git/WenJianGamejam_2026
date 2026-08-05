@@ -12,6 +12,10 @@ public enum EnemyAttackType
 [CreateAssetMenu(fileName = "EnemyConfig", menuName = "Enemy/Enemy Config")]
 public class EnemyConfig : ScriptableObject
 {
+    [Header("基本信息")]
+    [Tooltip("显示名称（用于结算UI等），为空时使用资产文件名")]
+    public string displayName;
+
     [Header("基本数值")]
     public float maxHealth = 30f;
 

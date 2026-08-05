@@ -252,6 +252,8 @@ public class MapManager : MonoBehaviour
         OnRoomChanged?.Invoke(fromRoomId, targetRoomId);
         OnRoomSwitchCompleted?.Invoke(targetRoomId);
 
+        // 统计：访问房间已由 RoomManager.OnPlayerEnter（_isFirstEnter 守卫）负责，此处不再重复
+
         Debug.Log($"MapManager: 切换到房间 {targetRoomId} ({targetRoom.config.roomType})");
     }
 

@@ -30,6 +30,9 @@ public class EnemyCore : MonoBehaviour, IEnemy
     public event Action OnDied;
     public event Action<IEnemy> OnAssimilated;
 
+    /// <summary>全局静态事件 — 任意敌人死亡时触发 (EnemyCore)</summary>
+    public static event Action<EnemyCore> OnAnyEnemyDied;
+
     private void Awake()
     {
         Health = GetComponent<EnemyHealth>();
@@ -70,6 +73,7 @@ public class EnemyCore : MonoBehaviour, IEnemy
             Health.OnDied += () =>
             {
                 OnDied?.Invoke();
+                OnAnyEnemyDied?.Invoke(this);
                 // 切换到死亡状态
                 if (StateMachine != null)
                     StateMachine.ChangeState(new DeadState(this));

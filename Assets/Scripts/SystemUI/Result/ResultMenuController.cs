@@ -7,11 +7,11 @@ namespace WenJian.UI
     /// <summary>
     /// Start 场景主菜单控制器 — 处理 Play / Exit 按钮
     /// </summary>
-    public class WinningMenuController : MonoBehaviour
+    public class ResultMenuController : MonoBehaviour
     {
         [Header("按钮引用")]
         [SerializeField] private Button replayButton;
-        [SerializeField] private Button winningExitButton;
+        [SerializeField] private Button resultExitButton;
 
         [Header("场景名称")]
         [SerializeField] private string replaySceneName = "Start";
@@ -21,8 +21,8 @@ namespace WenJian.UI
             if (replayButton != null)
                 replayButton.onClick.AddListener(OnReplayClicked);
 
-            if (winningExitButton != null)
-                winningExitButton.onClick.AddListener(OnWinningExitClicked);
+            if (resultExitButton != null)
+                resultExitButton.onClick.AddListener(OnResultExitClicked);
         }
 
         private void OnReplayClicked()
@@ -30,7 +30,7 @@ namespace WenJian.UI
             SceneManager.LoadScene(replaySceneName);
         }
 
-        private void OnWinningExitClicked()
+        private void OnResultExitClicked()
         {
 #if UNITY_EDITOR
             UnityEditor.EditorApplication.isPlaying = false;
@@ -44,7 +44,7 @@ namespace WenJian.UI
         private void TestPlay() => OnReplayClicked();
 
         [ContextMenu("Test: Exit")]
-        private void TestExit() => OnWinningExitClicked();
+        private void TestExit() => OnResultExitClicked();
 #endif
     }
 }

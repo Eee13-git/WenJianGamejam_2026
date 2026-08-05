@@ -149,6 +149,43 @@ public class PlayerStats : MonoBehaviour, IDamageable, IHealable
         OnStatChanged?.Invoke(statName);
     }
 
+    // ---------- 科技树 / 配置接口 ----------
+
+    /// <summary>应用基础配置值（来自 PlayerConfig SO）</summary>
+    public void ApplyBaseStats(PlayerConfig config)
+    {
+        if (config == null) return;
+
+        maxHealth = config.maxHealth;
+        moveSpeed = config.moveSpeed;
+        attackStrength = config.attackStrength;
+        bulletSpeed = config.bulletSpeed;
+        shotsPerMinute = config.shotsPerMinute;
+        colliderRadius = config.colliderRadius;
+        health = maxHealth; // 重置满血
+
+        OnHealthChanged?.Invoke(health, maxHealth);
+        OnStatChanged?.Invoke("All");
+    }
+
+    /// <summary>叠加科技树加成（在 ApplyBaseStats 之后调用）</summary>
+    public void ApplyBonuses(Dictionary<string, float> bonuses)
+    {
+        if (bonuses == null || bonuses.Count == 0) return;
+
+        foreach (var kvp in bonuses)
+        {
+            SetStatValue(kvp.Key, GetStatValue(kvp.Key) + kvp.Value);
+        }
+
+        // 加成后恢复满血（生命上限可能增加了）
+        if (bonuses.ContainsKey("MaxHealth"))
+            health = maxHealth;
+
+        OnHealthChanged?.Invoke(health, maxHealth);
+        OnStatChanged?.Invoke("All");
+    }
+
     // ---------- 数值修正 ----------
     private void OnValidate()
     {

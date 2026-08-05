@@ -1,0 +1,24 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9f0e766147a718e46ae412828a18ac98, type: 3}
+  m_Name: Node_HP3
+  m_EditorClassIdentifier: 
+  _nodeId: hp3
+  _displayName: "\u751F\u547D\u5F3A\u5316 III"
+  _description: "\u6700\u5927\u751F\u547D\u503C +2000"
+  _cost: 4
+  _position: {x: 0, y: 2}
+  _previousNodes:
+  - {fileID: 11400000, guid: 447cd55b5d5c84040bbf6723dac3e9d4, type: 2}
+  _nextNodes:
+  - {fileID: 11400000, guid: c3d628842af004a4696990df8ddf6295, type: 2}
+  _effect: {fileID: 11400000, guid: 508d9f72680ef554896156a8a2d340c7, type: 2}

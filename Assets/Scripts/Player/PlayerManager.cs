@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
@@ -76,6 +77,38 @@ public class PlayerManager : MonoBehaviour
     /// <summary>每次场景加载后触发，确保场景中存在 Player</summary>
     private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
     {
+        // Start 场景: 销毁 Player 和统计数据
+        if (scene.name == "Start")
+        {
+            if (CurrentPlayer != null)
+            {
+                Destroy(CurrentPlayer);
+                CurrentPlayer = null;
+            }
+            DestroyStatistics();
+            return;
+        }
+
+        // Result / Winning 结算场景: 销毁 Player，但保留统计数据供 UI 展示
+        if (scene.name == "Result" || scene.name == "Winning")
+        {
+            if (CurrentPlayer != null)
+            {
+                Destroy(CurrentPlayer);
+                CurrentPlayer = null;
+            }
+            return;
+        }
+
+        // === 游戏场景 ===
+
+        // 确保 GameStatistics 存在
+        if (GameStatistics.Instance == null)
+        {
+            var statsGo = new GameObject("[GameStatistics]");
+            statsGo.AddComponent<GameStatistics>();
+        }
+
         var player = GameObject.FindGameObjectWithTag("Player");
 
         // 已存在 Player —— 优先复用（可能是场景中手动放置的，或是上一场景保留的）
@@ -110,15 +143,67 @@ public class PlayerManager : MonoBehaviour
             DontDestroyOnLoad(spawned);
             CurrentPlayer = spawned;
 
+            // 应用 PlayerConfig 基础值 + 科技树局外加成
+            ApplyPlayerConfig(spawned);
+
 #if UNITY_EDITOR
             Debug.Log($"[PlayerManager] 动态生成 Player，位置={spawned.transform.position}");
 #endif
         }
 
+        // 绑定 Player 到统计系统
+        GameStatistics.Instance?.BindPlayer(CurrentPlayer);
+
         OnPlayerReady?.Invoke(CurrentPlayer);
     }
 
+    /// <summary>销毁统计数据</summary>
+    private static void DestroyStatistics()
+    {
+        if (GameStatistics.Instance != null)
+        {
+            if (Application.isPlaying)
+                Destroy(GameStatistics.Instance.gameObject);
+            else
+                DestroyImmediate(GameStatistics.Instance.gameObject);
+        }
+    }
+
     // ==================== 辅助 ====================
+
+    /// <summary>应用 PlayerConfig 基础值 + 科技树局外加成（仅在动态生成 Player 时调用）</summary>
+    private void ApplyPlayerConfig(GameObject player)
+    {
+        if (player == null) return;
+
+        var stats = player.GetComponent<PlayerStats>();
+        if (stats == null) return;
+
+        // 加载 PlayerConfig
+        var config = Resources.Load<PlayerConfig>("PlayerConfig");
+        if (config != null)
+        {
+            stats.ApplyBaseStats(config);
+        }
+        else
+        {
+            Debug.LogWarning("[PlayerManager] 未找到 PlayerConfig，Player 将使用预制体上的默认值。路径: Resources/PlayerConfig");
+        }
+
+        // 叠加科技树加成
+        var mgr = TechTreeManager.Instance;
+        if (mgr != null)
+        {
+            var bonuses = mgr.GetAllBonuses();
+            if (bonuses != null && bonuses.Count > 0)
+            {
+                stats.ApplyBonuses(bonuses);
+#if UNITY_EDITOR
+                Debug.Log($"[PlayerManager] 已应用科技树加成: {bonuses.Count} 项");
+#endif
+            }
+        }
+    }
 
     /// <summary>自动查找 Player 预制体引用</summary>
     private static GameObject ResolvePlayerPrefab()
