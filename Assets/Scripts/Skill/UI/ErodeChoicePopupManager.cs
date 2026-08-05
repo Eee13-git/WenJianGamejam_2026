@@ -25,6 +25,12 @@ public class ErodeChoicePopupManager : MonoBehaviour
 
     private Font _runtimeFont;
 
+    [Header("进化倾向")]
+    [Tooltip("吞噬成功时进化倾向增加量（正值=朝向宿主）")]
+    [SerializeField] private float _evolveDevourDelta = 5f;
+    [Tooltip("同化成功时进化倾向降低量（负向=朝向独特）")]
+    [SerializeField] private float _evolveAssimilateDelta = 5f;
+
     // 状态
     private EnemyCore _targetEnemy;
     private IReadOnlyList<SkillInstance> _enemySkills;
@@ -126,6 +132,9 @@ public class ErodeChoicePopupManager : MonoBehaviour
     {
         HideUI();
 
+        // 吞噬成功 → 进化倾向增加（朝向宿主）
+        ApplyEvolutionTendency(_evolveDevourDelta);
+
         SkillStealPopupManager popup = SkillStealPopupManager.Instance;
         if (popup != null && _enemySkills != null && _enemySkills.Count > 0)
         {
@@ -153,11 +162,32 @@ public class ErodeChoicePopupManager : MonoBehaviour
         if (_targetEnemy != null && !_targetEnemy.IsDead && _playerSkillManager != null)
         {
             _targetEnemy.Assimilate(_playerSkillManager.CasterTransform);
+
+            // 同化成功 → 进化倾向降低（朝向独特）
+            ApplyEvolutionTendency(-_evolveAssimilateDelta);
         }
 
         _onClose?.Invoke();
         _onClose = null;
         _isShowing = false;
+    }
+
+    /// <summary>调整玩家进化倾向（通过 PlayerStats.SetStatValue，自动 Clamp ±100）</summary>
+    private void ApplyEvolutionTendency(float delta)
+    {
+        PlayerStats stats = GetPlayerStats();
+        if (stats == null) return;
+
+        float current = stats.GetStatValue("EvolutionTendency");
+        stats.SetStatValue("EvolutionTendency", current + delta);
+    }
+
+    /// <summary>获取玩家 PlayerStats</summary>
+    private static PlayerStats GetPlayerStats()
+    {
+        var player = GameObject.FindGameObjectWithTag("Player");
+        if (player == null) return null;
+        return player.GetComponent<PlayerStats>();
     }
 
     private void HideUI()

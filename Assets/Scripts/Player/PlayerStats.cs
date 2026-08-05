@@ -26,6 +26,10 @@ public class PlayerStats : MonoBehaviour, IDamageable, IHealable
     [Header("碰撞属性")]
     [SerializeField] private float colliderRadius = 0.4f;
 
+    [Header("进化倾向")]
+    [Tooltip("进化倾向：正值=朝向宿主，负值=朝向独特。范围 -100 ~ 100")]
+    [SerializeField] private float evolutionTendency = 0f;
+
     private bool _isDead = false;
 
     // ---------- 只读属性 ----------
@@ -42,6 +46,9 @@ public class PlayerStats : MonoBehaviour, IDamageable, IHealable
         get => colliderRadius;
         set => colliderRadius = Mathf.Max(value, 0.01f);
     }
+
+    /// <summary>进化倾向：正值=朝向宿主（金色），负值=朝向独特（紫色）。范围 -100 ~ 100</summary>
+    public float EvolutionTendency => evolutionTendency;
 
     // ---------- 委托 ----------
     /// <summary>生命变化委托：参数为 (当前生命, 最大生命)</summary>
@@ -116,6 +123,7 @@ public class PlayerStats : MonoBehaviour, IDamageable, IHealable
             "BulletSpeed"    => bulletSpeed,
             "ShotsPerMinute" => shotsPerMinute,
             "ColliderRadius" => colliderRadius,
+            "EvolutionTendency" => evolutionTendency,
             _                => throw new System.ArgumentException($"PlayerStats: 未知属性名 '{statName}'")
         };
     }
@@ -143,6 +151,9 @@ public class PlayerStats : MonoBehaviour, IDamageable, IHealable
             case "ColliderRadius":
                 colliderRadius = Mathf.Max(value, 0.01f);
                 break;
+            case "EvolutionTendency":
+                evolutionTendency = Mathf.Clamp(value, -100f, 100f);
+                break;
             default:
                 throw new System.ArgumentException($"PlayerStats: 未知属性名 '{statName}'");
         }
@@ -159,5 +170,6 @@ public class PlayerStats : MonoBehaviour, IDamageable, IHealable
         bulletSpeed = Mathf.Max(bulletSpeed, 0f);
         shotsPerMinute = Mathf.Max(shotsPerMinute, 1f);
         colliderRadius = Mathf.Max(colliderRadius, 0.01f);
+        evolutionTendency = Mathf.Clamp(evolutionTendency, -100f, 100f);
     }
 }
