@@ -70,8 +70,14 @@ public class ShopManager : MonoBehaviour
 
         CloseShop(); // 清除残留
 
-        // 随机抽取
-        var available = new List<GameObject>(cfg.itemPool);
+        // 过滤：玩家已达拾取上限的道具不再上架
+        var available = ItemPoolFilter.GetAvailablePool(cfg.itemPool, ItemPoolFilter.GetPlayerItemManager());
+        if (available.Count == 0)
+        {
+            Debug.Log("[ShopManager] 道具池中所有道具均已达上限，商店无法开张");
+            IsOpen = false;
+            return;
+        }
         Shuffle(available);
 
         int count = Mathf.Min(slotCount, available.Count);

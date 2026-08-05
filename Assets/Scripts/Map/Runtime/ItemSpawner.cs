@@ -30,6 +30,14 @@ public class ItemSpawner : MonoBehaviour
 
         if (pool == null || pool.Count == 0) return;
 
+        // 过滤：玩家已达拾取上限的道具不再刷新
+        pool = ItemPoolFilter.GetAvailablePool(pool, ItemPoolFilter.GetPlayerItemManager());
+        if (pool == null || pool.Count == 0)
+        {
+            Debug.Log("[ItemSpawner] 道具池中所有道具均已达上限，跳过生成");
+            return;
+        }
+
         int min = roomConfig != null ? roomConfig.minItems : manualMinItems;
         int max = roomConfig != null ? roomConfig.maxItems : manualMaxItems;
         int total = Random.Range(min, max + 1);
