@@ -10,6 +10,11 @@ using UnityEngine;
 /// - 房间切换: 平滑滑动到新房间中心 (0.5s)
 /// - 过渡期间通知 MapManager 锁定玩家输入
 /// </summary>
+/// <remarks>
+/// DefaultExecutionOrder 低于 CameraShake：确保本组件的 LateUpdate 先执行（锁定位置），
+/// CameraShake 的 LateUpdate 随后叠加振动偏移，避免振动被覆盖。
+/// </remarks>
+[DefaultExecutionOrder(100)]
 [RequireComponent(typeof(Camera))]
 public class RoomCameraController : MonoBehaviour
 {
