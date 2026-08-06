@@ -20,6 +20,10 @@ public class Projectile : MonoBehaviour
     private OwnerType _owner;
     private bool _isInitialized;
 
+    /// <summary>是否被时停冻结</summary>
+    public bool IsFrozen { get; private set; }
+    private float _frozenLifetimeRemain;
+
     /// <param name="caster">投射物所有者GameObject，可选</param>
     public void Initialize(Vector2 dir, float spd, float dmg, OwnerType owner, GameObject caster = null)
     {
@@ -29,10 +33,30 @@ public class Projectile : MonoBehaviour
         _owner = owner;
         Caster = caster ?? gameObject;
         _isInitialized = true;
+        IsFrozen = false;
 
         // 用 Invoke 延时回收（替代 Destroy(gameObject, lifeTime)）
         CancelInvoke(nameof(ReturnToPool));
         Invoke(nameof(ReturnToPool), lifeTime);
+    }
+
+    /// <summary>冻结投射物（停止移动+暂停生命周期）</summary>
+    public void Freeze()
+    {
+        if (!_isInitialized || IsFrozen) return;
+        IsFrozen = true;
+        // 记录剩余生命时间并取消自动回收
+        _frozenLifetimeRemain = Mathf.Max(lifeTime * 0.5f, 1f);
+        CancelInvoke(nameof(ReturnToPool));
+    }
+
+    /// <summary>解冻投射物，恢复移动和生命周期</summary>
+    public void Unfreeze()
+    {
+        if (!_isInitialized || !IsFrozen) return;
+        IsFrozen = false;
+        CancelInvoke(nameof(ReturnToPool));
+        Invoke(nameof(ReturnToPool), _frozenLifetimeRemain);
     }
 
     /// <summary>重置状态（池化复用时由 ProjectilePool 间接调用）</summary>
@@ -46,7 +70,7 @@ public class Projectile : MonoBehaviour
 
     void Update()
     {
-        if (!_isInitialized) return;
+        if (!_isInitialized || IsFrozen) return;
         transform.Translate(_direction * speed * Time.deltaTime, Space.World);
     }
 
