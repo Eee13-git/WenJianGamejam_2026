@@ -18,18 +18,20 @@ public class TechTreeUIController : MonoBehaviour
 
     private const float NODE_WIDTH = 160f;
     private const float NODE_HEIGHT = 100f;
-    private const float NODE_SPACING_X = 60f;
-    private const float NODE_SPACING_Y = 40f;
-    private const float TREE_ORIGIN_X = -600f;
-    private const float TREE_ORIGIN_Y = 200f;
     private const int BEZIER_SEGMENTS = 12;
+
+    // ========== 布局配置 ==========
+
+    [Header("自动布局参数")]
+    [SerializeField] private TechTreeAutoLayout.LayoutConfig _layoutConfig =
+        TechTreeAutoLayout.LayoutConfig.Default;
 
     // ========== 颜色 ==========
 
     private static readonly Color PanelBgColor = new(0.1f, 0.1f, 0.15f, 0.95f);
     private static readonly Color HeaderColor = new(0.15f, 0.15f, 0.2f, 1f);
-    private static readonly Color LineColor = new(0.4f, 0.4f, 0.5f, 0.6f);
-    private static readonly Color ActiveLineColor = new(0.2f, 0.8f, 0.2f, 0.6f);
+    private static readonly Color LineColor = new(0.5f, 0.5f, 0.6f, 0.8f);
+    private static readonly Color ActiveLineColor = new(0.2f, 0.9f, 0.3f, 0.9f);
     private static readonly Color TitleColor = new(1f, 0.85f, 0.2f);
     private static readonly Color InfoColor = new(0.85f, 0.85f, 0.9f);
 
@@ -40,8 +42,9 @@ public class TechTreeUIController : MonoBehaviour
     private TMP_Text _techPointsText;
     private TMP_Text _hintText;
     private readonly Dictionary<string, TechTreeNodeView> _nodeViews = new();
-    private readonly Dictionary<string, Vector2> _nodePositions = new();
+    private Dictionary<string, Vector2> _nodePositions = new();
     private GameObject _lineLayer;
+    private RectTransform _contentTransform;
     private TechTreeNodeView _nodeViewPrefab;
 
     // ========== 单例（场景级） ==========
@@ -110,12 +113,6 @@ public class TechTreeUIController : MonoBehaviour
         }
     }
 
-    /// <summary>加载节点预制体</summary>
-    private void LoadPrefab()
-    {
-        _nodeViewPrefab = Resources.Load<TechTreeNodeView>("TechTree/TechTreeNodeView");
-    }
-
     // ========== UI 构建 ==========
 
     private static TechTreeUIController CreatePanel()
@@ -140,6 +137,11 @@ public class TechTreeUIController : MonoBehaviour
         go.transform.SetParent(rootCanvas.transform, false);
         var ctrl = go.AddComponent<TechTreeUIController>();
         return ctrl;
+    }
+
+    private void LoadPrefab()
+    {
+        _nodeViewPrefab = Resources.Load<TechTreeNodeView>("TechTree/TechTreeNodeView");
     }
 
     private void BuildUI()
@@ -185,7 +187,7 @@ public class TechTreeUIController : MonoBehaviour
         var titleGo = CreateChild("TitleText", header.transform);
         var titleRt = titleGo.GetComponent<RectTransform>();
         titleRt.anchorMin = new Vector2(0, 0);
-        titleRt.anchorMax = new Vector2(0.7f, 1);
+        titleRt.anchorMax = new Vector2(0.5f, 1);
         titleRt.offsetMin = new Vector2(20, 0);
         titleRt.offsetMax = Vector2.zero;
         var titleText = titleGo.AddComponent<TextMeshProUGUI>();
@@ -200,9 +202,9 @@ public class TechTreeUIController : MonoBehaviour
         // 科技点显示
         var pointsGo = CreateChild("TechPointsText", header.transform);
         var pointsRt = pointsGo.GetComponent<RectTransform>();
-        pointsRt.anchorMin = new Vector2(0.7f, 0);
-        pointsRt.anchorMax = new Vector2(1, 1);
-        pointsRt.offsetMin = Vector2.zero;
+        pointsRt.anchorMin = new Vector2(0.55f, 0);
+        pointsRt.anchorMax = new Vector2(1f, 1);
+        pointsRt.offsetMin = new Vector2(0, -3);
         pointsRt.offsetMax = new Vector2(-70, 0);
         _techPointsText = pointsGo.AddComponent<TextMeshProUGUI>();
         _techPointsText.fontSize = 22;
@@ -261,7 +263,7 @@ public class TechTreeUIController : MonoBehaviour
         scrollRt.anchorMin = new Vector2(0, 0.05f);
         scrollRt.anchorMax = new Vector2(1, 1);
         scrollRt.offsetMin = new Vector2(0, 30);
-        scrollRt.offsetMax = Vector2.zero;
+        scrollRt.offsetMax = new Vector2(0, -60);
         var scrollRect = scrollGo.AddComponent<ScrollRect>();
         scrollRect.horizontal = true;
         scrollRect.vertical = true;
@@ -281,14 +283,32 @@ public class TechTreeUIController : MonoBehaviour
         contentRt.anchorMin = new Vector2(0, 1);
         contentRt.anchorMax = new Vector2(0, 1);
         contentRt.pivot = new Vector2(0, 1);
-        contentRt.sizeDelta = new Vector2(1400, 800);
         contentRt.anchoredPosition = Vector2.zero;
         scrollRect.content = contentRt;
+        _contentTransform = contentRt;
 
-        // 连线层
+        // 拖拽面: 透明 Image，raycastTarget=true，使 ScrollRect 可在空白区域接收拖拽
+        var dragSurface = CreateChild("DragSurface", contentGo.transform);
+        StretchToParent(dragSurface);
+        var dragImg = dragSurface.AddComponent<Image>();
+        dragImg.color = Color.clear;
+        dragImg.raycastTarget = true;
+
+        // 连线层: 锚点与 Content 一致 (0,1) 左上角，保证连线坐标与节点坐标同一坐标系
         _lineLayer = CreateChild("LineLayer", contentGo.transform);
-        StretchToParent(_lineLayer);
+        var lineLayerRt = _lineLayer.GetComponent<RectTransform>();
+        lineLayerRt.anchorMin = new Vector2(0, 1);
+        lineLayerRt.anchorMax = new Vector2(0, 1);
+        lineLayerRt.pivot = new Vector2(0, 1);
+        lineLayerRt.anchoredPosition = Vector2.zero;
         _lineLayer.transform.SetAsFirstSibling();
+
+        // 计算布局: 优先使用节点手动配置的 Position，否则用自动布局
+        ComputeLayout();
+
+        // 连线层尺寸跟随 Content
+        if (_lineLayer != null)
+            _lineLayer.GetComponent<RectTransform>().sizeDelta = _contentTransform.sizeDelta;
 
         // 创建节点
         CreateNodes(contentGo.transform);
@@ -296,7 +316,78 @@ public class TechTreeUIController : MonoBehaviour
         CreateLines(_lineLayer.transform);
     }
 
-    /// <summary>从根节点 BFS 遍历，实例化预制体</summary>
+    /// <summary>计算所有节点位置。
+    /// 优先使用节点 Position(列,行) 字段的手动网格布局；
+    /// 当所有节点 Position 均为 (0,0) 时，回退到 DAG 自动布局。</summary>
+    private void ComputeLayout()
+    {
+        var config = TechTreeManager.Instance?.Config;
+        if (config == null) return;
+
+        var allNodes = config.GetAllNodes();
+        bool useManual = HasManualPositions(allNodes);
+
+        if (useManual)
+            ComputeManualLayout(allNodes);
+        else
+            ComputeAutoLayout(allNodes);
+    }
+
+    /// <summary>检查是否有节点配置了手动位置 (Position != Vector2.zero)</summary>
+    private static bool HasManualPositions(List<TechTreeNodeData> nodes)
+    {
+        foreach (var node in nodes)
+        {
+            if (node != null && node.Position != Vector2.zero)
+                return true;
+        }
+        return false;
+    }
+
+    /// <summary>Manual grid layout: node.Position.(x,y) = (column, row), 0-indexed</summary>
+    private void ComputeManualLayout(List<TechTreeNodeData> nodes)
+    {
+        _nodePositions = new Dictionary<string, Vector2>();
+        float maxX = 0f, maxY = 0f;
+
+        foreach (var node in nodes)
+        {
+            if (node == null) continue;
+
+            float x = _layoutConfig.originX + node.Position.x * _layoutConfig.layerSpacingX;
+            float y = -(_layoutConfig.originY + node.Position.y * _layoutConfig.nodeSpacingY);
+
+            _nodePositions[node.NodeId] = new Vector2(x, y);
+
+            if (x > maxX) maxX = x;
+            if (node.Position.y > maxY) maxY = node.Position.y;
+        }
+
+        if (_contentTransform != null)
+        {
+            float width = maxX + _layoutConfig.nodeWidth + _layoutConfig.originX;
+            float height = (maxY + 1) * _layoutConfig.nodeSpacingY + _layoutConfig.originY * 2;
+            _contentTransform.sizeDelta = new Vector2(
+                Mathf.Max(width, 1000),
+                Mathf.Max(height, 800)
+            );
+        }
+    }
+
+    /// <summary>使用 DAG 自动布局算法计算所有节点位置</summary>
+    private void ComputeAutoLayout(List<TechTreeNodeData> allNodes)
+    {
+        _nodePositions = TechTreeAutoLayout.ComputeLayout(allNodes, _layoutConfig);
+
+        // 动态设置 Content 尺寸
+        if (_contentTransform != null)
+        {
+            var size = TechTreeAutoLayout.GetContentSize(_nodePositions, _layoutConfig);
+            _contentTransform.sizeDelta = size;
+        }
+    }
+
+    /// <summary>从根节点 BFS 遍历，实例化预制体（位置由自动布局计算）</summary>
     private void CreateNodes(Transform contentParent)
     {
         var config = TechTreeManager.Instance?.Config;
@@ -309,7 +400,6 @@ public class TechTreeUIController : MonoBehaviour
             if (view != null)
             {
                 _nodeViews[node.NodeId] = view;
-                _nodePositions[node.NodeId] = NodeToAnchoredPos(node.Position);
             }
         }
     }
@@ -338,9 +428,11 @@ public class TechTreeUIController : MonoBehaviour
         }
 
         var rt2 = view.GetComponent<RectTransform>();
+        rt2.anchorMin = new Vector2(0, 1);
+        rt2.anchorMax = new Vector2(0, 1);
         rt2.sizeDelta = new Vector2(NODE_WIDTH, NODE_HEIGHT);
         rt2.pivot = new Vector2(0.5f, 0.5f);
-        rt2.anchoredPosition = NodeToAnchoredPos(node.Position);
+        rt2.anchoredPosition = _nodePositions.GetValueOrDefault(node.NodeId, Vector2.zero);
 
         return view;
     }
@@ -371,22 +463,22 @@ public class TechTreeUIController : MonoBehaviour
     /// <summary>创建贝塞尔曲线连线（多段 Image 模拟）</summary>
     private void CreateBezierLine(Transform parent, Vector2 start, Vector2 end, string fromNodeId, bool unlocked)
     {
-        // 从节点右边缘到目标左边缘
-        var startRight = new Vector2(start.x + NODE_WIDTH / 2f, start.y);
-        var endLeft = new Vector2(end.x - NODE_WIDTH / 2f, end.y);
+        // 从节点中心到目标节点中心
+        var from = start;
+        var to = end;
 
         // 贝塞尔控制点：水平延伸
-        float dx = endLeft.x - startRight.x;
-        var cp1 = new Vector2(startRight.x + dx * 0.5f, startRight.y);
-        var cp2 = new Vector2(endLeft.x - dx * 0.5f, endLeft.y);
+        float dx = to.x - from.x;
+        var cp1 = new Vector2(from.x + dx * 0.5f, from.y);
+        var cp2 = new Vector2(to.x - dx * 0.5f, to.y);
 
         Color lineColor = unlocked ? ActiveLineColor : LineColor;
 
-        Vector2 prev = startRight;
+        Vector2 prev = from;
         for (int i = 1; i <= BEZIER_SEGMENTS; i++)
         {
             float t = (float)i / BEZIER_SEGMENTS;
-            var curr = BezierPoint(startRight, cp1, cp2, endLeft, t);
+            var curr = BezierPoint(from, cp1, cp2, to, t);
             CreateLineSegment(parent, prev, curr, lineColor);
             prev = curr;
         }
@@ -414,7 +506,9 @@ public class TechTreeUIController : MonoBehaviour
         float length = delta.magnitude;
         float angle = Mathf.Atan2(delta.y, delta.x) * Mathf.Rad2Deg;
 
-        rt.sizeDelta = new Vector2(length, 3f);
+        rt.anchorMin = new Vector2(0, 1);
+        rt.anchorMax = new Vector2(0, 1);
+        rt.sizeDelta = new Vector2(length, 4f);
         rt.pivot = new Vector2(0, 0.5f);
         rt.anchoredPosition = from;
         rt.localEulerAngles = new Vector3(0, 0, angle);
@@ -515,13 +609,5 @@ public class TechTreeUIController : MonoBehaviour
         rt.anchorMax = Vector2.one;
         rt.offsetMin = Vector2.zero;
         rt.offsetMax = Vector2.zero;
-    }
-
-    private static Vector2 NodeToAnchoredPos(Vector2 nodePos)
-    {
-        return new Vector2(
-            TREE_ORIGIN_X + nodePos.x * (NODE_WIDTH + NODE_SPACING_X),
-            TREE_ORIGIN_Y - nodePos.y * (NODE_HEIGHT + NODE_SPACING_Y)
-        );
     }
 }
