@@ -32,6 +32,11 @@ public class ApplyBuffEffect : ItemEffectBase
         }
 
         var instance = buffManager.ApplyBuff(buffData, owner);
+
+        // 藏品（道具）来源的 buff 不可被净化类技能清除
+        if (instance != null)
+            instance.Indestructible = true;
+
         _appliedBuffs.Add(instance);
     }
 

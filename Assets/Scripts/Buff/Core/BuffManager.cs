@@ -42,15 +42,32 @@ public class BuffManager : MonoBehaviour
         if (_buffDict.TryGetValue(data.buffId, out var existingList) && existingList.Count > 0)
         {
             var existing = existingList[0];
+
+            // 可叠加且未满栈：叠加
             if (data.stackable && existing.CurrentStacks < data.maxStacks)
             {
                 existing.AddStack();
                 OnBuffStackChanged?.Invoke(existing);
                 return existing;
             }
-            // 不可叠加且同 ID 已存在：刷新持续时间（如果非永久）
+
+            // 不可叠加 / 已满栈：按叠加行为刷新或延长持续时间
             if (!data.isPermanent)
-                existing.AddStack(); // Refresh 模式下等同刷新
+            {
+                switch (data.stackBehavior)
+                {
+                    case StackBehavior.Refresh:
+                        existing.RefreshDuration();
+                        break;
+                    case StackBehavior.ExtendDuration:
+                        existing.ExtendDuration(data.duration);
+                        break;
+                    case StackBehavior.Independent:
+                        // Independent 不可叠加时不刷新（保持独立计时）
+                        break;
+                }
+                OnBuffStackChanged?.Invoke(existing);
+            }
             return existing;
         }
 
@@ -81,6 +98,26 @@ public class BuffManager : MonoBehaviour
             for (int i = list.Count - 1; i >= 0; i--)
                 RemoveBuff(list[i]);
         }
+    }
+
+    /// <summary>
+    /// 清除所有可净化的 Debuff（排除 Indestructible 标记的藏品/道具 debuff）。
+    /// 返回被清除的 debuff 数量。
+    /// </summary>
+    public int RemoveAllDebuffs()
+    {
+        var toRemove = new List<BuffInstance>();
+        foreach (var buff in _activeBuffs)
+        {
+            if (buff == null) continue;
+            if (buff.Data.buffType == BuffType.Debuff && !buff.Indestructible)
+                toRemove.Add(buff);
+        }
+
+        foreach (var buff in toRemove)
+            RemoveBuff(buff);
+
+        return toRemove.Count;
     }
 
     /// <summary>是否有指定 Buff</summary>

@@ -176,6 +176,30 @@ public class PlayerSkillManager : MonoBehaviour, ISkillCaster
         return (index >= 0 && index < _slots.Count) ? _slots[index].Skill : null;
     }
 
+    /// <summary>按 skillId 刷新技能冷却（完美格挡等效果使用）</summary>
+    public void ResetCooldownBySkillId(string skillId)
+    {
+        foreach (var slot in _slots)
+        {
+            if (slot.Skill != null && slot.Skill.Data.skillId == skillId)
+            {
+                slot.Skill.ResetCooldown();
+                return;
+            }
+        }
+    }
+
+    /// <summary>按 skillId 查找绑定键位（长按技能等效果使用）</summary>
+    public KeyCode GetKeyCodeBySkillId(string skillId)
+    {
+        foreach (var slot in _slots)
+        {
+            if (slot.Skill != null && slot.Skill.Data.skillId == skillId)
+                return slot.keyBinding;
+        }
+        return KeyCode.None;
+    }
+
     /// <summary>查询槽位是否解锁（供 UI Controller 读取）</summary>
     public bool IsSlotUnlocked(int index)
     {

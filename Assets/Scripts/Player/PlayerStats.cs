@@ -68,6 +68,15 @@ public class PlayerStats : MonoBehaviour, IDamageable, IHealable
     {
         if (_isDead) return;
 
+        // 无敌帧：免疫期间不受到任何伤害
+        var immunity = GetComponent<DamageImmunity>();
+        if (immunity != null && immunity.IsImmune) return;
+
+        // 镇痛阻滞：伤害拆分为立即 + 延迟（延迟部分记入池，buff 结束后缓慢扣除）
+        var analgesic = GetComponent<AnalgesicBlockRuntime>();
+        if (analgesic != null && analgesic.IsActive)
+            damage = analgesic.SplitDamage(damage);
+
         health -= damage;
         health = Mathf.Max(health, 0);
 

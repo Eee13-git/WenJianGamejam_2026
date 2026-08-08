@@ -10,8 +10,10 @@ public class WaveRuntime : MonoBehaviour
 {
     // ── 配置（由 Initialize 设置）──
     private Vector2 _origin;
+    private Vector2 _direction;
     private float _waveSpeed;
     private float _maxRadius;
+    private float _spreadAngleDeg;
     private float _damage;
     private float _freezeDuration;
     private bool _freezeProjectiles;
@@ -34,7 +36,14 @@ public class WaveRuntime : MonoBehaviour
 
     // 冻结实体（用于解冻）
     private readonly HashSet<EnemyCore> _frozenEnemies = new();
+    private readonly HashSet<PlayerController> _frozenPlayers = new();
     private readonly HashSet<Projectile> _frozenProjectiles = new();
+
+    // 冻结视觉：记录实体原色，冻结时染成冰蓝
+    private readonly Dictionary<EnemyCore, Color> _enemyOriginalTints = new();
+    private readonly Dictionary<PlayerController, Color> _playerOriginalTints = new();
+    private readonly Dictionary<Projectile, Color> _projOriginalTints = new();
+    private static readonly Color FrozenTint = new Color(0.55f, 0.85f, 1.0f, 1f);
 
     // 玩家引用（取消监听）
     private PlayerCombat _playerCombat;
@@ -44,6 +53,7 @@ public class WaveRuntime : MonoBehaviour
     private Material _waveMatInstance;
     private Material _overlayMatInstance;
     private GameObject _overlayObject;
+    private float _overlayPulseDuration;
 
     // 碰撞检测降频
     private float _nextCheckTime;
@@ -56,15 +66,17 @@ public class WaveRuntime : MonoBehaviour
     /// 初始化扩散波。所有行为由参数控制，可选功能传 null/0/false 即可禁用。
     /// </summary>
     public void Initialize(
-        Vector2 origin, float waveSpeed, float maxRadius,
+        Vector2 origin, Vector2 direction, float waveSpeed, float maxRadius, float spreadAngleDeg,
         float damage, float freezeDuration, bool freezeProjectiles,
         bool cancelOnAttack, bool cancelOnSkillCast, float cancelGracePeriod,
         Material waveMaterial, Material overlayMaterial,
         Projectile.OwnerType ownerType)
     {
         _origin = origin;
+        _direction = direction.sqrMagnitude > 0.0001f ? direction.normalized : Vector2.right;
         _waveSpeed = waveSpeed;
         _maxRadius = maxRadius;
+        _spreadAngleDeg = spreadAngleDeg;
         _damage = damage;
         _freezeDuration = freezeDuration;
         _freezeProjectiles = freezeProjectiles;
@@ -83,6 +95,8 @@ public class WaveRuntime : MonoBehaviour
         _isActive = true;
         _listeningForCancel = false;
         _nextCheckTime = 0f;
+        // 覆盖层一次性脉冲时长（秒）：扩散瞬间出现一次扭曲，0.5s 后消失
+        _overlayPulseDuration = 0.5f;
 
         // 创建视觉
         if (_waveMaterial != null) CreateWaveVisual();
@@ -124,17 +138,22 @@ public class WaveRuntime : MonoBehaviour
 
         // 更新 shader 参数
         float progress = Mathf.Clamp01((_effectDuration - _effectTimer) / _effectDuration);
+        // 覆盖层一次性脉冲：0.5 秒内 0→峰值→0（sin 曲线），扩散时带一次画面扭曲
+        float overlayProgress = Mathf.Sin(Mathf.PI * Mathf.Clamp01(_waveElapsed / _overlayPulseDuration));
 
         if (_waveMatInstance != null)
         {
             _waveMatInstance.SetFloat("_CurrentRadius", currentRadius);
             _waveMatInstance.SetFloat("_MaxRadius", _maxRadius);
             _waveMatInstance.SetFloat("_Progress", progress);
+            // 单向波参数：方向 + 扇形角度（弧度）
+            _waveMatInstance.SetVector("_Direction", new Vector4(_direction.x, _direction.y, 0f, 0f));
+            _waveMatInstance.SetFloat("_SpreadAngle", _spreadAngleDeg * Mathf.Deg2Rad);
         }
 
         if (_overlayMatInstance != null)
         {
-            _overlayMatInstance.SetFloat("_Progress", progress);
+            _overlayMatInstance.SetFloat("_Progress", overlayProgress);
             _overlayMatInstance.SetVector("_WaveCenter", _origin);
         }
 
@@ -179,19 +198,35 @@ public class WaveRuntime : MonoBehaviour
             float dist = Vector2.Distance(_origin, hit.transform.position);
             if (dist > outerRadius || dist < innerRadius) continue;
 
+            // 单向波：过滤扇形角度外的实体
+            if (_spreadAngleDeg < 359f && dist > 0.5f)
+            {
+                Vector2 toEntity = ((Vector2)hit.transform.position - _origin).normalized;
+                if (Vector2.Angle(toEntity, _direction) > _spreadAngleDeg * 0.5f)
+                    continue;
+            }
+
             bool processed = false;
 
-            // 目标阵营实体（伤害+冻结）
+            // 目标阵营实体（伤害+冻结）：敌人施放时目标=玩家，玩家施放时目标=敌人
             if (hit.CompareTag(targetTag))
             {
                 // 伤害（通过 IDamageable 接口，适用于敌人和玩家）
                 if (_damage > 0f && hit.TryGetComponent<IDamageable>(out var damageable))
                     damageable.TakeDamage(_damage);
 
-                // 冻结敌人（禁用 AI 组件）
-                var enemy = hit.GetComponent<EnemyCore>();
-                if (enemy != null && !enemy.IsDead)
-                    FreezeEnemy(enemy);
+                // 冻结：玩家锁 InputLocked（禁移动+普攻），敌人禁用 AI 组件
+                var pc = hit.GetComponent<PlayerController>();
+                if (pc != null)
+                {
+                    FreezePlayer(pc);
+                }
+                else
+                {
+                    var enemy = hit.GetComponent<EnemyCore>();
+                    if (enemy != null && !enemy.IsDead)
+                        FreezeEnemy(enemy);
+                }
 
                 processed = true;
             }
@@ -230,6 +265,14 @@ public class WaveRuntime : MonoBehaviour
         if (enemy.SkillManager != null)
             enemy.SkillManager.enabled = false;
 
+        // 冻结视觉：染成冰蓝色（记录原色）
+        var sr = enemy.GetComponentInChildren<SpriteRenderer>();
+        if (sr != null && !_enemyOriginalTints.ContainsKey(enemy))
+        {
+            _enemyOriginalTints[enemy] = sr.color;
+            sr.color = FrozenTint;
+        }
+
         _frozenEnemies.Add(enemy);
     }
 
@@ -237,7 +280,34 @@ public class WaveRuntime : MonoBehaviour
     {
         if (_freezeDuration <= 0f || _frozenProjectiles.Contains(proj)) return;
         proj.Freeze();
+
+        // 冻结视觉
+        var sr = proj.GetComponentInChildren<SpriteRenderer>();
+        if (sr != null && !_projOriginalTints.ContainsKey(proj))
+        {
+            _projOriginalTints[proj] = sr.color;
+            sr.color = FrozenTint;
+        }
+
         _frozenProjectiles.Add(proj);
+    }
+
+    /// <summary>冻结玩家（敌人施放轴突传导阻滞时）：锁移动+禁普攻，染冰蓝</summary>
+    private void FreezePlayer(PlayerController pc)
+    {
+        if (_freezeDuration <= 0f || _frozenPlayers.Contains(pc)) return;
+
+        pc.InputLocked = true;
+
+        // 冻结视觉
+        var sr = pc.GetComponentInChildren<SpriteRenderer>();
+        if (sr != null && !_playerOriginalTints.ContainsKey(pc))
+        {
+            _playerOriginalTints[pc] = sr.color;
+            sr.color = FrozenTint;
+        }
+
+        _frozenPlayers.Add(pc);
     }
 
     private void UnfreezeAll()
@@ -248,15 +318,45 @@ public class WaveRuntime : MonoBehaviour
             if (enemy.StateMachine != null) enemy.StateMachine.enabled = true;
             if (enemy.Movement != null) enemy.Movement.enabled = true;
             if (enemy.SkillManager != null) enemy.SkillManager.enabled = true;
+
+            // 恢复原色
+            if (_enemyOriginalTints.TryGetValue(enemy, out var color))
+            {
+                var sr = enemy.GetComponentInChildren<SpriteRenderer>();
+                if (sr != null) sr.color = color;
+            }
+        }
+
+        foreach (var pc in _frozenPlayers)
+        {
+            if (pc == null) continue;
+            pc.InputLocked = false;
+
+            if (_playerOriginalTints.TryGetValue(pc, out var color))
+            {
+                var sr = pc.GetComponentInChildren<SpriteRenderer>();
+                if (sr != null) sr.color = color;
+            }
         }
 
         foreach (var proj in _frozenProjectiles)
         {
-            if (proj != null) proj.Unfreeze();
+            if (proj == null) continue;
+            proj.Unfreeze();
+
+            if (_projOriginalTints.TryGetValue(proj, out var color))
+            {
+                var sr = proj.GetComponentInChildren<SpriteRenderer>();
+                if (sr != null) sr.color = color;
+            }
         }
 
         _frozenEnemies.Clear();
+        _frozenPlayers.Clear();
         _frozenProjectiles.Clear();
+        _enemyOriginalTints.Clear();
+        _playerOriginalTints.Clear();
+        _projOriginalTints.Clear();
     }
 
     // ──────────────────────────────────────────────
@@ -342,8 +442,21 @@ public class WaveRuntime : MonoBehaviour
         renderer.sortingOrder = 100;
         renderer.color = Color.white;
 
+        // 关键：SpriteRenderer 必须指定 Sprite 才会渲染。
+        // 运行时生成 8x8 纯白 sprite（UV 0~1，shader 用 UV 计算环）。
+        renderer.sprite = CreateWhiteSprite();
+
         float scale = _maxRadius * 2f;
         waveGO.transform.localScale = new Vector3(scale, scale, 1f);
+    }
+
+    /// <summary>生成纯白 1x1 sprite（PPU=1），供无贴图 shader 使用。scale 直接等于世界尺寸</summary>
+    private static Sprite CreateWhiteSprite()
+    {
+        var tex = new Texture2D(1, 1, TextureFormat.RGBA32, false);
+        tex.SetPixel(0, 0, Color.white);
+        tex.Apply();
+        return Sprite.Create(tex, new Rect(0, 0, 1, 1), new Vector2(0.5f, 0.5f), 1f);
     }
 
     private void CreateOverlay()
