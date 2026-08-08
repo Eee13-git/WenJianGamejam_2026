@@ -21,6 +21,15 @@ public class MeleeAttack : MonoBehaviour, IAttackBehavior
         if (Time.time < _lastAttackTime + attackCooldown) return false;
         if (target == null) return false;
 
+        // 护盾拦截：目标架盾中则挡住冲撞伤害
+        var shield = target.GetComponent<KeratinShieldRuntime>();
+        if (shield != null && shield.IsActive)
+        {
+            shield.TryBlock();
+            _lastAttackTime = Time.time;
+            return true;
+        }
+
         var dmg = target.GetComponent<IDamageable>();
         if (dmg != null)
         {
@@ -39,6 +48,15 @@ public class MeleeAttack : MonoBehaviour, IAttackBehavior
         if (!other.CompareTag(targetTag)) return;
 
         if (Time.time < _lastAttackTime + attackCooldown) return;
+
+        // 护盾拦截：目标架盾中则挡住冲撞伤害（不造成伤害）
+        var shield = other.GetComponent<KeratinShieldRuntime>();
+        if (shield != null && shield.IsActive)
+        {
+            shield.TryBlock();
+            _lastAttackTime = Time.time;
+            return;
+        }
 
         var damageable = other.GetComponent<IDamageable>();
         if (damageable != null)

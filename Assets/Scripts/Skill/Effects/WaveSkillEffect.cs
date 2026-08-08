@@ -1,7 +1,10 @@
 using UnityEngine;
 
 /// <summary>
-/// 泛用扩散波技能效果：从施法者处释放一道圆形波扩散出去。
+/// 泛用扩散波技能效果：从施法者处释放一道波扩散出去。
+/// 支持两种形态：
+///   - 全向圆形波：spreadAngle=360，波从中心向四周扩散
+///   - 单向扇形波：spreadAngle&lt;360，沿施法方向发射一道弧形波
 /// 波纹触及的敌人/子弹可根据配置造成伤害、冻结、画面扭曲等效果。
 /// 所有效果均可选：damage=0 不造伤害；freezeDuration=0 不冻结；overlayMaterial=null 无覆盖层。
 /// 右键 -> Create -> Game -> Skill Effect -> Diffusion Wave
@@ -14,6 +17,8 @@ public class WaveSkillEffect : SkillEffectBase
     [SerializeField] private float _waveSpeed = 25f;
     [Tooltip("波纹最大半径")]
     [SerializeField] private float _maxRadius = 10f;
+    [Tooltip("扩散角度（度）：360=全向圆形波；<360=单向扇形波（沿施法方向）")]
+    [SerializeField] private float _spreadAngle = 360f;
 
     [Header("伤害（可选）")]
     [Tooltip("波纹命中伤害，0=不造成伤害")]
@@ -52,7 +57,7 @@ public class WaveSkillEffect : SkillEffectBase
         var runtime = go.AddComponent<WaveRuntime>();
 
         runtime.Initialize(
-            origin, _waveSpeed, _maxRadius,
+            origin, direction, _waveSpeed, _maxRadius, _spreadAngle,
             _damage * damageMultiplier,
             _freezeDuration, _freezeProjectiles,
             _cancelOnAttack, _cancelOnSkillCast, _cancelGracePeriod,

@@ -15,6 +15,15 @@ public class PlayerController : MonoBehaviour
     /// <summary>输入是否被锁定 (房间切换期间)</summary>
     public bool InputLocked { get; set; }
 
+    /// <summary>攻击锁定（架盾/引导技能期间不可普攻）</summary>
+    public bool AttackLocked { get; set; }
+
+    /// <summary>移动速度倍率（架盾减速等），默认 1</summary>
+    public float SpeedMultiplier { get; set; } = 1f;
+
+    /// <summary>硬直免疫（镇痛阻滞等 buff 期间不受眩晕/硬直）</summary>
+    public bool IgnoreStun { get; set; }
+
     void Awake()
     {
         _rb = GetComponent<Rigidbody2D>();
@@ -66,7 +75,7 @@ public class PlayerController : MonoBehaviour
         _moveInput = new Vector2(horizontal, vertical);
         _moveInput = Vector2.ClampMagnitude(_moveInput, 1f);
 
-        if (Input.GetMouseButton(0))
+        if (Input.GetMouseButton(0) && !AttackLocked)
         {
             OnAttackInput?.Invoke();
         }
@@ -79,6 +88,6 @@ public class PlayerController : MonoBehaviour
         if (InputLocked) return;
 
         // 使用 Rigidbody2D 物理驱动，墙壁碰撞由 Collider2D 处理
-        _rb.velocity = _moveInput * _stats.MoveSpeed;
+        _rb.velocity = _moveInput * _stats.MoveSpeed * SpeedMultiplier;
     }
 }

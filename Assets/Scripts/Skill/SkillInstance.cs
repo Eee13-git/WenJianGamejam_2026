@@ -74,4 +74,11 @@ public class SkillInstance
         Level++;
         return true;
     }
+
+    /// <summary>立即刷新冷却（完美格挡等效果触发时使用）</summary>
+    public void ResetCooldown()
+    {
+        IsCoolingDown = false;
+        _cooldownRemaining = 0f;
+    }
 }

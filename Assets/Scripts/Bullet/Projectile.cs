@@ -16,6 +16,9 @@ public class Projectile : MonoBehaviour
     /// <summary>投射物所属主人GameObject</summary>
     public GameObject Caster { get; private set; }
 
+    /// <summary>投射物阵营（公开只读，供地面区域等组件读取）</summary>
+    public OwnerType Owner => _owner;
+
     private Vector2 _direction;
     private OwnerType _owner;
     private bool _isInitialized;
@@ -86,6 +89,16 @@ public class Projectile : MonoBehaviour
 
         string targetTag = _owner == OwnerType.Player ? "Enemy" : "Player";
         if (!other.CompareTag(targetTag)) return;
+
+        // 护盾拦截：目标架盾中则挡住弹幕（不造成伤害）
+        var shield = other.GetComponent<KeratinShieldRuntime>();
+        if (shield != null && shield.IsActive)
+        {
+            shield.TryBlock();
+            OnAnyProjectileHit?.Invoke(this, other.gameObject);
+            ReturnToPool();
+            return;
+        }
 
         IDamageable damageable = other.GetComponent<IDamageable>();
         if (damageable != null)

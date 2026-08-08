@@ -32,6 +32,9 @@ public class BuffInstance
     /// <summary>是否活跃</summary>
     public bool IsActive { get; set; } = true;
 
+    /// <summary>不可清除标记（藏品/道具等来源的 buff，净化类技能不可清除）</summary>
+    public bool Indestructible { get; set; }
+
     /// <summary>独立计时模式下每个堆叠的剩余时间</summary>
     private readonly List<float> _stackTimers = new List<float>();
 
@@ -63,6 +66,18 @@ public class BuffInstance
                 break;
         }
         CurrentStacks++;
+    }
+
+    /// <summary>刷新持续时间到初始值（Refresh 行为；供"在圈内停留持续刷新 debuff"场景使用）</summary>
+    public void RefreshDuration()
+    {
+        RemainingDuration = Data.duration;
+    }
+
+    /// <summary>延长持续时间（ExtendDuration 行为）</summary>
+    public void ExtendDuration(float amount)
+    {
+        RemainingDuration += amount;
     }
 
     /// <summary>Tick — 由 BuffManager 调用</summary>

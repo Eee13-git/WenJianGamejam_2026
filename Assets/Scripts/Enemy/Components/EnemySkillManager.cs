@@ -72,6 +72,19 @@ public class EnemySkillManager : MonoBehaviour
         }
     }
 
+    /// <summary>按 skillId 刷新技能冷却（完美格挡等效果使用）</summary>
+    public void ResetCooldownBySkillId(string skillId)
+    {
+        foreach (var s in _skillInstances)
+        {
+            if (s != null && s.Data.skillId == skillId)
+            {
+                s.ResetCooldown();
+                return;
+            }
+        }
+    }
+
     // ---------- 旧 API（保持兼容） ----------
 
     private void Update()

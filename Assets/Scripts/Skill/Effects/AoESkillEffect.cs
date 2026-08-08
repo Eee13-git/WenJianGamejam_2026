@@ -78,6 +78,9 @@ public class AoESkillEffect : SkillEffectBase
 
     private static System.Collections.IEnumerator StunRoutine(PlayerController pc, float duration)
     {
+        // 硬直免疫（镇痛阻滞等 buff 期间不受眩晕）
+        if (pc.IgnoreStun) yield break;
+
         pc.InputLocked = true;
         yield return new WaitForSeconds(duration);
         pc.InputLocked = false;
