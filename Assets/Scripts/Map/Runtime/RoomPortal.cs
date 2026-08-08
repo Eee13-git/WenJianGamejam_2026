@@ -3,7 +3,8 @@ using UnityEngine;
 /// <summary>
 /// 房间门 — 挂载在每个门 GO 上。
 /// 普通门：Trigger 检测玩家 → 切换房间。
-/// 隐藏墙：清房后 openTrigger 启用但不放行玩家，子弹命中 N 次后墙壁破碎。
+/// 隐藏墙：清房后 openTrigger 启用但不放行玩家，子弹命中 N 次后墙壁破碎，显示门。
+/// 无连接的门：直接隐藏，不出现墙壁贴图。
 /// </summary>
 public class RoomPortal : MonoBehaviour
 {
@@ -25,7 +26,7 @@ public class RoomPortal : MonoBehaviour
     public string targetTag = "Player";
 
     private bool _locked;
-    private bool _isPermanentWall;
+    private bool _hidden;       // 无连接，永久隐藏
     private bool _breakable;
     private int _hiddenWallHP;
     private int _currentHP;
@@ -71,8 +72,14 @@ public class RoomPortal : MonoBehaviour
     {
         _breakable = false;
         _hiddenWallHP = 0;
-        SetLocked(false);
-        Debug.Log($"RoomPortal: 隐藏墙已破坏 (方向: {direction})");
+        _locked = false;
+
+        // 隐藏墙破坏后显示门
+        if (doorBlocker != null) doorBlocker.SetActive(false);
+        if (doorSprite != null) doorSprite.enabled = true;
+        if (openTrigger != null) openTrigger.enabled = true;
+
+        Debug.Log($"RoomPortal: 隐藏墙已破坏, 门已显示 (方向: {direction})");
     }
 
     /// <summary>设置为隐藏墙</summary>
@@ -104,7 +111,7 @@ public class RoomPortal : MonoBehaviour
     /// <summary>锁定/解锁门</summary>
     public void SetLocked(bool locked)
     {
-        if (_isPermanentWall) return;
+        if (_hidden) return;
         _locked = locked;
 
         if (openTrigger != null)
@@ -117,16 +124,16 @@ public class RoomPortal : MonoBehaviour
             doorBlocker.SetActive(locked);
     }
 
-    /// <summary>永久隐藏为墙壁（无连接房间）</summary>
+    /// <summary>永久隐藏门（无连接房间），不显示墙壁贴图</summary>
     public void HideAsWall()
     {
         targetRoomId = -1;
-        _isPermanentWall = true;
+        _hidden = true;
         _breakable = false;
         _hiddenWallHP = 0;
 
         if (openTrigger != null) openTrigger.enabled = false;
         if (doorSprite != null) doorSprite.enabled = false;
-        if (doorBlocker != null) doorBlocker.SetActive(true);
+        if (doorBlocker != null) doorBlocker.SetActive(false);
     }
 }

@@ -27,7 +27,7 @@ public class MapManager : MonoBehaviour
     private Transform _playerTransform;
 
     /// <summary>玩家从门进入新房间时的内缩距离 (避免立刻再次触发门)</summary>
-    [SerializeField] private float _doorEntryOffset = 1.5f;
+    [SerializeField] private float _doorEntryOffset = 0f;
 
     // 事件
     public event System.Action<int, int> OnRoomChanged; // (fromRoomId, toRoomId)
@@ -257,7 +257,7 @@ public class MapManager : MonoBehaviour
         Debug.Log($"MapManager: 切换到房间 {targetRoomId} ({targetRoom.config.roomType})");
     }
 
-    /// <summary>将玩家传送到目标房间的门内侧</summary>
+    /// <summary>将玩家传送到目标房间入口门内侧的地板中央位置</summary>
     private void TeleportPlayerToDoor(RoomRoot room, DoorDirection entryDir)
     {
         if (_playerTransform == null)
@@ -267,26 +267,26 @@ public class MapManager : MonoBehaviour
         }
         if (_playerTransform == null) return;
 
-        Vector2 doorLocal = room.config.GetDoorOffset(entryDir);
-        Vector2 worldPos = room.Center + doorLocal;
+        // 玩家从 entryDir 方向的门进入，放置在距离墙壁 _doorEntryOffset 格的位置
+        Vector2 halfSize = room.roomSize * 0.5f;
+        float offset = halfSize.y - _doorEntryOffset;
+        if (entryDir is DoorDirection.Left or DoorDirection.Right)
+            offset = halfSize.x - _doorEntryOffset;
 
-        // 向外侧偏移内缩距离，防止立刻再次触发门
-        Vector2 inwardDir = entryDir switch
+        // 玩家从 entryDir 方向的门进入，放置在房间中心朝入口门方向偏移
+        Vector2 doorDir = entryDir switch
         {
-            DoorDirection.Top => Vector2.down,
-            DoorDirection.Bottom => Vector2.up,
-            DoorDirection.Left => Vector2.right,
-            DoorDirection.Right => Vector2.left,
+            DoorDirection.Top => Vector2.up,
+            DoorDirection.Bottom => Vector2.down,
+            DoorDirection.Left => Vector2.left,
+            DoorDirection.Right => Vector2.right,
             _ => Vector2.zero
         };
 
-        Vector2 targetPos = worldPos + inwardDir * _doorEntryOffset;
+        Vector2 targetPos = room.Center + doorDir * offset;
 
-        // 传送玩家
         TeleportRigidbody(_playerTransform, targetPos);
-
-        // 传送所有随从到玩家周围（阵型跟随玩家面朝方向）
-        TeleportFollowers(targetPos, inwardDir, room.transform);
+        TeleportFollowers(targetPos, doorDir, room.transform);
     }
 
     /// <summary>安全传送 Transform（优先通过 Rigidbody2D.position）</summary>
