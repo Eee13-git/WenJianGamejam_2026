@@ -134,6 +134,7 @@ public class PlayerStats : MonoBehaviour, IDamageable, IHealable
         return statName switch
         {
             "MaxHealth"      => maxHealth,
+            "Health"         => health,
             "MoveSpeed"      => moveSpeed,
             "AttackStrength"  => attackStrength,
             "BulletSpeed"    => bulletSpeed,
@@ -151,6 +152,10 @@ public class PlayerStats : MonoBehaviour, IDamageable, IHealable
         {
             case "MaxHealth":
                 maxHealth = Mathf.Max(value, 1f);
+                health = Mathf.Min(health, maxHealth);
+                break;
+            case "Health":
+                health = Mathf.Clamp(value, 0f, maxHealth);
                 break;
             case "MoveSpeed":
                 moveSpeed = Mathf.Max(value, 0f);

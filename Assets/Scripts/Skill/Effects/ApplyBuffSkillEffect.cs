@@ -29,6 +29,11 @@ public class ApplyBuffSkillEffect : SkillEffectBase
             return;
         }
 
+        // 先移除已有同 ID buff，强制重新触发 OnApply（一次性效果需要重触发，
+        // 否则 ApplyBuff 同 ID 分支只刷新时长不调 OnApply，效果不会再次执行）
+        if (buffManager.HasBuff(_buffData.buffId))
+            buffManager.RemoveBuffById(_buffData.buffId);
+
         buffManager.ApplyBuff(_buffData, target);
     }
 }

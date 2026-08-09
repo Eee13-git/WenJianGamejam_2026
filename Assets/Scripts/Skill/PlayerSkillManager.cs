@@ -189,6 +189,28 @@ public class PlayerSkillManager : MonoBehaviour, ISkillCaster
         }
     }
 
+    /// <summary>
+    /// 刷新剩余冷却时间最长的技能（细胞部分重编程等效果使用）。
+    /// 返回被刷新的技能实例；无冷却中的技能时返回 null。
+    /// </summary>
+    public SkillInstance ResetLongestCooldownSkill(string excludeSkillId = null)
+    {
+        SkillInstance longest = null;
+        foreach (var slot in _slots)
+        {
+            var skill = slot.Skill;
+            if (skill == null || !skill.IsCoolingDown) continue;
+            // 排除自身（施放中的技能不应刷新自己的冷却）
+            if (excludeSkillId != null && skill.Data.skillId == excludeSkillId) continue;
+            if (longest == null || skill.CooldownRemaining > longest.CooldownRemaining)
+                longest = skill;
+        }
+
+        if (longest != null)
+            longest.ResetCooldown();
+        return longest;
+    }
+
     /// <summary>按 skillId 查找绑定键位（长按技能等效果使用）</summary>
     public KeyCode GetKeyCodeBySkillId(string skillId)
     {

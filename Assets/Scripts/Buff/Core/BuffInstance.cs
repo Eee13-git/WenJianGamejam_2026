@@ -80,6 +80,12 @@ public class BuffInstance
         RemainingDuration += amount;
     }
 
+    /// <summary>直接设置剩余持续时间（偷取/转移 buff 等机制使用）</summary>
+    public void SetRemainingDuration(float duration)
+    {
+        RemainingDuration = Mathf.Max(duration, 0f);
+    }
+
     /// <summary>Tick — 由 BuffManager 调用</summary>
     public void Tick(float deltaTime)
     {

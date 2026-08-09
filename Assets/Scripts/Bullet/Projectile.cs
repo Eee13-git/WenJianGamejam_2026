@@ -88,7 +88,16 @@ public class Projectile : MonoBehaviour
         }
 
         string targetTag = _owner == OwnerType.Player ? "Enemy" : "Player";
-        if (!other.CompareTag(targetTag)) return;
+
+        // 动情腺溢散（互相攻击）：敌人投射物命中其他敌人时，若目标带混淆 debuff 则也造成伤害
+        bool confusionHit = false;
+        if (_owner == OwnerType.Enemy && other.CompareTag("Enemy"))
+        {
+            var buffMgr = other.GetComponent<BuffManager>();
+            confusionHit = buffMgr != null && buffMgr.HasBuff("gland_confusion");
+        }
+
+        if (!other.CompareTag(targetTag) && !confusionHit) return;
 
         // 护盾拦截：目标架盾中则挡住弹幕（不造成伤害）
         var shield = other.GetComponent<KeratinShieldRuntime>();
@@ -99,6 +108,11 @@ public class Projectile : MonoBehaviour
             ReturnToPool();
             return;
         }
+
+        // 因子掠夺：命中目标后先偷取其增益 buff（目标存活时才有 buff 可偷）
+        var plunder = GetComponent<BuffPlunderOnHit>();
+        if (plunder != null)
+            plunder.TryPlunder(other.gameObject);
 
         IDamageable damageable = other.GetComponent<IDamageable>();
         if (damageable != null)

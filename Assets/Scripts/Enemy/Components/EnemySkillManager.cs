@@ -85,6 +85,27 @@ public class EnemySkillManager : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// 刷新剩余冷却时间最长的技能（细胞部分重编程等效果使用）。
+    /// 返回被刷新的技能实例；无冷却中的技能时返回 null。
+    /// </summary>
+    public SkillInstance ResetLongestCooldownSkill(string excludeSkillId = null)
+    {
+        SkillInstance longest = null;
+        foreach (var s in _skillInstances)
+        {
+            if (s == null || !s.IsCoolingDown) continue;
+            // 排除自身（施放中的技能不应刷新自己的冷却）
+            if (excludeSkillId != null && s.Data.skillId == excludeSkillId) continue;
+            if (longest == null || s.CooldownRemaining > longest.CooldownRemaining)
+                longest = s;
+        }
+
+        if (longest != null)
+            longest.ResetCooldown();
+        return longest;
+    }
+
     // ---------- 旧 API（保持兼容） ----------
 
     private void Update()

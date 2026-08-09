@@ -24,6 +24,9 @@ public class PlayerController : MonoBehaviour
     /// <summary>硬直免疫（镇痛阻滞等 buff 期间不受眩晕/硬直）</summary>
     public bool IgnoreStun { get; set; }
 
+    /// <summary>当前移动方向（归一化，供冲刺/位移技能读取）</summary>
+    public Vector2 MoveDirection => _moveInput.sqrMagnitude > 0.01f ? _moveInput.normalized : Vector2.zero;
+
     void Awake()
     {
         _rb = GetComponent<Rigidbody2D>();
