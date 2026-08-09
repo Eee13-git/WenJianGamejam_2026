@@ -32,6 +32,16 @@ public class RoomBuilderTool : EditorWindow
     Vector2 wallLeftScale = new(1f, 1f), wallLeftOffset = Vector2.zero;
     Vector2 wallRightScale = new(1f, 1f), wallRightOffset = Vector2.zero;
 
+    // === 墙体延伸 (可选, 纯装饰, 不阻挡, 每侧独立) ===
+    Sprite wallTopExtOutSprite, wallTopExtInSprite;
+    Sprite wallBottomExtOutSprite, wallBottomExtInSprite;
+    Sprite wallLeftExtOutSprite, wallLeftExtInSprite;
+    Sprite wallRightExtOutSprite, wallRightExtInSprite;
+    Vector2 wallTopExtScale = new(1f, 1f), wallTopExtOffset = Vector2.zero;
+    Vector2 wallBottomExtScale = new(1f, 1f), wallBottomExtOffset = Vector2.zero;
+    Vector2 wallLeftExtScale = new(1f, 1f), wallLeftExtOffset = Vector2.zero;
+    Vector2 wallRightExtScale = new(1f, 1f), wallRightExtOffset = Vector2.zero;
+
     // === 墙角 ===
     enum CornerDir { TopLeft, TopRight, BottomRight, BottomLeft }
     Sprite cornerSprite;
@@ -72,6 +82,12 @@ public class RoomBuilderTool : EditorWindow
         public Vector2 wallBottomScale = new(1f, 1f), wallBottomOffset = Vector2.zero;
         public Vector2 wallLeftScale = new(1f, 1f), wallLeftOffset = Vector2.zero;
         public Vector2 wallRightScale = new(1f, 1f), wallRightOffset = Vector2.zero;
+        public string wallTopExtOutGUID, wallTopExtInGUID, wallBottomExtOutGUID, wallBottomExtInGUID;
+        public string wallLeftExtOutGUID, wallLeftExtInGUID, wallRightExtOutGUID, wallRightExtInGUID;
+        public Vector2 wallTopExtScale = new(1f, 1f), wallTopExtOffset = Vector2.zero;
+        public Vector2 wallBottomExtScale = new(1f, 1f), wallBottomExtOffset = Vector2.zero;
+        public Vector2 wallLeftExtScale = new(1f, 1f), wallLeftExtOffset = Vector2.zero;
+        public Vector2 wallRightExtScale = new(1f, 1f), wallRightExtOffset = Vector2.zero;
         public string cornerSpriteGUID;
         public int cornerDefaultDir;
         public Vector2 cornerTLScale = new(1f, 1f), cornerTRScale = new(1f, 1f);
@@ -214,6 +230,18 @@ public class RoomBuilderTool : EditorWindow
         wallBottomScale = d.wallBottomScale; wallBottomOffset = d.wallBottomOffset;
         wallLeftScale = d.wallLeftScale; wallLeftOffset = d.wallLeftOffset;
         wallRightScale = d.wallRightScale; wallRightOffset = d.wallRightOffset;
+        wallTopExtOutSprite = FromGUID<Sprite>(d.wallTopExtOutGUID);
+        wallTopExtInSprite = FromGUID<Sprite>(d.wallTopExtInGUID);
+        wallBottomExtOutSprite = FromGUID<Sprite>(d.wallBottomExtOutGUID);
+        wallBottomExtInSprite = FromGUID<Sprite>(d.wallBottomExtInGUID);
+        wallLeftExtOutSprite = FromGUID<Sprite>(d.wallLeftExtOutGUID);
+        wallLeftExtInSprite = FromGUID<Sprite>(d.wallLeftExtInGUID);
+        wallRightExtOutSprite = FromGUID<Sprite>(d.wallRightExtOutGUID);
+        wallRightExtInSprite = FromGUID<Sprite>(d.wallRightExtInGUID);
+        wallTopExtScale = d.wallTopExtScale; wallTopExtOffset = d.wallTopExtOffset;
+        wallBottomExtScale = d.wallBottomExtScale; wallBottomExtOffset = d.wallBottomExtOffset;
+        wallLeftExtScale = d.wallLeftExtScale; wallLeftExtOffset = d.wallLeftExtOffset;
+        wallRightExtScale = d.wallRightExtScale; wallRightExtOffset = d.wallRightExtOffset;
         cornerSprite = FromGUID<Sprite>(d.cornerSpriteGUID);
         cornerDefaultDir = (CornerDir)d.cornerDefaultDir;
         cornerTLScale = d.cornerTLScale; cornerTLOffset = d.cornerTLOffset;
@@ -252,6 +280,18 @@ public class RoomBuilderTool : EditorWindow
             wallBottomScale = wallBottomScale, wallBottomOffset = wallBottomOffset,
             wallLeftScale = wallLeftScale, wallLeftOffset = wallLeftOffset,
             wallRightScale = wallRightScale, wallRightOffset = wallRightOffset,
+            wallTopExtOutGUID = ToGUID(wallTopExtOutSprite),
+            wallTopExtInGUID = ToGUID(wallTopExtInSprite),
+            wallBottomExtOutGUID = ToGUID(wallBottomExtOutSprite),
+            wallBottomExtInGUID = ToGUID(wallBottomExtInSprite),
+            wallLeftExtOutGUID = ToGUID(wallLeftExtOutSprite),
+            wallLeftExtInGUID = ToGUID(wallLeftExtInSprite),
+            wallRightExtOutGUID = ToGUID(wallRightExtOutSprite),
+            wallRightExtInGUID = ToGUID(wallRightExtInSprite),
+            wallTopExtScale = wallTopExtScale, wallTopExtOffset = wallTopExtOffset,
+            wallBottomExtScale = wallBottomExtScale, wallBottomExtOffset = wallBottomExtOffset,
+            wallLeftExtScale = wallLeftExtScale, wallLeftExtOffset = wallLeftExtOffset,
+            wallRightExtScale = wallRightExtScale, wallRightExtOffset = wallRightExtOffset,
             cornerSpriteGUID = ToGUID(cornerSprite),
             cornerDefaultDir = (int)cornerDefaultDir,
             cornerTLScale = cornerTLScale, cornerTLOffset = cornerTLOffset,
@@ -414,6 +454,30 @@ public class RoomBuilderTool : EditorWindow
         wallRightScale = EditorGUILayout.Vector2Field("右墙缩放 (X=横向, Y=纵向)", wallRightScale);
         wallRightOffset = EditorGUILayout.Vector2Field("右墙偏移 (X=横向, Y=纵向)", wallRightOffset);
 
+        // ── 墙体延伸 (可选, 纯装饰不阻挡, 每侧独立) ──
+        EditorGUILayout.Space();
+        GUILayout.Label("墙体延伸 (可选, 纯装饰不阻挡)", EditorStyles.miniBoldLabel);
+
+        wallTopExtOutSprite = (Sprite)EditorGUILayout.ObjectField("上墙外侧", wallTopExtOutSprite, typeof(Sprite), false);
+        wallTopExtInSprite = (Sprite)EditorGUILayout.ObjectField("上墙内侧", wallTopExtInSprite, typeof(Sprite), false);
+        wallTopExtScale = EditorGUILayout.Vector2Field("上墙延伸缩放 (X=横向, Y=纵向)", wallTopExtScale);
+        wallTopExtOffset = EditorGUILayout.Vector2Field("上墙延伸偏移 (X=横向, Y=纵向)", wallTopExtOffset);
+
+        wallBottomExtOutSprite = (Sprite)EditorGUILayout.ObjectField("下墙外侧", wallBottomExtOutSprite, typeof(Sprite), false);
+        wallBottomExtInSprite = (Sprite)EditorGUILayout.ObjectField("下墙内侧", wallBottomExtInSprite, typeof(Sprite), false);
+        wallBottomExtScale = EditorGUILayout.Vector2Field("下墙延伸缩放 (X=横向, Y=纵向)", wallBottomExtScale);
+        wallBottomExtOffset = EditorGUILayout.Vector2Field("下墙延伸偏移 (X=横向, Y=纵向)", wallBottomExtOffset);
+
+        wallLeftExtOutSprite = (Sprite)EditorGUILayout.ObjectField("左墙外侧", wallLeftExtOutSprite, typeof(Sprite), false);
+        wallLeftExtInSprite = (Sprite)EditorGUILayout.ObjectField("左墙内侧", wallLeftExtInSprite, typeof(Sprite), false);
+        wallLeftExtScale = EditorGUILayout.Vector2Field("左墙延伸缩放 (X=横向, Y=纵向)", wallLeftExtScale);
+        wallLeftExtOffset = EditorGUILayout.Vector2Field("左墙延伸偏移 (X=横向, Y=纵向)", wallLeftExtOffset);
+
+        wallRightExtOutSprite = (Sprite)EditorGUILayout.ObjectField("右墙外侧", wallRightExtOutSprite, typeof(Sprite), false);
+        wallRightExtInSprite = (Sprite)EditorGUILayout.ObjectField("右墙内侧", wallRightExtInSprite, typeof(Sprite), false);
+        wallRightExtScale = EditorGUILayout.Vector2Field("右墙延伸缩放 (X=横向, Y=纵向)", wallRightExtScale);
+        wallRightExtOffset = EditorGUILayout.Vector2Field("右墙延伸偏移 (X=横向, Y=纵向)", wallRightExtOffset);
+
         // ── 墙角 ──
         EditorGUILayout.Space();
         GUILayout.Label("墙角 (单素材, 可配置默认朝向)", EditorStyles.miniBoldLabel);
@@ -490,7 +554,11 @@ public class RoomBuilderTool : EditorWindow
         roomRoot.roomSize = RoomSize;
 
         if (floorMode == FloorMode.Single)
-            CreateSprite("Floor", floorSprite, RoomSize, -2, root.transform, new Vector3(floorOffset.x, floorOffset.y, 0), floorScale);
+        {
+            // 地板多铺一圈覆盖墙体所在格子
+            Vector2 floorWorldSize = new(RoomSize.x + tileSize * 2f, RoomSize.y + tileSize * 2f);
+            CreateSprite("Floor", floorSprite, floorWorldSize, -2, root.transform, new Vector3(floorOffset.x, floorOffset.y, 0), floorScale);
+        }
         else
             BuildTiledFloor(root.transform);
 
@@ -532,9 +600,10 @@ public class RoomBuilderTool : EditorWindow
         float halfW = roomTilesX * tileSize * 0.5f;
         float halfH = roomTilesY * tileSize * 0.5f;
 
-        for (int y = 0; y < roomTilesY; y++)
+        // 多铺一圈覆盖墙体所在格子
+        for (int y = -1; y <= roomTilesY; y++)
         {
-            for (int x = 0; x < roomTilesX; x++)
+            for (int x = -1; x <= roomTilesX; x++)
             {
                 float px = -halfW + (x + 0.5f) * tileSize;
                 float py = -halfH + (y + 0.5f) * tileSize;
@@ -564,6 +633,60 @@ public class RoomBuilderTool : EditorWindow
         BuildCorner(container, cornerSprite, "Corner_TR", new Vector3(halfW + halfTile, halfH + halfTile, 0), CornerDir.TopRight, cornerTROffset, cornerTRScale);
         BuildCorner(container, cornerSprite, "Corner_BR", new Vector3(halfW + halfTile, -halfH - halfTile, 0), CornerDir.BottomRight, cornerBROffset, cornerBRScale);
         BuildCorner(container, cornerSprite, "Corner_BL", new Vector3(-halfW - halfTile, -halfH - halfTile, 0), CornerDir.BottomLeft, cornerBLOffset, cornerBLScale);
+
+        BuildWallExtensions(container);
+    }
+
+    /// <summary>
+    /// 墙体延伸：每面墙两侧各一排纯装饰贴图（无碰撞器, 不阻挡）
+    /// </summary>
+    void BuildWallExtensions(Transform container)
+    {
+        float halfW = roomTilesX * tileSize * 0.5f;
+        float halfH = roomTilesY * tileSize * 0.5f;
+        float halfTile = tileSize * 0.5f;
+        float wallOffset = halfTile + tileSize;
+
+        // 上墙延伸：外侧(上方, 离墙一格) + 内侧(下方, 紧挨墙)
+        BuildExtensionLine(container, wallTopExtOutSprite, "Wall_TopExt_Out", true, -halfW, halfW, halfH + wallOffset, wallTopExtScale, wallTopExtOffset);
+        BuildExtensionLine(container, wallTopExtInSprite, "Wall_TopExt_In", true, -halfW, halfW, halfH - halfTile, wallTopExtScale, wallTopExtOffset);
+
+        // 下墙延伸：外侧(下方, 离墙一格) + 内侧(上方, 紧挨墙)
+        BuildExtensionLine(container, wallBottomExtOutSprite, "Wall_BotExt_Out", true, -halfW, halfW, -(halfH + wallOffset), wallBottomExtScale, wallBottomExtOffset);
+        BuildExtensionLine(container, wallBottomExtInSprite, "Wall_BotExt_In", true, -halfW, halfW, -(halfH - halfTile), wallBottomExtScale, wallBottomExtOffset);
+
+        // 左墙延伸：外侧(左方, 离墙一格) + 内侧(右方, 紧挨墙)
+        BuildExtensionLine(container, wallLeftExtOutSprite, "Wall_LeftExt_Out", false, -halfH, halfH, -(halfW + wallOffset), wallLeftExtScale, wallLeftExtOffset);
+        BuildExtensionLine(container, wallLeftExtInSprite, "Wall_LeftExt_In", false, -halfH, halfH, -(halfW - halfTile), wallLeftExtScale, wallLeftExtOffset);
+
+        // 右墙延伸：外侧(右方, 离墙一格) + 内侧(左方, 紧挨墙)
+        BuildExtensionLine(container, wallRightExtOutSprite, "Wall_RightExt_Out", false, -halfH, halfH, halfW + wallOffset, wallRightExtScale, wallRightExtOffset);
+        BuildExtensionLine(container, wallRightExtInSprite, "Wall_RightExt_In", false, -halfH, halfH, halfW - halfTile, wallRightExtScale, wallRightExtOffset);
+    }
+
+    /// <summary>
+    /// 纯装饰延伸行：只创建 SpriteRenderer, 无碰撞器, 无 Wall tag
+    /// </summary>
+    void BuildExtensionLine(Transform container, Sprite sprite, string prefix,
+                            bool horizontal, float start, float end, float fixedPos, Vector2 scale, Vector2 offset)
+    {
+        if (sprite == null) return;
+        float length = end - start;
+        if (length <= 0.001f) return;
+
+        float pos = start + tileSize * 0.5f;
+        int i = 0;
+        while (pos < end)
+        {
+            Vector3 localPos = horizontal
+                ? new Vector3(pos, fixedPos, 0)
+                : new Vector3(fixedPos, pos, 0);
+            localPos += new Vector3(offset.x, offset.y, 0);
+
+            CreateSprite($"{prefix}_{i++}", sprite,
+                new Vector2(tileSize, tileSize), 0, container, localPos, scale);
+            pos += tileSize;
+        }
     }
 
     void BuildCorner(Transform container, Sprite sprite, string name, Vector3 localPos, CornerDir targetDir, Vector2 offset, Vector2 scale)
