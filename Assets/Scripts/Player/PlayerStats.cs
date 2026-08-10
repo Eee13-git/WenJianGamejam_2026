@@ -23,6 +23,12 @@ public class PlayerStats : MonoBehaviour, IDamageable, IHealable
     [Tooltip("每分钟射击次数，300 = 每秒5发")]
     [SerializeField] private float shotsPerMinute = 300f;
 
+    [Header("攻击乘区")]
+    [Tooltip("攻击力乘区，真实攻击 = 基础攻击 × 此值")]
+    [SerializeField] private float attackStrengthMultiplier = 1f;
+    [Tooltip("射速乘区，真实射速 = 基础射速 × 此值")]
+    [SerializeField] private float shotsPerMinuteMultiplier = 1f;
+
     [Header("碰撞属性")]
     [SerializeField] private float colliderRadius = 0.4f;
 
@@ -37,10 +43,10 @@ public class PlayerStats : MonoBehaviour, IDamageable, IHealable
     public float MaxHealth => maxHealth;
     public bool IsDead => _isDead;
     public float MoveSpeed => moveSpeed;
-    public float AttackStrength => attackStrength;
+    public float AttackStrength => attackStrength * attackStrengthMultiplier;
     public float BulletSpeed => bulletSpeed;
-    public float ShootCooldown => 60f / shotsPerMinute;
-    public float ShotsPerMinute => shotsPerMinute;
+    public float ShootCooldown => 60f / (shotsPerMinute * shotsPerMinuteMultiplier);
+    public float ShotsPerMinute => shotsPerMinute * shotsPerMinuteMultiplier;
     public float ColliderRadius
     {
         get => colliderRadius;
@@ -133,15 +139,17 @@ public class PlayerStats : MonoBehaviour, IDamageable, IHealable
     {
         return statName switch
         {
-            "MaxHealth"      => maxHealth,
-            "Health"         => health,
-            "MoveSpeed"      => moveSpeed,
-            "AttackStrength"  => attackStrength,
-            "BulletSpeed"    => bulletSpeed,
-            "ShotsPerMinute" => shotsPerMinute,
-            "ColliderRadius" => colliderRadius,
-            "EvolutionTendency" => evolutionTendency,
-            _                => throw new System.ArgumentException($"PlayerStats: 未知属性名 '{statName}'")
+            "MaxHealth"               => maxHealth,
+            "Health"                  => health,
+            "MoveSpeed"               => moveSpeed,
+            "AttackStrength"          => attackStrength,
+            "AttackStrengthMultiplier" => attackStrengthMultiplier,
+            "BulletSpeed"             => bulletSpeed,
+            "ShotsPerMinute"          => shotsPerMinute,
+            "ShotsPerMinuteMultiplier" => shotsPerMinuteMultiplier,
+            "ColliderRadius"          => colliderRadius,
+            "EvolutionTendency"       => evolutionTendency,
+            _                         => throw new System.ArgumentException($"PlayerStats: 未知属性名 '{statName}'")
         };
     }
 
@@ -163,11 +171,17 @@ public class PlayerStats : MonoBehaviour, IDamageable, IHealable
             case "AttackStrength":
                 attackStrength = Mathf.Max(value, 0f);
                 break;
+            case "AttackStrengthMultiplier":
+                attackStrengthMultiplier = Mathf.Max(value, 0f);
+                break;
             case "BulletSpeed":
                 bulletSpeed = Mathf.Max(value, 0f);
                 break;
             case "ShotsPerMinute":
                 shotsPerMinute = Mathf.Max(value, 0f);
+                break;
+            case "ShotsPerMinuteMultiplier":
+                shotsPerMinuteMultiplier = Mathf.Max(value, 0f);
                 break;
             case "ColliderRadius":
                 colliderRadius = Mathf.Max(value, 0.01f);
@@ -225,8 +239,10 @@ public class PlayerStats : MonoBehaviour, IDamageable, IHealable
         maxHealth = Mathf.Max(maxHealth, 1f);
         moveSpeed = Mathf.Max(moveSpeed, 0);
         attackStrength = Mathf.Max(attackStrength, 0);
+        attackStrengthMultiplier = Mathf.Max(attackStrengthMultiplier, 0f);
         bulletSpeed = Mathf.Max(bulletSpeed, 0f);
         shotsPerMinute = Mathf.Max(shotsPerMinute, 1f);
+        shotsPerMinuteMultiplier = Mathf.Max(shotsPerMinuteMultiplier, 0f);
         colliderRadius = Mathf.Max(colliderRadius, 0.01f);
         evolutionTendency = Mathf.Clamp(evolutionTendency, -100f, 100f);
     }

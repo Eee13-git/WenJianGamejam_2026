@@ -84,6 +84,11 @@ public class RoomManager : MonoBehaviour
                 LockDoors();
                 Debug.Log($"[RoomManager] Room{roomRoot.roomId} LockDoors done.");
             }
+            else
+            {
+                // 无怪物的房间（如 Start 房）：直接生成道具
+                SpawnItems();
+            }
         }
     }
 
