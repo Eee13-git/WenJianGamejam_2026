@@ -32,10 +32,16 @@ public class IconGeneratorWindow : EditorWindow
 
     private string _outputPath = "Assets/GeneratedIcon.png";
 
+    // === 数字样式（文字内容中的数字字符独立样式） ===
+    private bool _digitStyleEnabled = false;
+    private TMP_FontAsset _digitFontAsset;
+    private int _digitFontSize = 28;
+    private Color _digitColor = new Color(1f, 1f, 1f, 1f);
+
     private Texture2D _previewTexture;
 
-    /// <summary>道具图标在场景中的标准世界尺寸（与其他道具一致）</summary>
-    private const float TARGET_WORLD_SIZE = 0.64f;
+    /// <summary>道具图标在场景中的标准世界尺寸</summary>
+    private float _iconWorldSize = 0.64f;
 
     // EditorPrefs Keys
     private const string k_Shape = "IconGen_Shape";
@@ -50,6 +56,11 @@ public class IconGeneratorWindow : EditorWindow
     private const string k_FontGUID = "IconGen_FontGUID";
     private const string k_TextPadding = "IconGen_TextPadding";
     private const string k_OutputPath = "IconGen_OutputPath";
+    private const string k_IconWorldSize = "IconGen_IconWorldSize";
+    private const string k_DigitStyleEnabled = "IconGen_DigitStyleEnabled";
+    private const string k_DigitFontSize = "IconGen_DigitFontSize";
+    private const string k_DigitColor = "IconGen_DigitColor";
+    private const string k_DigitFontGUID = "IconGen_DigitFontGUID";
 
     [MenuItem("Tools/Icon Generator")]
     public static void Open()
@@ -83,6 +94,10 @@ public class IconGeneratorWindow : EditorWindow
         _fontSize = EditorPrefs.GetInt(k_FontSize, 28);
         _textPadding = EditorPrefs.GetFloat(k_TextPadding, 0.15f);
         _outputPath = EditorPrefs.GetString(k_OutputPath, "Assets/GeneratedIcon.png");
+        _iconWorldSize = EditorPrefs.GetFloat(k_IconWorldSize, 0.64f);
+        _digitStyleEnabled = EditorPrefs.GetBool(k_DigitStyleEnabled, false);
+        _digitFontSize = EditorPrefs.GetInt(k_DigitFontSize, 28);
+        _digitColor = LoadColor(k_DigitColor, new Color(1f, 1f, 1f, 1f));
 
         string fontGUID = EditorPrefs.GetString(k_FontGUID, "");
         if (!string.IsNullOrEmpty(fontGUID))
@@ -90,6 +105,14 @@ public class IconGeneratorWindow : EditorWindow
             var path = AssetDatabase.GUIDToAssetPath(fontGUID);
             if (!string.IsNullOrEmpty(path))
                 _fontAsset = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(path);
+        }
+
+        string digitFontGUID = EditorPrefs.GetString(k_DigitFontGUID, "");
+        if (!string.IsNullOrEmpty(digitFontGUID))
+        {
+            var digitPath = AssetDatabase.GUIDToAssetPath(digitFontGUID);
+            if (!string.IsNullOrEmpty(digitPath))
+                _digitFontAsset = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(digitPath);
         }
     }
 
@@ -115,6 +138,21 @@ public class IconGeneratorWindow : EditorWindow
         else
         {
             EditorPrefs.SetString(k_FontGUID, "");
+        }
+
+        EditorPrefs.SetFloat(k_IconWorldSize, _iconWorldSize);
+        EditorPrefs.SetBool(k_DigitStyleEnabled, _digitStyleEnabled);
+        EditorPrefs.SetInt(k_DigitFontSize, _digitFontSize);
+        SaveColor(k_DigitColor, _digitColor);
+
+        if (_digitFontAsset != null)
+        {
+            var digitGuid = AssetDatabase.AssetPathToGUID(AssetDatabase.GetAssetPath(_digitFontAsset));
+            EditorPrefs.SetString(k_DigitFontGUID, digitGuid);
+        }
+        else
+        {
+            EditorPrefs.SetString(k_DigitFontGUID, "");
         }
     }
 
@@ -164,12 +202,22 @@ public class IconGeneratorWindow : EditorWindow
 
         EditorGUILayout.Space(6);
 
+        // === 数字样式（文字内容中的数字字符独立样式） ===
+        _digitStyleEnabled = EditorGUILayout.BeginToggleGroup("数字独立样式", _digitStyleEnabled);
+        _digitColor = EditorGUILayout.ColorField("数字颜色", _digitColor);
+        _digitFontSize = EditorGUILayout.IntSlider("数字字号", _digitFontSize, 2, 80);
+        _digitFontAsset = (TMP_FontAsset)EditorGUILayout.ObjectField("数字字体 (TMP)", _digitFontAsset, typeof(TMP_FontAsset), false);
+        EditorGUILayout.EndToggleGroup();
+
+        EditorGUILayout.Space(6);
+
         GUILayout.Label("输出", EditorStyles.boldLabel);
         _outputPath = EditorGUILayout.TextField("保存路径", _outputPath);
+        _iconWorldSize = EditorGUILayout.Slider("图标场景尺寸", _iconWorldSize, 0.1f, 2f);
 
         // 显示自动计算的 PPU
-        float autoPPU = _textureSize / TARGET_WORLD_SIZE;
-        EditorGUILayout.LabelField("自动 PPU", $"{autoPPU:F0} (场景中 {TARGET_WORLD_SIZE} 单位)");
+        float autoPPU = _textureSize / _iconWorldSize;
+        EditorGUILayout.LabelField("自动 PPU", $"{autoPPU:F0} (场景中 {_iconWorldSize:F2} 单位)");
 
         EditorGUILayout.Space(8);
 
@@ -292,6 +340,58 @@ public class IconGeneratorWindow : EditorWindow
 
     // ==================== 文字渲染 ====================
 
+    /// <summary>
+    /// 将文本中的数字字符用富文本标签包裹，使其使用独立的字体/字号/颜色。
+    /// 例: "C9H13NO3" → "C<font=..><size=..><color=..>9</..>H<font=..>13</..>NO<font=..>3</..>"
+    /// </summary>
+    private string BuildRichTextWithDigitStyle(string text)
+    {
+        var sb = new System.Text.StringBuilder(text.Length * 3);
+
+        // 颜色: #RRGGBBAA
+        string hexColor = ColorUtility.ToHtmlStringRGBA(_digitColor);
+        int digitSize = _digitFontSize;
+        string fontName = _digitFontAsset != null ? _digitFontAsset.name : null;
+
+        bool inDigit = false;
+
+        for (int i = 0; i < text.Length; i++)
+        {
+            char c = text[i];
+            bool isDigit = char.IsDigit(c);
+
+            if (isDigit && !inDigit)
+            {
+                // 开启数字样式标签
+                if (fontName != null)
+                    sb.Append($"<font=\"{fontName}\">");
+                sb.Append($"<size={digitSize}>");
+                sb.Append($"<color=#{hexColor}>");
+                inDigit = true;
+            }
+            else if (!isDigit && inDigit)
+            {
+                // 关闭数字样式标签
+                sb.Append("</color></size>");
+                if (fontName != null)
+                    sb.Append("</font>");
+                inDigit = false;
+            }
+
+            sb.Append(c);
+        }
+
+        // 收尾关闭标签
+        if (inDigit)
+        {
+            sb.Append("</color></size>");
+            if (fontName != null)
+                sb.Append("</font>");
+        }
+
+        return sb.ToString();
+    }
+
     private Texture2D RenderTextToTexture(int size)
     {
         var root = new GameObject("[IconTextRenderer]");
@@ -329,7 +429,6 @@ public class IconGeneratorWindow : EditorWindow
         textRt.position = new Vector3(0, 0, -1);
 
         var tmp = textGo.AddComponent<TextMeshProUGUI>();
-        tmp.text = _text;
         tmp.fontSize = _fontSize;
         tmp.color = _textColor;
         tmp.alignment = TextAlignmentOptions.Center;
@@ -337,15 +436,56 @@ public class IconGeneratorWindow : EditorWindow
         tmp.enableWordWrapping = true;
         if (_fontAsset != null) tmp.font = _fontAsset;
 
-        tmp.ForceMeshUpdate();
-        float textWidth = tmp.preferredWidth;
-        float textHeight = tmp.preferredHeight;
-        float maxW = size - pad * 2;
-        float maxH = size - pad * 2;
-        if (textWidth > maxW || textHeight > maxH)
+        // === 数字独立样式：构建富文本 ===
+        if (_digitStyleEnabled && !string.IsNullOrEmpty(_text))
         {
-            float scale = Mathf.Min(maxW / textWidth, maxH / textHeight);
-            tmp.rectTransform.localScale = Vector3.one * scale;
+            tmp.richText = true;
+
+            // 数字字体加入主字体的 fallback，使 <font> 标签可查找
+            bool addedFallback = false;
+            if (_digitFontAsset != null && tmp.font != null)
+            {
+                if (tmp.font.fallbackFontAssetTable == null)
+                    tmp.font.fallbackFontAssetTable = new System.Collections.Generic.List<TMP_FontAsset>();
+                if (!tmp.font.fallbackFontAssetTable.Contains(_digitFontAsset))
+                {
+                    tmp.font.fallbackFontAssetTable.Add(_digitFontAsset);
+                    addedFallback = true;
+                }
+            }
+
+            tmp.text = BuildRichTextWithDigitStyle(_text);
+
+            tmp.ForceMeshUpdate();
+            float textWidth = tmp.preferredWidth;
+            float textHeight = tmp.preferredHeight;
+            float maxW = size - pad * 2;
+            float maxH = size - pad * 2;
+            if (textWidth > maxW || textHeight > maxH)
+            {
+                float scale = Mathf.Min(maxW / textWidth, maxH / textHeight);
+                tmp.rectTransform.localScale = Vector3.one * scale;
+            }
+
+            // 移除临时 fallback
+            if (addedFallback)
+                tmp.font.fallbackFontAssetTable.Remove(_digitFontAsset);
+        }
+        else
+        {
+            tmp.richText = false;
+            tmp.text = _text;
+
+            tmp.ForceMeshUpdate();
+            float textWidth = tmp.preferredWidth;
+            float textHeight = tmp.preferredHeight;
+            float maxW = size - pad * 2;
+            float maxH = size - pad * 2;
+            if (textWidth > maxW || textHeight > maxH)
+            {
+                float scale = Mathf.Min(maxW / textWidth, maxH / textHeight);
+                tmp.rectTransform.localScale = Vector3.one * scale;
+            }
         }
 
         Canvas.ForceUpdateCanvases();
@@ -400,7 +540,7 @@ public class IconGeneratorWindow : EditorWindow
         AssetDatabase.ImportAsset(_outputPath, ImportAssetOptions.ForceUpdate);
 
         // 自动计算 PPU：使场景中尺寸始终为 TARGET_WORLD_SIZE (0.64)
-        float ppu = tex.width / TARGET_WORLD_SIZE;
+        float ppu = tex.width / _iconWorldSize;
 
         var importer = AssetImporter.GetAtPath(_outputPath) as TextureImporter;
         if (importer != null)
@@ -414,7 +554,7 @@ public class IconGeneratorWindow : EditorWindow
         }
 
         AssetDatabase.Refresh();
-        Debug.Log($"[IconGenerator] 图标已保存到 {_outputPath} (PPU={Mathf.RoundToInt(ppu)}, 场景尺寸={TARGET_WORLD_SIZE})");
+        Debug.Log($"[IconGenerator] 图标已保存到 {_outputPath} (PPU={Mathf.RoundToInt(ppu)}, 场景尺寸={_iconWorldSize:F2})");
         EditorGUIUtility.PingObject(AssetDatabase.LoadAssetAtPath<Object>(_outputPath));
     }
 }

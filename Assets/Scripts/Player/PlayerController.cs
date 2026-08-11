@@ -24,6 +24,17 @@ public class PlayerController : MonoBehaviour
     /// <summary>硬直免疫（镇痛阻滞等 buff 期间不受眩晕/硬直）</summary>
     public bool IgnoreStun { get; set; }
 
+    /// <summary>输入延迟（秒），道具效果</summary>
+    public static float InputDelay = 0f;
+
+    private struct DelayedInput
+    {
+        public float timestamp;
+        public Vector2 input;
+        public bool attack;
+    }
+    private readonly System.Collections.Generic.List<DelayedInput> _inputBuffer = new();
+
     /// <summary>当前移动方向（归一化，供冲刺/位移技能读取）</summary>
     public Vector2 MoveDirection => _moveInput.sqrMagnitude > 0.01f ? _moveInput.normalized : Vector2.zero;
 
@@ -75,12 +86,39 @@ public class PlayerController : MonoBehaviour
 
         float horizontal = Input.GetAxisRaw("Horizontal");
         float vertical = Input.GetAxisRaw("Vertical");
-        _moveInput = new Vector2(horizontal, vertical);
-        _moveInput = Vector2.ClampMagnitude(_moveInput, 1f);
+        Vector2 rawInput = new Vector2(horizontal, vertical);
+        rawInput = Vector2.ClampMagnitude(rawInput, 1f);
+        bool rawAttack = Input.GetMouseButton(0) && !AttackLocked;
 
-        if (Input.GetMouseButton(0) && !AttackLocked)
+        if (InputDelay <= 0f)
         {
-            OnAttackInput?.Invoke();
+            _moveInput = rawInput;
+            if (rawAttack)
+                OnAttackInput?.Invoke();
+        }
+        else
+        {
+            // 缓存输入，延迟应用
+            _inputBuffer.Add(new DelayedInput { timestamp = Time.time, input = rawInput, attack = rawAttack });
+
+            // 取出过期的输入
+            float cutoff = Time.time - InputDelay;
+            Vector2 delayedMove = Vector2.zero;
+            bool delayedAttack = false;
+            for (int i = _inputBuffer.Count - 1; i >= 0; i--)
+            {
+                if (_inputBuffer[i].timestamp <= cutoff)
+                {
+                    delayedMove = _inputBuffer[i].input;
+                    delayedAttack = _inputBuffer[i].attack;
+                    _inputBuffer.RemoveRange(0, i + 1);
+                    break;
+                }
+            }
+
+            _moveInput = delayedMove;
+            if (delayedAttack)
+                OnAttackInput?.Invoke();
         }
     }
 

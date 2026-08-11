@@ -14,7 +14,7 @@ public class LowHealthStatBoost : BuffEffectBase
     [System.Serializable]
     public struct StatBoostEntry
     {
-        [Tooltip("属性名: AttackStrengthMultiplier / ShotsPerMinuteMultiplier 等")]
+        [Tooltip("属性名: AttackStrengthMultiplier / MoveSpeed 等")]
         public string statName;
         [Tooltip("加成值，真实乘区 = 基础乘区 + 此值")]
         public float bonus;

@@ -43,6 +43,9 @@ public class ItemManager : MonoBehaviour
     /// <summary>道具转移: 从 (fromOwner, itemData) 转移到 (toOwner, itemData)</summary>
     public static event Action<ItemManager, ItemManager, ItemData> OnItemTransferred;
 
+    /// <summary>任意道具被获取后触发（供 Buff 检查三件套等）</summary>
+    public static event Action<GameObject> OnAnyItemAcquired;
+
     // ========== Unity 生命周期 ==========
 
     private void Start()
@@ -88,6 +91,7 @@ public class ItemManager : MonoBehaviour
         }
 
         OnItemAcquired?.Invoke(item);
+        OnAnyItemAcquired?.Invoke(gameObject);
         return true;
     }
 

@@ -24,6 +24,7 @@ public class ItemPickup : MonoBehaviour
     [SerializeField] private bool _enableFloatAnimation = true;
     [SerializeField] private float _floatAmplitude = 0.15f;
     [SerializeField] private float _floatFrequency = 2f;
+    [SerializeField] private bool _enableRotation = true;
     [SerializeField] private float _rotationSpeed = 30f;
 
     [Header("高亮")]
@@ -80,7 +81,8 @@ public class ItemPickup : MonoBehaviour
         }
 
         transform.position = _startPosition + floatOffset;
-        transform.Rotate(Vector3.forward, _rotationSpeed * Time.deltaTime);
+        if (_enableRotation)
+            transform.Rotate(Vector3.forward, _rotationSpeed * Time.deltaTime);
     }
 
     /// <summary>由 ItemInteractionHandler 调用，标记在范围内</summary>

@@ -5,8 +5,14 @@ public class Projectile : MonoBehaviour
 {
     public enum OwnerType { Player, Enemy }
 
-    /// <summary>全局投射物命中事件: (projectile, hitTarget)</summary>
+    /// <summary>全局投射物命中事件 (projectile, hitTarget)</summary>
     public static event Action<Projectile, GameObject> OnAnyProjectileHit;
+
+    /// <summary>灵体子弹模式：玩家方投射物穿透障碍物</summary>
+    public static bool SpiritBulletMode;
+
+    /// <summary>全局弹幕速度倍率（道具效果），1=正常，0.5=半速</summary>
+    public static float GlobalSpeedMultiplier = 1f;
 
     [Header("子弹参数")]
     [SerializeField] private float speed = 8f;
@@ -74,7 +80,9 @@ public class Projectile : MonoBehaviour
     void Update()
     {
         if (!_isInitialized || IsFrozen) return;
-        transform.Translate(_direction * speed * Time.deltaTime, Space.World);
+        // 玩家方子弹不受全局减速影响
+        float mult = _owner == OwnerType.Player ? 1f : GlobalSpeedMultiplier;
+        transform.Translate(_direction * speed * mult * Time.deltaTime, Space.World);
     }
 
     private void OnTriggerEnter2D(Collider2D other)
@@ -83,7 +91,8 @@ public class Projectile : MonoBehaviour
 
         if (other.CompareTag("Obstacles"))
         {
-            ReturnToPool();
+            if (!SpiritBulletMode || _owner != OwnerType.Player)
+                ReturnToPool();
             return;
         }
 

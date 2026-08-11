@@ -2,9 +2,9 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// 退行性病变 buff 效果 — 使房间内所有敌人的伤害降低。
+/// 退行性病变 buff 效果 — 使房间内所有敌人的碰撞伤害降低。
 /// 由 ApplyBuffSkillEffect 施加到施法者身上（buff 持续 5s）。
-/// OnApply — 遍历场景所有敌人（排除死亡/已同化），降低其近战/远程伤害并附加视觉标记；
+/// OnApply — 遍历场景所有敌人（排除死亡/已同化），降低其 contactDamage 并附加视觉标记；
 /// OnRemove — 恢复所有敌人伤害并移除标记。
 /// 泛用"虚弱/削弱"类 buff 效果：可作为范围降攻技能的效果策略复用。
 /// </summary>
@@ -25,11 +25,8 @@ public class RegressiveDiseaseBuff : BuffEffectBase
     private class EnemyDamageRecord
     {
         public EnemyCore enemy;
-        public MeleeAttack melee;
-        public RangedAttack ranged;
-        public float meleeDamage;
-        public float rangedDamage;
-        public GameObject mark;   // 视觉标记
+        public float originalDamage;
+        public GameObject mark;
     }
 
     public override void OnApply(GameObject target, BuffInstance buff)
@@ -41,32 +38,16 @@ public class RegressiveDiseaseBuff : BuffEffectBase
         foreach (var enemy in enemies)
         {
             if (enemy == null || enemy.IsDead || enemy.IsAssimilated) continue;
+            if (enemy.config == null) continue;
 
             var record = new EnemyDamageRecord();
             record.enemy = enemy;
-            record.melee = enemy.GetComponent<MeleeAttack>();
-            record.ranged = enemy.GetComponent<RangedAttack>();
+            record.originalDamage = enemy.config.contactDamage;
 
-            // 记录原始值并降低伤害
-            bool modified = false;
-            if (record.melee != null)
-            {
-                record.meleeDamage = record.melee.damage;
-                record.melee.damage *= damageFactor;
-                modified = true;
-            }
-            if (record.ranged != null)
-            {
-                record.rangedDamage = record.ranged.damage;
-                record.ranged.damage *= damageFactor;
-                modified = true;
-            }
+            enemy.config.contactDamage *= damageFactor;
 
-            if (modified)
-            {
-                record.mark = CreateMark(enemy);
-                records.Add(record);
-            }
+            record.mark = CreateMark(enemy);
+            records.Add(record);
         }
 
         _records[buff] = records;
@@ -80,9 +61,8 @@ public class RegressiveDiseaseBuff : BuffEffectBase
         // 恢复所有敌人伤害并移除标记
         foreach (var record in records)
         {
-            if (record.enemy == null) continue;
-            if (record.melee != null) record.melee.damage = record.meleeDamage;
-            if (record.ranged != null) record.ranged.damage = record.rangedDamage;
+            if (record.enemy == null || record.enemy.config == null) continue;
+            record.enemy.config.contactDamage = record.originalDamage;
             if (record.mark != null) Object.Destroy(record.mark);
         }
 

@@ -1,14 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-public enum EnemyAttackType
-{
-    None,
-    Melee,
-    Ranged,
-    Mixed
-}
-
 [CreateAssetMenu(fileName = "EnemyConfig", menuName = "Enemy/Enemy Config")]
 public class EnemyConfig : ScriptableObject
 {
@@ -18,6 +10,10 @@ public class EnemyConfig : ScriptableObject
 
     [Header("基本数值")]
     public float maxHealth = 30f;
+    [Tooltip("碰撞伤害值")]
+    public float contactDamage = 10f;
+    [Tooltip("碰撞伤害冷却（秒）")]
+    public float contactDamageCooldown = 1f;
 
     [Header("移动速度")]
     [Tooltip("巡逻时的移动速度")]
@@ -29,8 +25,7 @@ public class EnemyConfig : ScriptableObject
     public float detectionRange = 5f;
     public float attackRange = 1.2f;
 
-    [Header("攻击与技能")]
-    public EnemyAttackType attackType = EnemyAttackType.Melee;
+    [Header("技能")]
     public SkillLibrary skillLibrary;
 
     [Header("巡逻点（世界坐标相对室内/由生成器填充或运行时赋值）")]

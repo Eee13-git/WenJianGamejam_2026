@@ -13,6 +13,9 @@ public class EnemyMovement : MonoBehaviour
     [HideInInspector]
     public float MoveSpeed = 2f;
 
+    /// <summary>全局敌人速度倍率（道具效果），1=正常，0.5=半速</summary>
+    public static float GlobalSpeedMultiplier = 1f;
+
     private Rigidbody2D _rb;
     private float _nextSightCheckTime;
     private bool _cachedHasLineOfSight;
@@ -33,13 +36,13 @@ public class EnemyMovement : MonoBehaviour
     {
         if (_rb == null) return;
         Vector2 dir = (target - (Vector2)transform.position).normalized;
-        _rb.velocity = dir * MoveSpeed * speedMultiplier;
+        _rb.velocity = dir * MoveSpeed * speedMultiplier * GlobalSpeedMultiplier;
     }
 
     public void SetVelocity(Vector2 vel)
     {
         if (_rb == null) return;
-        _rb.velocity = vel;
+        _rb.velocity = vel * GlobalSpeedMultiplier;
     }
 
     /// <summary>直接传送到目标位置（通过 Rigidbody2D.position）</summary>

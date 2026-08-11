@@ -3,6 +3,7 @@ using UnityEngine;
 /// <summary>
 /// 随从行为组件：接管被同化敌人的 AI，跟随玩家 + 搜索并攻击其他敌人。
 /// 由 EnemyCore.Assimilate() 激活。
+/// 攻击方式：碰撞伤害（EnemyCore.ProcessContactDamage）+ 技能。
 /// </summary>
 [RequireComponent(typeof(EnemyCore))]
 public class EnemyFollower : MonoBehaviour
@@ -18,7 +19,6 @@ public class EnemyFollower : MonoBehaviour
     private Transform _player;
     private EnemyCore _core;
     private EnemyMovement _movement;
-    private IAttackBehavior _attackBehavior;
     private EnemySkillManager _skillManager;
     private bool _isActive;
 
@@ -29,8 +29,6 @@ public class EnemyFollower : MonoBehaviour
     {
         ActiveFollowers.Add(this);
 
-        // 订阅房间切换事件——每次 OnEnable 都重新订阅，确保 SetParent 导致的
-        // OnDisable→OnEnable 周期后仍然能响应后续房间切换。
         if (MapManager.Instance != null)
             MapManager.Instance.OnRoomSwitchStarted += OnRoomSwitchStarted;
     }
@@ -58,19 +56,10 @@ public class EnemyFollower : MonoBehaviour
         _isActive = true;
 
         _movement = _core.Movement;
-        _attackBehavior = _core.AttackBehavior;
         _skillManager = _core.SkillManager;
 
         if (_movement != null)
             _movement.MoveSpeed = _followSpeed;
-
-        // 远程攻击的随从需要以 OwnerType.Player 发射投射物，才能命中 Enemy tag
-        if (_attackBehavior is RangedAttack ranged)
-            ranged.projectileOwnerType = Projectile.OwnerType.Player;
-
-        // 近战攻击同样需要切换阵营，避免误伤玩家和其他随从
-        if (_attackBehavior is MeleeAttack melee)
-            melee.ownerType = Projectile.OwnerType.Player;
 
         // 接管死亡事件（EnemyCore.Assimilate 已清除原有订阅）
         if (_core.Health != null)
@@ -104,7 +93,6 @@ public class EnemyFollower : MonoBehaviour
             if (distToEnemy <= _attackRange)
             {
                 _movement?.Stop();
-                _attackBehavior?.TryAttack(nearestEnemy);
 
                 // 尝试释放技能
                 if (_skillManager != null && _skillManager.SkillInstances.Count > 0)

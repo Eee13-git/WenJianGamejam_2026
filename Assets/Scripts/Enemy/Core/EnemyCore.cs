@@ -4,7 +4,7 @@ using UnityEngine;
 
 /// <summary>
 /// 敌人聚合门面：实现 IEnemy / IDamageable / ISkillCaster，自动收集子组件并负责连线。
-/// 所有对外系统（Spawner、技能效果等）应依赖 IEnemy 接口。
+/// 碰撞伤害直接在此处理（OnCollisionStay2D + OnTriggerStay2D），不再依赖 MeleeAttack 组件。
 /// </summary>
 [DisallowMultipleComponent]
 public class EnemyCore : MonoBehaviour, IEnemy
@@ -17,7 +17,6 @@ public class EnemyCore : MonoBehaviour, IEnemy
     public EnemyMovement Movement { get; private set; }
     public EnemySkillManager SkillManager { get; private set; }
     public EnemyStateMachine StateMachine { get; private set; }
-    public IAttackBehavior AttackBehavior { get; private set; }
 
     // 缓存玩家引用 + 最后已知位置（供状态机读取）
     public Transform PlayerTarget { get; set; }
@@ -33,13 +32,15 @@ public class EnemyCore : MonoBehaviour, IEnemy
     /// <summary>全局静态事件 — 任意敌人死亡时触发 (EnemyCore)</summary>
     public static event Action<EnemyCore> OnAnyEnemyDied;
 
+    // 碰撞伤害
+    private float _lastContactDamageTime = -10f;
+
     private void Awake()
     {
         Health = GetComponent<EnemyHealth>();
         Movement = GetComponent<EnemyMovement>();
         SkillManager = GetComponent<EnemySkillManager>();
         StateMachine = GetComponent<EnemyStateMachine>();
-        AttackBehavior = GetComponent<IAttackBehavior>();
 
         if (Health == null) Health = gameObject.AddComponent<EnemyHealth>();
         if (Movement == null) Movement = gameObject.AddComponent<EnemyMovement>();
@@ -83,10 +84,10 @@ public class EnemyCore : MonoBehaviour, IEnemy
 
     private void Start()
     {
-        // ── 懒加载玩家引用 ──
-        StartCoroutine(LazyFindPlayer());
+        var player = GameObject.FindGameObjectWithTag("Player");
+        if (player != null) PlayerTarget = player.transform;
 
-        // 启动默认状态
+        // 启动默认状态（若存在巡逻点则 Patrol，否则 Idle）
         if (StateMachine != null)
         {
             if (config != null && config.patrolPoints != null && config.patrolPoints.Count > 0)
@@ -96,17 +97,46 @@ public class EnemyCore : MonoBehaviour, IEnemy
         }
     }
 
-    private System.Collections.IEnumerator LazyFindPlayer()
-    {
-        // 优先从 PlayerManager 拿（更可靠，避免 FindGameObjectWithTag 在 tag 变更后失效）
-        while (PlayerTarget == null)
-        {
-            if (PlayerManager.Instance != null && PlayerManager.Instance.CurrentPlayer != null)
-                PlayerTarget = PlayerManager.Instance.CurrentPlayer.transform;
-            else
-                PlayerTarget = GameObject.FindGameObjectWithTag("Player")?.transform;
+    // ---------- 碰撞伤害 ----------
 
-            yield return new WaitForSeconds(0.3f);
+    private void OnTriggerStay2D(Collider2D other)
+    {
+        ProcessContactDamage(other.gameObject);
+    }
+
+    private void OnCollisionStay2D(Collision2D collision)
+    {
+        ProcessContactDamage(collision.gameObject);
+    }
+
+    private void ProcessContactDamage(GameObject other)
+    {
+        if (IsDead || config == null) return;
+
+        // 同化后阵营为 Player，攻击 Enemy
+        string targetTag = IsAssimilated ? "Enemy" : "Player";
+        if (!other.CompareTag(targetTag)) return;
+
+        if (Time.time < _lastContactDamageTime + config.contactDamageCooldown) return;
+
+        // 护盾拦截
+        var shield = other.GetComponent<KeratinShieldRuntime>();
+        if (shield != null && shield.IsActive)
+        {
+            shield.TryBlock();
+            _lastContactDamageTime = Time.time;
+            return;
+        }
+
+        // 碰撞免疫检查
+        var playerStats = other.GetComponent<PlayerStats>();
+        if (playerStats != null && playerStats.ImmuneToContactDamage) return;
+
+        var damageable = other.GetComponent<IDamageable>();
+        if (damageable != null)
+        {
+            damageable.TakeDamage(config.contactDamage);
+            _lastContactDamageTime = Time.time;
         }
     }
 
@@ -128,7 +158,7 @@ public class EnemyCore : MonoBehaviour, IEnemy
 
     public float GetAttackStrength()
     {
-        return 10f;
+        return config != null ? config.contactDamage : 10f;
     }
 
     /// <summary>
