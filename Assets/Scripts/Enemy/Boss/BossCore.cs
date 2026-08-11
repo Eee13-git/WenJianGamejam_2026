@@ -18,7 +18,7 @@ public class BossCore : MonoBehaviour
     [SerializeField] private float _nextSkillTime;
 
     private EnemyCore _enemyCore;
-    private EnemyHealth _health;
+    private EnemyStats _health;
     private EnemyMovement _movement;
     private EnemySkillManager _skillManager;
     private SkillLibrary _skillLibrary;
@@ -28,7 +28,7 @@ public class BossCore : MonoBehaviour
     private void Awake()
     {
         _enemyCore = GetComponent<EnemyCore>();
-        _health = GetComponent<EnemyHealth>();
+        _health = GetComponent<EnemyStats>();
         _movement = GetComponent<EnemyMovement>();
         _skillManager = GetComponent<EnemySkillManager>();
 
@@ -99,10 +99,10 @@ public class BossCore : MonoBehaviour
 
         LoadPhaseSkills(phaseIndex);
 
-        if (_movement != null)
+        if (_health != null)
         {
-            float baseSpeed = _enemyCore.config != null ? _enemyCore.config.chaseSpeed : _movement.MoveSpeed;
-            _movement.MoveSpeed = baseSpeed * newPhase.moveSpeedMult;
+            float baseSpeed = _health.ChaseSpeed;
+            _health.ChaseSpeed = baseSpeed * newPhase.moveSpeedMult;
         }
 
         _nextSkillTime = Time.time + 0.5f;

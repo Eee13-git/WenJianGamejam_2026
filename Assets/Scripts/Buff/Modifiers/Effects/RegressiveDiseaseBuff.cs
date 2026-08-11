@@ -38,13 +38,13 @@ public class RegressiveDiseaseBuff : BuffEffectBase
         foreach (var enemy in enemies)
         {
             if (enemy == null || enemy.IsDead || enemy.IsAssimilated) continue;
-            if (enemy.config == null) continue;
+            if (enemy.Health == null) continue;
 
             var record = new EnemyDamageRecord();
             record.enemy = enemy;
-            record.originalDamage = enemy.config.contactDamage;
+            record.originalDamage = enemy.Health.ContactDamage;
 
-            enemy.config.contactDamage *= damageFactor;
+            enemy.Health.SetStatValue("ContactDamage", record.originalDamage * damageFactor);
 
             record.mark = CreateMark(enemy);
             records.Add(record);
@@ -61,8 +61,8 @@ public class RegressiveDiseaseBuff : BuffEffectBase
         // 恢复所有敌人伤害并移除标记
         foreach (var record in records)
         {
-            if (record.enemy == null || record.enemy.config == null) continue;
-            record.enemy.config.contactDamage = record.originalDamage;
+            if (record.enemy == null || record.enemy.Health == null) continue;
+            record.enemy.Health.SetStatValue("ContactDamage", record.originalDamage);
             if (record.mark != null) Object.Destroy(record.mark);
         }
 

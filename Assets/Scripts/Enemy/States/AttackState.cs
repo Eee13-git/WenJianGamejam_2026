@@ -1,9 +1,8 @@
 using UnityEngine;
 
 /// <summary>
-/// 攻击状态：停止移动，尝试释放技能攻击玩家。
-/// 碰撞伤害由 EnemyCore 处理（不依赖状态）。
-/// 玩家离开攻击范围 → Chase。
+/// 攻击状态：停止移动，用技能攻击玩家。
+/// 玩家离开攻击范围 → ChaseState。
 /// </summary>
 public class AttackState : EnemyStateBase
 {
@@ -16,7 +15,7 @@ public class AttackState : EnemyStateBase
 
     public override void Tick()
     {
-        if (Core.PlayerTarget == null || Core.config == null)
+        if (Core.PlayerTarget == null || Core.Health == null)
         {
             Core.StateMachine.ChangeState(new IdleState(Core));
             return;
@@ -24,16 +23,19 @@ public class AttackState : EnemyStateBase
 
         Vector2 playerPos = Core.PlayerTarget.position;
         float sqrDist = ((Vector2)Core.transform.position - playerPos).sqrMagnitude;
-        float attackSqr = Core.config.attackRange * Core.config.attackRange;
+        float attackSqr = Core.Health.AttackRange * Core.Health.AttackRange;
 
-        // 玩家离开攻击范围 → 继续追击
+        // 玩家离开攻击范围 → 追击
         if (sqrDist > attackSqr * 1.2f)
         {
             Core.StateMachine.ChangeState(new ChaseState(Core));
             return;
         }
 
-        // 尝试释放技能
+        // 保持靠近
+        Core.Movement?.MoveTowardsPosition(playerPos, Core.Health.ChaseSpeed, 0.3f);
+
+        // 释放技能
         if (Core.SkillManager != null && Core.SkillManager.SkillInstances.Count > 0)
         {
             Core.SkillManager.TryCastSkill(0, Core, Core.GetTargetDirection());

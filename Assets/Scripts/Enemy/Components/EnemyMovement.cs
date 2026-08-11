@@ -3,17 +3,13 @@ using UnityEngine;
 /// <summary>
 /// 移动组件：封装 Rigidbody2D 操作与视线检测缓存。
 ///
-/// 速度数据源： EnemyConfig.patrolSpeed / EnemyConfig.chaseSpeed
-///             由状态机在 Enter 时写入 MoveSpeed，组件本身不做初始化。
+/// 速度数据源：EnemyStats.PatrolSpeed / EnemyStats.ChaseSpeed
+///             由状态机在调用 MoveTowardsPosition 时显式传入。
 /// </summary>
 [RequireComponent(typeof(Rigidbody2D))]
 public class EnemyMovement : MonoBehaviour
 {
-    /// <summary>运行时当前速度（由状态机从 EnemyConfig 赋值，不在 Inspector 设置）</summary>
-    [HideInInspector]
-    public float MoveSpeed = 2f;
-
-    /// <summary>全局敌人速度倍率（道具效果），1=正常，0.5=半速</summary>
+    [Tooltip("全局敌人速度倍率（道具效果），1=正常，0.5=半速")]
     public static float GlobalSpeedMultiplier = 1f;
 
     private Rigidbody2D _rb;
@@ -32,11 +28,17 @@ public class EnemyMovement : MonoBehaviour
         if (_rb != null) _rb.velocity = Vector2.zero;
     }
 
-    public void MoveTowardsPosition(Vector2 target, float speedMultiplier = 1f)
+    /// <summary>
+    /// 向目标位置移动。
+    /// </summary>
+    /// <param name="target">目标世界坐标</param>
+    /// <param name="speed">移动速度</param>
+    /// <param name="speedMultiplier">额外速度倍率（0~1），用于搜索等减速行为</param>
+    public void MoveTowardsPosition(Vector2 target, float speed, float speedMultiplier = 1f)
     {
-        if (_rb == null) return;
+        if (_rb == null || speed <= 0f) return;
         Vector2 dir = (target - (Vector2)transform.position).normalized;
-        _rb.velocity = dir * MoveSpeed * speedMultiplier * GlobalSpeedMultiplier;
+        _rb.velocity = dir * speed * speedMultiplier * GlobalSpeedMultiplier;
     }
 
     public void SetVelocity(Vector2 vel)
@@ -45,7 +47,7 @@ public class EnemyMovement : MonoBehaviour
         _rb.velocity = vel * GlobalSpeedMultiplier;
     }
 
-    /// <summary>直接传送到目标位置（通过 Rigidbody2D.position）</summary>
+    /// <summary>直接传送到目标位置</summary>
     public void Teleport(Vector2 targetPos)
     {
         if (_rb != null)
@@ -60,7 +62,7 @@ public class EnemyMovement : MonoBehaviour
     }
 
     /// <summary>
-    /// 带缓存的视线检测。调用时会基于 interval 减少 Linecast 次数。
+    /// 带缓存的视线检测。
     /// </summary>
     public bool HasLineOfSight(Vector2 targetPosition, float detectionRange, float sightCheckInterval = 0.2f)
     {
@@ -76,7 +78,7 @@ public class EnemyMovement : MonoBehaviour
 
         if (!_wasInDetectionRange)
         {
-            _nextSightCheckTime = 0f; // force immediate check
+            _nextSightCheckTime = 0f;
             _wasInDetectionRange = true;
         }
 

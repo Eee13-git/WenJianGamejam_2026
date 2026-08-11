@@ -69,8 +69,6 @@ public class PhotonBeam : MonoBehaviour
     // ── 运行时状态 ──
     private Projectile.OwnerType _ownerType;
     private float _attackStrength;
-    private bool _initialized;
-    private bool _struck;
 
     // ── 视觉子对象 ──
     private SpriteRenderer _warningRing;
@@ -83,7 +81,6 @@ public class PhotonBeam : MonoBehaviour
     {
         _ownerType = ownerType;
         _attackStrength = attackStrength;
-        _initialized = true;
     }
 
     private void Start()
@@ -181,7 +178,6 @@ public class PhotonBeam : MonoBehaviour
         // ── 阶段 2：喷射 ──
         _warningRing.enabled = false;
         _beamSprite.enabled = true;
-        _struck = true;
 
         float fullWidth = _radius * _beamWidthFactor;
         float fullHeight = _beamHeight;

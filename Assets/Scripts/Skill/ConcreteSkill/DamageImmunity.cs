@@ -2,7 +2,7 @@ using UnityEngine;
 
 /// <summary>
 /// 通用伤害免疫组件 — 挂在角色身上，授予一段时间的无敌（免疫所有伤害）。
-/// 任何伤害入口（PlayerStats / EnemyHealth 的 TakeDamage）都应检查 IsImmune。
+/// 任何伤害入口（PlayerStats / EnemyStats 的 TakeDamage）都应检查 IsImmune。
 /// 供"格挡后无敌帧"等机制复用。
 /// </summary>
 public class DamageImmunity : MonoBehaviour

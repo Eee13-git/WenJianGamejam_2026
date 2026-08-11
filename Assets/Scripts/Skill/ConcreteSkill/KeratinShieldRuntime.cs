@@ -28,13 +28,14 @@ public class KeratinShieldRuntime : MonoBehaviour
     // ── 施法者引用 ──
     private GameObject _casterGO;
     private PlayerController _playerController;
-    private EnemyMovement _enemyMovement;
+    private EnemyStats _enemyHealth;
     private ISkillCaster _caster;
 
     // ── 视觉 ──
     private SpriteRenderer _visualRenderer;
     private Material _matInstance;
-    private float _originalEnemyMoveSpeed;
+    private float _originalPatrolSpeed;
+    private float _originalChaseSpeed;
     private float _shieldScale = 1f;        // 当前护盾缩放（激活时扩散动画）
     private float _hitFlash;                 // 被击中闪白强度（0~1）
     private float _appearTime;               // 激活扩散动画进度
@@ -65,19 +66,20 @@ public class KeratinShieldRuntime : MonoBehaviour
         _appearTime = 0f;
 
         _playerController = _casterGO.GetComponent<PlayerController>();
-        _enemyMovement = _casterGO.GetComponent<EnemyMovement>();
+        _enemyHealth = _casterGO.GetComponent<EnemyStats>();
 
-        // 架盾限制：玩家锁攻击 + 减速；敌人禁移动 + 减速
+        // 架盾限制：玩家锁攻击 + 减速；敌人减速
         if (_playerController != null)
         {
             _playerController.AttackLocked = true;
             _playerController.SpeedMultiplier = _slowFactor;
         }
-        if (_enemyMovement != null)
+        if (_enemyHealth != null)
         {
-            _originalEnemyMoveSpeed = _enemyMovement.MoveSpeed;
-            _enemyMovement.MoveSpeed = _originalEnemyMoveSpeed * _slowFactor;
-            _enemyMovement.enabled = true; // 敌人仍可缓慢移动（架盾走路）
+            _originalPatrolSpeed = _enemyHealth.PatrolSpeed;
+            _originalChaseSpeed  = _enemyHealth.ChaseSpeed;
+            _enemyHealth.SetStatValue("PatrolSpeed", _originalPatrolSpeed * _slowFactor);
+            _enemyHealth.SetStatValue("ChaseSpeed",  _originalChaseSpeed  * _slowFactor);
         }
 
         // 玩家长按检测：找到本技能绑定的键
@@ -277,8 +279,11 @@ public class KeratinShieldRuntime : MonoBehaviour
             _playerController.AttackLocked = false;
             _playerController.SpeedMultiplier = 1f;
         }
-        if (_enemyMovement != null)
-            _enemyMovement.MoveSpeed = _originalEnemyMoveSpeed;
+        if (_enemyHealth != null)
+        {
+            _enemyHealth.SetStatValue("PatrolSpeed", _originalPatrolSpeed);
+            _enemyHealth.SetStatValue("ChaseSpeed",  _originalChaseSpeed);
+        }
     }
 
     /// <summary>销毁视觉子对象</summary>

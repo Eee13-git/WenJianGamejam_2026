@@ -61,8 +61,8 @@ public class BoneMarrowBuff : BuffEffectBase
             return;
         }
 
-        // 非玩家（敌人）施放时：EnemyHealth 处理
-        var health = target.GetComponent<EnemyHealth>();
+        // 非玩家（敌人）施放时：EnemyStats 处理
+        var health = target.GetComponent<EnemyStats>();
         if (health != null)
         {
             health.MaxHealth = Mathf.Max(health.MaxHealth * (1f - maxHealthCostRatio), 1f);

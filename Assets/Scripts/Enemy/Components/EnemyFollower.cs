@@ -58,10 +58,7 @@ public class EnemyFollower : MonoBehaviour
         _movement = _core.Movement;
         _skillManager = _core.SkillManager;
 
-        if (_movement != null)
-            _movement.MoveSpeed = _followSpeed;
-
-        // 接管死亡事件（EnemyCore.Assimilate 已清除原有订阅）
+        // 接管死亡事件
         if (_core.Health != null)
             _core.Health.OnDied += HandleDeath;
     }
@@ -103,7 +100,7 @@ public class EnemyFollower : MonoBehaviour
             }
             else
             {
-                _movement?.MoveTowardsPosition(enemyPos);
+                _movement?.MoveTowardsPosition(enemyPos, _followSpeed);
             }
             return;
         }
@@ -112,7 +109,7 @@ public class EnemyFollower : MonoBehaviour
         float distToPlayer = Vector2.Distance(pos, playerPos);
         if (distToPlayer > _followDistance)
         {
-            _movement?.MoveTowardsPosition(playerPos);
+            _movement?.MoveTowardsPosition(playerPos, _followSpeed);
         }
         else
         {

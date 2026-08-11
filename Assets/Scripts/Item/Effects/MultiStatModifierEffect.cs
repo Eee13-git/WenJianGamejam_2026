@@ -46,19 +46,14 @@ public class MultiStatModifierEffect : ItemEffectBase
 
         foreach (var entry in _stats)
         {
+            if (!System.Enum.IsDefined(typeof(StatName), entry.statName)) continue;
+
             string name = entry.statName.ToString();
-            try
-            {
-                float current = stats.GetStatValue(name);
-                float newValue = entry.isMultiplicative
-                    ? current * entry.percentBonus
-                    : current + entry.flatBonus;
-                stats.SetStatValue(name, newValue);
-            }
-            catch (System.ArgumentException)
-            {
-                Debug.LogWarning($"MultiStatModifierEffect: 未知属性名 '{name}'");
-            }
+            float current = stats.GetStatValue(name);
+            float newValue = entry.isMultiplicative
+                ? current * entry.percentBonus
+                : current + entry.flatBonus;
+            stats.SetStatValue(name, newValue);
         }
     }
 
@@ -69,22 +64,15 @@ public class MultiStatModifierEffect : ItemEffectBase
 
         foreach (var entry in _stats)
         {
-            // Health 是一次性效果（加血/扣血），移除时不回退
             if (entry.statName == StatName.Health) continue;
+            if (!System.Enum.IsDefined(typeof(StatName), entry.statName)) continue;
 
             string name = entry.statName.ToString();
-            try
-            {
-                float current = stats.GetStatValue(name);
-                float newValue = entry.isMultiplicative
-                    ? current / entry.percentBonus
-                    : current - entry.flatBonus;
-                stats.SetStatValue(name, newValue);
-            }
-            catch (System.ArgumentException)
-            {
-                Debug.LogWarning($"MultiStatModifierEffect: 未知属性名 '{name}'");
-            }
+            float current = stats.GetStatValue(name);
+            float newValue = entry.isMultiplicative
+                ? current / entry.percentBonus
+                : current - entry.flatBonus;
+            stats.SetStatValue(name, newValue);
         }
     }
 }

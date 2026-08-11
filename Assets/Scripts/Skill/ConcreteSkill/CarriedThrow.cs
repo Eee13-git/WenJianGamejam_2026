@@ -66,7 +66,7 @@ public class CarriedThrow : MonoBehaviour
         var immunity = GetComponent<DamageImmunity>();
         if (immunity != null) Destroy(immunity);
 
-        var health = GetComponent<EnemyHealth>();
+        var health = GetComponent<EnemyStats>();
         health?.TakeDamage(_wallDamage);
 
         Land();

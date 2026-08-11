@@ -1,8 +1,8 @@
 using UnityEngine;
 
 /// <summary>
-/// 巡逻状态：沿配置的 patrolPoints 逐个移动，到达后在每个点短暂停留。
-/// 发现玩家 → Chase。
+/// 巡逻状态：沿 patrolPoints 逐个移动，到达后短暂停留。
+/// 发现玩家 → ChaseState。
 /// </summary>
 public class PatrolState : EnemyStateBase
 {
@@ -16,15 +16,15 @@ public class PatrolState : EnemyStateBase
     public override void Enter()
     {
         _currentIndex = 0;
-        _waitTimer = 0f;
+        _waitTimer   = 0f;
     }
 
     public override void Tick()
     {
-        if (Core.PlayerTarget != null && Core.config != null)
+        if (Core.PlayerTarget != null && Core.Health != null)
         {
             Vector2 playerPos = Core.PlayerTarget.position;
-            if (Core.Movement.HasLineOfSight(playerPos, Core.config.detectionRange))
+            if (Core.Movement.HasLineOfSight(playerPos, Core.Health.DetectionRange))
             {
                 Core.LastKnownPlayerPosition = playerPos;
                 Core.StateMachine.ChangeState(new ChaseState(Core));
@@ -32,33 +32,30 @@ public class PatrolState : EnemyStateBase
             }
         }
 
-        if (Core.config == null || Core.config.patrolPoints == null || Core.config.patrolPoints.Count == 0)
+        var pts = Core.config != null ? Core.config.patrolPoints : null;
+        if (pts == null || pts.Count == 0)
         {
             Core.StateMachine.ChangeState(new IdleState(Core));
             return;
         }
 
-        Vector2 target = Core.config.patrolPoints[_currentIndex];
+        Vector2 target = pts[_currentIndex];
         float sqrDist = ((Vector2)Core.transform.position - target).sqrMagnitude;
 
         if (sqrDist < ArriveThreshold * ArriveThreshold)
         {
-            // 到达，等待
             Core.Movement?.Stop();
             _waitTimer += Time.deltaTime;
             if (_waitTimer >= WaitPerPoint)
             {
                 _waitTimer = 0f;
-                _currentIndex = (_currentIndex + 1) % Core.config.patrolPoints.Count;
+                _currentIndex = (_currentIndex + 1) % pts.Count;
             }
         }
         else
         {
             _waitTimer = 0f;
-            Core.Movement?.MoveTowardsPosition(target);
-            // 巡逻用 patrolSpeed
-            if (Core.Movement != null)
-                Core.Movement.MoveSpeed = Core.config.patrolSpeed;
+            Core.Movement?.MoveTowardsPosition(target, Core.Health.PatrolSpeed);
         }
     }
 }
