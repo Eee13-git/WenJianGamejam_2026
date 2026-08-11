@@ -294,7 +294,6 @@ namespace TJGenerators
                 showAdvancedSettings,
                 provider,
                 GetCurrentGeneratorParameters());
-            SyncGenerationCostWithCurrentGeneratorState();
         }
 
         private void DrawGenerationSection(LeftPanelBottomDock.Layout layout)
@@ -307,8 +306,7 @@ namespace TJGenerators
                 !string.IsNullOrWhiteSpace(textPrompt),
                 StartGeneration,
                 null,
-                Repaint,
-                currentGenerationCost);
+                Repaint);
         }
 
         // ========== 历史生成记录面板 ==========
@@ -897,6 +895,7 @@ namespace TJGenerators
 
         private IEnumerator DownloadFile(string url, string assetPath)
         {
+            url = PathUtils.NormalizeRemoteUrl(url);
             string absolutePath = PathUtils.ToAbsoluteAssetPath(assetPath);
             string dir = Path.GetDirectoryName(absolutePath);
             if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))

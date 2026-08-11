@@ -284,9 +284,6 @@ namespace TJGenerators
                 showAdvancedSettings,
                 provider,
                 GetCurrentGeneratorParameters());
-            if (provider is DynamicGenerator dyn)
-                dyn.SyncReferenceImagesForCostPreview(!string.IsNullOrEmpty(referenceImagePath));
-            SyncGenerationCostWithCurrentGeneratorState();
         }
 
         private void DrawGenerationSection(LeftPanelBottomDock.Layout layout)
@@ -299,8 +296,7 @@ namespace TJGenerators
                 _currentGenerator != null && !string.IsNullOrEmpty(referenceImagePath),
                 StartGeneration,
                 null,
-                Repaint,
-                currentGenerationCost);
+                Repaint);
         }
 
         // ========== 历史记录 ==========

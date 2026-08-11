@@ -59,6 +59,7 @@ namespace TJGenerators.Pipeline
         /// 用 UnityWebRequest 下载 URL 到本地资产路径（写盘，不 Import）。
         /// 成功时 <paramref name="onSuccess"/> 收到字节；失败时 <paramref name="onError"/> 收到错误信息。
         /// </summary>
+        /// <remarks>入口调用 <see cref="PathUtils.NormalizeRemoteUrl"/>，仅替换 URL 反斜杠，不做 Uri 完整规范化。</remarks>
         public static IEnumerator DownloadUrlToFile(
             string url,
             string savePath,
@@ -66,6 +67,7 @@ namespace TJGenerators.Pipeline
             Action<byte[]> onSuccess = null,
             Action<string> onError = null)
         {
+            url = PathUtils.NormalizeRemoteUrl(url);
             if (string.IsNullOrEmpty(url) || string.IsNullOrEmpty(savePath))
             {
                 onError?.Invoke("Invalid download url or save path");
@@ -97,6 +99,7 @@ namespace TJGenerators.Pipeline
         /// 下载 URL 为字节（不写盘）。供音频/视频在改扩展名后再写盘使用。
         /// 成功时回调收到的字节可能为空，由调用方校验。
         /// </summary>
+        /// <remarks>入口调用 <see cref="PathUtils.NormalizeRemoteUrl"/>，仅替换 URL 反斜杠，不做 Uri 完整规范化。</remarks>
         public static IEnumerator DownloadUrlToBytes(
             string url,
             float timeout,
@@ -104,6 +107,7 @@ namespace TJGenerators.Pipeline
             Action<string> onError,
             string friendlyFailMessage = null)
         {
+            url = PathUtils.NormalizeRemoteUrl(url);
             using (UnityWebRequest uwr = UnityWebRequest.Get(url))
             {
                 uwr.downloadHandler = new DownloadHandlerBuffer();

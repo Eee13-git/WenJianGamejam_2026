@@ -166,16 +166,16 @@ namespace TJGenerators.Utils
             _translations["生成中..."] = "Generating...";
             _translations["生成模型"] = "Generate Model";
             _translations["生成中"] = "Generating";
-            _translations["正在 Play 模式，无法使用 AI 生成。Play 模式下生成的内容会在退出后丢失，请退出 Play 模式后在编辑模式下使用。"] =
-                "Can't use AI generation while in Play mode. Content generated in Play mode is lost on exit — please exit Play mode and use it in Edit mode.";
-            _translations["Play 模式下不可生成，请退出 Play 模式"] =
-                "Can't generate in Play mode — please exit Play mode";
-            _translations["Play 模式下不可搜索，请退出 Play 模式"] =
-                "Can't search in Play mode — please exit Play mode";
-            _translations["Play 模式下不可下载或放入场景，请退出 Play 模式"] =
-                "Can't download or place in scene while in Play mode — please exit Play mode";
-            _translations["Play 模式下不可搜索、下载或放入场景，请退出 Play 模式"] =
-                "Can't search, download, or place in scene while in Play mode — please exit Play mode";
+            _translations["请先退出 Play Mode。\n\nAI 生成只能在编辑模式下使用，Play 模式下的资产变更会在退出后丢失。"] =
+                "Exit Play Mode first.\n\nAI generation is only available in Edit mode. Asset changes made in Play mode are discarded on exit.";
+            _translations["请先退出 Play Mode 再生成"] =
+                "Exit Play Mode to generate";
+            _translations["请先退出 Play Mode 再搜索"] =
+                "Exit Play Mode to search";
+            _translations["请先退出 Play Mode 再下载或放入场景"] =
+                "Exit Play Mode to download or place in scene";
+            _translations["请先退出 Play Mode 再搜索、下载或放入场景"] =
+                "Exit Play Mode to search, download, or place in scene";
             _translations["文本提示词"] = "Prompt";
             _translations["在此处输入文本提示..."] = "Enter prompt here...";
             _translations["参考图片（可选）"] = "Ref Image (Opt.)";
@@ -732,6 +732,7 @@ namespace TJGenerators.Utils
             _translations["输入错误"] = "Input Error";
             _translations["响应数据无效"] = "Invalid response data";
             _translations["生成内容可能涉及敏感信息，请修改后重试"] = "Generated content may contain sensitive info. Please modify and retry.";
+            _translations["拦截原因"] = "Rejection reason";
             _translations["未找到模型下载URL"] = "Model download URL not found";
             _translations["未找到纹理资产下载URL"] = "Texture asset download URL not found";
             _translations["无法确定纹理资产保存路径"] = "Cannot determine texture asset save path";

@@ -245,7 +245,7 @@ namespace TJGenerators
                 {
                     Success = false,
                     ErrorCode = "PLAY_MODE",
-                    Message = TJGeneratorsPlayModeGuard.Message
+                    Message = TJGeneratorsPlayModeGuard.Message + "\n\nPlease exit Play Mode manually, then retry."
                 };
             }
 

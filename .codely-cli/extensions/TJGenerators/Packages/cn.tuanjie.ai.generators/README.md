@@ -18,7 +18,7 @@ TJGenerators for Unity 是一款强大的 AI 内容生成插件，集成团结 A
 |------|------|
 | **图片切割** | 对大图进行传统 CV 自动区域检测，预览并批量导出独立精灵（`AI/工具/图片切割`） |
 | **ESRGAN 图片放大** | Real-ESRGAN 超分（CustomTool `upscale_image`），支持 1x–8x、多种模型与可选人脸增强 |
-| **Game UI Kit** | 两步工作流（CustomTool `generate_game_ui_kit`）：文生游戏 UI 截图 → 品红底 UI 抠图拼版，便于提取 HUD/按钮等元素 |
+| **Game UI Kit** | 三步工作流（CustomTool `generate_game_ui_kit` + `slice_image`）：文生游戏 UI 截图 → 品红底 UI 抠图拼版 → CV 自动切割为独立 Sprite，便于提取 HUD/按钮等元素 |
 
 ### 🌌 天空盒生成
 
@@ -58,14 +58,14 @@ TJGenerators for Unity 是一款强大的 AI 内容生成插件，集成团结 A
 |--------|------|
 | **Sonilo 音乐生成** | 文生背景音乐，支持 1-180 秒时长，WAV/MP3 输出 |
 | **Sonilo 音效生成** | 文生音效（SFX），支持中英文，1-180 秒，WAV/MP3 输出 |
-| **MiniMax 语音合成** | 文生语音（TTS），支持预设语音角色与自定义 Voice ID |
+| **MiniMax 语音合成** | 文生语音（TTS），支持预设语音角色与自定义 Voice ID；省略 `voice_id` 时使用内置默认音色 |
 | **声音克隆** | 从音频样本克隆音色（CustomTool `voice_clone`），返回 `custom_voice_id` 可交给 TTS 使用 |
 
 ### 🎬 视频生成
 
 | 生成器 | 功能 | 特点 |
 |--------|------|------|
-| **Seedance 2** | 文生/图生视频 | 火山 Seedance 2，可选 Mini / 标准 / 快速模型，分辨率 480p / 720p |
+| **Seedance 2** | 文生/图生/多模态视频 | 火山 Seedance 2，支持 `first_frame` / `first_last_frame` / `multimodal`（参考视频 + 多参考图 + 音频参考）；可选 Mini / 标准 / 快速模型，4-15 秒，分辨率 480p / 720p |
 | **HappyHorse 1.1** | 文生/图生视频 | 阿里云 HappyHorse，支持首帧图生视频 |
 | **特效视频（生图+生视频）** | 文生/图生特效视频 | 绿幕输出，自动抠像生成 ChromaKey 材质，可一键在场景中创建特效播放器 |
 
@@ -87,7 +87,7 @@ TJGenerators for Unity 是一款强大的 AI 内容生成插件，集成团结 A
 - **配置驱动架构**：所有生成器通过 JSON 配置文件定义，添加新生成器无需编写 C# 代码
 - **公开 C# API**：支持在编辑器脚本中调用生成功能
 - **任务恢复机制**：编辑器意外关闭后自动恢复进行中的任务；CustomTool（图片、精灵、材质、音频、视频、特效视频、天空盒、地形、2D 序列帧、绑骨动画、图片放大、Game UI Kit 等）在 Domain Reload 后亦可自动恢复未完成生成；绑骨动画任务会持久化 `sessionId` 以便按会话恢复与通知
-- **Play 模式保护**：Unity 播放期间禁用生成、资产搜索、下载及场景放置操作，避免退出播放后生成内容被丢弃
+- **Play 模式保护**：Unity 播放期间禁用生成、资产搜索、下载及场景放置操作，避免退出播放后生成内容被丢弃；提示文案可点击直接退出 Play Mode
 - **历史记录管理**：按资产隔离历史记录，支持快速复用与在 Project 中定位；写入 `sessionId` 便于按 Agent 会话分组，可通过 `list_session_assets` CustomTool 查询
 - **资产 Label 自动注册**：编辑器启动时自动写入 `TuanjieAI` 标签；精灵表序列帧资产额外写入 `TuanjieAI_Frontier`（代码常量 `SpriteSheetLabel`），便于 Project 搜索与 Inspector 路由
 - **使用文档入口**：窗口标题栏帮助、`AI/✦ 玩转 AI 生成` 菜单，以及 Inspector「✦ AI 生成」按钮均链至官方使用指南

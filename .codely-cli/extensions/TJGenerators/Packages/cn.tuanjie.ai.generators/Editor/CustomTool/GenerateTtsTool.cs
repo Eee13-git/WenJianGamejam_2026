@@ -26,12 +26,16 @@ namespace UnityTcp.Editor.Tools
     /// </summary>
     public static class GenerateTtsTool
     {
+        /// <summary>Built-in MiniMax preset used when <c>voice_id</c> is omitted or blank.</summary>
+        internal const string DefaultVoiceId = "Chinese (Mandarin)_Gentleman";
+
         [ExecuteCustomTool.CustomTool("generate_tts",
             "Generate speech audio (TTS) from text using MiniMax TTS. " +
             "Supports Chinese (Mandarin), English, and Japanese voices with preset or custom voice IDs. " +
             "Output is an MP3 AudioClip asset saved to Assets/TJGenerators/History/. " +
             "Parameters: prompt (text to synthesize, required), " +
-            "voice_id (optional voice ID string, e.g. 'Chinese (Mandarin)_Gentleman'; default: 'Chinese (Mandarin)_Gentleman'), " +
+            "voice_id (optional; omit or empty → defaults to 'Chinese (Mandarin)_Gentleman'. " +
+            "For a custom voice: call voice_clone first, then pass the returned custom_voice_id here), " +
             "output_path (optional asset save path), " +
             "play_on_awake (optional bool, default false). " +
             "IMPORTANT: Generation takes 10-30 seconds. A placeholder_path (MP3) is returned immediately. " +
@@ -44,7 +48,7 @@ namespace UnityTcp.Editor.Tools
                 TJLog.Log($"[GenerateTtsTool] Generating TTS with parameters: {parameters}");
 
                 string prompt = parameters["prompt"]?.ToString();
-                string voiceId = parameters["voice_id"]?.ToString() ?? "Chinese (Mandarin)_Gentleman";
+                string voiceId = ResolveVoiceId(parameters);
                 string outputPath = parameters["output_path"]?.ToString();
                 string sessionId = parameters["session_id"]?.ToString() ?? "";
                 bool playOnAwake = parameters["play_on_awake"] != null ? parameters["play_on_awake"].ToObject<bool>() : false;
@@ -84,7 +88,7 @@ namespace UnityTcp.Editor.Tools
                 var generator = new DynamicGenerator(config);
                 generator.SetTextPrompt(prompt);
 
-                // Apply voiceId parameter
+                // Always apply resolved voiceId (default when omitted/blank) so backend never gets voiceid:""
                 ApplyTtsParameters(generator, parameters);
 
                 // 阶段1：同步提交任务到后端
@@ -375,11 +379,19 @@ namespace UnityTcp.Editor.Tools
             }
         }
 
+        /// <summary>
+        /// Resolves <c>voice_id</c>: omitted / null / whitespace → <see cref="DefaultVoiceId"/>.
+        /// Empty string from the agent must not reach the backend as <c>voiceid:""</c>.
+        /// </summary>
+        internal static string ResolveVoiceId(JObject parameters)
+        {
+            string voiceId = parameters?["voice_id"]?.ToString();
+            return string.IsNullOrWhiteSpace(voiceId) ? DefaultVoiceId : voiceId.Trim();
+        }
+
         private static void ApplyTtsParameters(DynamicGenerator generator, JObject parameters)
         {
-            string voiceId = parameters["voice_id"]?.ToString();
-            if (!string.IsNullOrEmpty(voiceId))
-                generator.SetParameter("voiceId", voiceId);
+            generator.SetParameter("voiceId", ResolveVoiceId(parameters));
         }
 
         /// <summary>Test hook for offline parameter-mapping checks.</summary>

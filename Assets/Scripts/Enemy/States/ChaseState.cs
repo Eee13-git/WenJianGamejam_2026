@@ -1,7 +1,10 @@
 using UnityEngine;
 
 /// <summary>
-/// 追击状态：加速追向玩家。进入攻击范围 → Attack；丢失视线 → Search；脱离探测范围 → Patrol/Idle。
+/// 追击状态：高速追向玩家。
+/// 脱战判定用 3× detectionRange（而非 detectionRange）防止刚进入追击就退出。
+/// 短暂失去视线不退出——只切 SearchState。
+/// 进入攻击范围 → Attack。
 /// </summary>
 public class ChaseState : EnemyStateBase
 {
@@ -17,11 +20,13 @@ public class ChaseState : EnemyStateBase
 
         Vector2 playerPos = Core.PlayerTarget.position;
         float sqrDist = ((Vector2)Core.transform.position - playerPos).sqrMagnitude;
-        float detectionSqr = Core.config.detectionRange * Core.config.detectionRange;
         float attackSqr = Core.config.attackRange * Core.config.attackRange;
 
-        // 超出探测范围 → 返回巡逻/空闲
-        if (sqrDist > detectionSqr)
+        // — 脱战判定：3× detectionRange，远大于初始发现距离 —
+        float leashRange = Core.config.detectionRange * 3f;
+        float leashSqr = leashRange * leashRange;
+
+        if (sqrDist > leashSqr)
         {
             Core.Movement?.Stop();
             if (Core.config.patrolPoints != null && Core.config.patrolPoints.Count > 0)
@@ -31,26 +36,25 @@ public class ChaseState : EnemyStateBase
             return;
         }
 
-        // 视线检测
+        // 视线检测（仅用作短暂丢失→搜索，不做退出）
         bool canSee = Core.Movement.HasLineOfSight(playerPos, Core.config.detectionRange);
 
         if (!canSee)
         {
-            // 丢失视线 → 搜索
             Core.StateMachine.ChangeState(new SearchState(Core));
             return;
         }
 
         Core.LastKnownPlayerPosition = playerPos;
 
-        // 进入攻击范围
+        // 进入攻击范围 → 攻击
         if (sqrDist <= attackSqr)
         {
             Core.StateMachine.ChangeState(new AttackState(Core));
             return;
         }
 
-        // 追击移动（加速）
+        // 追击移动
         if (Core.Movement != null)
         {
             Core.Movement.MoveSpeed = Core.config.chaseSpeed;

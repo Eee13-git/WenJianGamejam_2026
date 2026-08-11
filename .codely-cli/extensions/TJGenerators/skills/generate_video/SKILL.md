@@ -59,10 +59,10 @@ execute_custom_tool(
   tool_name="generate_video",
   parameters={
     "prompt": "a majestic dragon flying over a medieval castle, cinematic lighting",  # Required, English
-    "mode": "reference_image",   # "text_to_video" | "reference_image"，默认 "reference_image"；提供 image_path 时自动切换
+    "mode": "reference_image",   # "text_to_video" | "reference_image" | "first_frame" | "first_last_frame" | "multimodal"，默认 "reference_image"；提供 image_path 时自动切换，提供 video_path 时自动切换为 multimodal
     "resolution": "720p",        # "480p" | "720p"，默认 "720p"
-    "ratio": "16:9",             # "16:9" | "9:16" | "1:1"，默认 "16:9"
-    "duration": 12,              # 3–15 秒，默认 12
+    "ratio": "16:9",             # "16:9" | "9:16" | "1:1" | "4:3" | "3:4" | "21:9" | "adaptive"，默认 "16:9"
+    "duration": 12,              # 4–15 秒，默认 12
     "return_last_frame": True,   # 是否返回最后一帧作预览
     "image_path": "",            # 参考图路径（image-to-video 模式）
     # output_path: 不建议指定，默认 Assets/Video/
@@ -100,14 +100,25 @@ execute_custom_tool(
 ## 参数详解
 
 ### mode
-- `"text_to_video"`：纯文本生成
-- `"reference_image"`：图生视频（提供 `image_path` 时自动切换）
+- `"text_to_video"`：纯文本生成（无参考素材）
+- `"reference_image"`：多参考图生视频（1-9 张图，提供 `image_path` 或 `reference_images` 时自动切换）
+- `"first_frame"`：首帧生视频（`reference_images` 传 1 张图，自动检测）
+- `"first_last_frame"`：首尾帧生视频（`reference_images` 传 2 张图：首帧+尾帧，自动检测）
+- `"multimodal"`：多模态参考（提供 `video_path` 时自动切换；可同时传 `reference_images` 风格参考图和 `audio_paths` 音频参考）
 
 ### resolution
 - `"480p"` (854×480，更快) / `"720p"` (1280×720，更高质量)
 
+### model
+- `"doubao-seedance-2-0-mini-260615"`（Mini，默认）
+- `"doubao-seedance-2-0-260128"`（标准版）
+- `"doubao-seedance-2-0-fast-260128"`（快速版）
+
+### generate_audio
+是否为视频生成音频（默认 `true`）。设为 `false` 可加快生成速度。
+
 ### ratio
-- `"16:9"` 横屏 / `"9:16"` 竖屏 / `"1:1"` 方形
+- `"16:9"` 横屏 / `"9:16"` 竖屏 / `"1:1"` 方形 / `"4:3"` / `"3:4"` / `"21:9"` / `"adaptive"`
 
 > ⚠️ scene-to-video 时，`ratio` 必须匹配截图的宽高比：
 > - 1280×720 → `16:9`
@@ -115,7 +126,7 @@ execute_custom_tool(
 > - 1024×1024 → `1:1`
 
 ### duration
-- 3–5 秒：logo 动画、转场
+- 4–5 秒：logo 动画、转场
 - 6–10 秒：motion graphics、循环
 - 11–15 秒：cinematic 序列
 
@@ -123,7 +134,20 @@ execute_custom_tool(
 是否返回最后一帧（用作缩略图或提前查看）。
 
 ### image_path
-参考图路径（仅 `mode=reference_image` 时使用）。
+参考图路径（`reference_image` 模式使用单图，或 `first_frame` 模式使用首帧）。
+
+### reference_images
+多图路径数组：
+- `first_frame` 模式：传 1 张图（首帧）
+- `first_last_frame` 模式：传 2 张图（首帧 + 尾帧）
+- `reference_image` 模式：传 1-9 张参考图
+- `multimodal` 模式：传 0-9 张风格/角色参考图
+
+### video_path
+运镜/动作参考视频路径（`multimodal` 模式，自动上传到 TOS）。
+
+### audio_paths
+音频参考路径数组（`multimodal` 模式，最多 3 个，自动上传到 TOS）。用于提供节奏/氛围/配音参考。
 
 ## 使用示例
 
@@ -156,6 +180,50 @@ result = execute_custom_tool(
         "image_path": "Assets/Textures/forest_landscape.png",
         "mode": "reference_image",
         "duration": 12
+    }
+)
+```
+
+### 首帧生视频 (First Frame)
+
+```python
+result = execute_custom_tool(
+    tool_name="generate_video",
+    parameters={
+        "prompt": "camera slowly zooms into the character's face, dramatic lighting",
+        "reference_images": ["Assets/Textures/start_frame.png"],
+        "mode": "first_frame",
+        "duration": 8
+    }
+)
+```
+
+### 首尾帧生视频 (First + Last Frame)
+
+```python
+result = execute_custom_tool(
+    tool_name="generate_video",
+    parameters={
+        "prompt": "smooth transition from day to night, city skyline timelapse",
+        "reference_images": ["Assets/Textures/day_frame.png", "Assets/Textures/night_frame.png"],
+        "mode": "first_last_frame",
+        "duration": 10
+    }
+)
+```
+
+### 多模态参考（视频+图+音频）
+
+```python
+result = execute_custom_tool(
+    tool_name="generate_video",
+    parameters={
+        "prompt": "Refer to @Video 1 for camera movement and pacing. Refer to @Image 1 for style. Epic fantasy scene.",
+        "video_path": "Assets/Videos/reference_motion.mp4",
+        "reference_images": ["Assets/Textures/style_ref.png"],
+        "audio_paths": ["Assets/Audio/bgm_reference.mp3"],
+        "mode": "multimodal",
+        "duration": 8
     }
 )
 ```
@@ -354,6 +422,14 @@ public class SceneTransitionManager : MonoBehaviour
 | Scene 截图为黑屏 | 进入 Play Mode 太快 | 截图前等 1–2 秒，确认 Main Camera 渲染配置 |
 | 宣传视频音频不播放 | AudioSource 未配置 | 设 `audioOutputMode = AudioSource`，添加并启用 AudioSource |
 | 转场太短/太长 | duration 不当 | 调整 `duration`（快速转场 2–5 秒，多数 12 秒） |
+| 内容策略拦截（`content_moderation`） | 版权角色名等敏感词触发平台审核，策略不可绕过 | 把拦截原因告知用户；如用户需要类似资产，先说明资产库不保证有合适内容，再询问是否改用 `search_assets` |
+
+**内容策略拦截处理（不改写 prompt）：**
+
+1. 直接告知用户："生成被内容策略拒绝，原因：{拦截原因}"（从错误消息里的「拦截原因」后取；若无则只说被拒绝）
+2. 说明这是平台限制，无法通过修改 prompt 绕过
+3. 提示："也可以尝试从资产库搜索，但不保证有合适的资产，是否搜索？"
+4. **仅在用户确认后**再 `activate_skill("unity-asset-search")`；不要擅自改写 prompt 重试生成
 
 ### Domain reload 后 task 丢失
 

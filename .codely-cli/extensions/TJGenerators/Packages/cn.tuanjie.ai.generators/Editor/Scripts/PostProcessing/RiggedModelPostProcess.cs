@@ -19,6 +19,7 @@ namespace TJGenerators.PostProcessing
             {
                 modelImporter.animationType = ModelImporterAnimationType.Human;
                 modelImporter.importAnimation = false;
+                modelImporter.isReadable = true;
                 modelImporter.SaveAndReimport();
                 TJLog.Log($"[RiggedModelPostProcess] 绑骨模型 Humanoid 导入（不内嵌动画剪辑）: {assetPath}");
             }
@@ -127,16 +128,45 @@ namespace TJGenerators.PostProcessing
             return success;
         }
 
-        public static void SetupAnimationImport(string assetPath)
+        public static void SetupAnimationImport(string assetPath, bool loopTime = true)
         {
             ModelImporter modelImporter = AssetImporter.GetAtPath(assetPath) as ModelImporter;
             if (modelImporter != null)
             {
                 modelImporter.animationType = ModelImporterAnimationType.Human;
                 modelImporter.importAnimation = true;
+                modelImporter.isReadable = true;
+                var clips = modelImporter.defaultClipAnimations;
+                if (clips != null && clips.Length > 0)
+                {
+                    foreach (var clip in clips)
+                        clip.loopTime = loopTime;
+                    modelImporter.clipAnimations = clips;
+                }
                 modelImporter.SaveAndReimport();
-                TJLog.Log($"[RiggedModelPostProcess] 动画导入配置完成: {assetPath}");
+                TJLog.Log($"[RiggedModelPostProcess] 动画导入配置完成: {assetPath}, loopTime={loopTime}");
             }
+        }
+
+        /// <summary>
+        /// 检查模型上是否至少有一个材质槽绑定了有效主贴图（mainTexture / _BaseMap / _MainTex）。
+        /// </summary>
+        private static bool HasValidMainTexture(string assetPath)
+        {
+            var root = AssetDatabase.LoadAssetAtPath<GameObject>(assetPath);
+            if (root == null) return false;
+            foreach (var rend in root.GetComponentsInChildren<Renderer>(true))
+            {
+                if (rend.sharedMaterials == null) continue;
+                foreach (var mat in rend.sharedMaterials)
+                {
+                    if (mat == null) continue;
+                    if (mat.mainTexture != null) return true;
+                    if (mat.HasProperty("_BaseMap") && mat.GetTexture("_BaseMap") != null) return true;
+                    if (mat.HasProperty("_MainTex") && mat.GetTexture("_MainTex") != null) return true;
+                }
+            }
+            return false;
         }
 
         /// <summary>
@@ -440,8 +470,11 @@ namespace TJGenerators.PostProcessing
             if (!string.IsNullOrEmpty(sourceAssetPath))
             {
                 int materialsApplied = ApplyMaterialsFromSourceModelToRiggedModel(sourceAssetPath, riggedAssetPath);
-                if (materialsApplied > 0)
+                if (materialsApplied > 0 && HasValidMainTexture(riggedAssetPath))
                     return materialsApplied;
+                // 贴图槽为空：继续走后续 rendered_image / .fbm 路径
+                if (materialsApplied > 0)
+                    TJLog.LogWarning($"[RiggedModelPostProcess] 源模型材质已复用但主贴图为空，继续尝试 rendered_image: {riggedAssetPath}");
             }
 
             if (!string.IsNullOrEmpty(renderedTexturePath))
@@ -449,7 +482,8 @@ namespace TJGenerators.PostProcessing
                 int extracted = ExtractMaterialsAndApplyTextureToRiggedModel(riggedAssetPath, renderedTexturePath);
                 if (extracted > 0)
                     return extracted;
-                return ApplyTextureDirectlyToRiggedModel(riggedAssetPath, renderedTexturePath);
+                TJLog.LogWarning($"[RiggedModelPostProcess] 材质外部化失败，rendered_image 贴图未写入: {riggedAssetPath}");
+                return 0;
             }
 
             if (string.IsNullOrEmpty(sourceAssetPath))
@@ -464,39 +498,6 @@ namespace TJGenerators.PostProcessing
             }
 
             return 0;
-        }
-
-        private static int ApplyTextureDirectlyToRiggedModel(string riggedAssetPath, string textureAssetPath)
-        {
-            Texture2D texture = AssetDatabase.LoadAssetAtPath<Texture2D>(textureAssetPath);
-            if (texture == null)
-                return 0;
-
-            var modelPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(riggedAssetPath);
-            if (modelPrefab == null)
-                return 0;
-
-            int applied = 0;
-            foreach (var rend in modelPrefab.GetComponentsInChildren<Renderer>())
-            {
-                if (rend.sharedMaterials == null) continue;
-                foreach (var mat in rend.sharedMaterials)
-                {
-                    if (mat == null) continue;
-                    mat.mainTexture = texture;
-                    if (mat.HasProperty("_BaseMap"))
-                        mat.SetTexture("_BaseMap", texture);
-                    if (mat.HasProperty("_MainTex"))
-                        mat.SetTexture("_MainTex", texture);
-                    EditorUtility.SetDirty(mat);
-                    applied++;
-                }
-            }
-
-            if (applied > 0)
-                AssetDatabase.SaveAssets();
-
-            return applied;
         }
 
         /// <summary>
@@ -516,9 +517,14 @@ namespace TJGenerators.PostProcessing
             if (!string.IsNullOrEmpty(absFbmDir) && Directory.Exists(absFbmDir))
             {
                 string[] texFiles = Directory.GetFiles(absFbmDir, "*.png", SearchOption.TopDirectoryOnly)
-                    .Concat(Directory.GetFiles(absFbmDir, "*.jpg", SearchOption.TopDirectoryOnly))
+                    .Concat(Directory.GetFiles(absFbmDir, "*.jpg",  SearchOption.TopDirectoryOnly))
+                    .Concat(Directory.GetFiles(absFbmDir, "*.jpeg", SearchOption.TopDirectoryOnly))
                     .Concat(Directory.GetFiles(absFbmDir, "*.webp", SearchOption.TopDirectoryOnly))
                     .ToArray();
+
+                bool hasWebp = texFiles.Any(f => f.EndsWith(".webp", StringComparison.OrdinalIgnoreCase));
+                if (hasWebp)
+                    TJLog.LogWarning($"[RiggedModelPostProcess] 贴图目录含 .webp 文件，Unity 2021.2 以下版本可能无法导入: {absFbmDir}");
 
                 string primary = texFiles.FirstOrDefault(f =>
                 {
@@ -548,11 +554,15 @@ namespace TJGenerators.PostProcessing
                 string absModelDir = PathUtils.ToAbsoluteAssetPath(modelDir);
                 if (!string.IsNullOrEmpty(absModelDir) && Directory.Exists(absModelDir))
                 {
-                    foreach (string ext in new[] { ".png", ".jpg", ".webp" })
+                    foreach (string ext in new[] { ".png", ".jpg", ".jpeg", ".webp" })
                     {
                         string absTexPath = Path.Combine(absModelDir, baseName + ext).Replace("\\", "/");
                         if (File.Exists(absTexPath))
+                        {
+                            if (ext == ".webp")
+                                TJLog.LogWarning($"[RiggedModelPostProcess] 找到 .webp 贴图，Unity 2021.2 以下版本可能无法导入: {absTexPath}");
                             return PathUtils.AbsolutePathToAssetsRelative(absTexPath);
+                        }
                     }
                 }
             }

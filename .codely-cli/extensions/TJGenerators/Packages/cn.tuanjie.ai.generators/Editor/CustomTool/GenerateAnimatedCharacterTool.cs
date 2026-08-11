@@ -349,6 +349,9 @@ namespace UnityTcp.Editor.Tools
 
         public override void OnGenerationCompleted(string modelPath)
         {
+            if (!string.IsNullOrEmpty(modelPath))
+                PathUtils.EnsureModelImporterReadable(modelPath);
+
             // Called by CompleteGeneration() — model was downloaded and bound to prefab.
             // Update ALL tracker tasks that share the same backendTaskId or prefab path so that
             // the original animated_character_N_... task is also marked completed, not just the
@@ -1061,8 +1064,13 @@ namespace UnityTcp.Editor.Tools
                     if (AssetDatabase.LoadAssetAtPath<UnityEngine.Object>(modelUnity) == null)
                     {
                         AssetDatabase.ImportAsset(modelUnity, ImportAssetOptions.ForceSynchronousImport);
+                        PathUtils.EnsureModelImporterReadable(modelUnity);
                         if (AssetDatabase.LoadAssetAtPath<UnityEngine.Object>(modelUnity) == null)
                             continue;
+                    }
+                    else
+                    {
+                        PathUtils.EnsureModelImporterReadable(modelUnity);
                     }
 
                     task.Status    = "completed";
@@ -1280,6 +1288,7 @@ namespace UnityTcp.Editor.Tools
             importer.animationType = ModelImporterAnimationType.Human;
             if (isMainModel && hasAnimationFiles)
                 importer.importAnimation = false;
+            importer.isReadable = true;
             AssetDatabase.WriteImportSettingsIfDirty(path);
             AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceUpdate);
         }

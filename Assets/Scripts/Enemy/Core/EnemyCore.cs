@@ -83,16 +83,30 @@ public class EnemyCore : MonoBehaviour, IEnemy
 
     private void Start()
     {
-        var player = GameObject.FindGameObjectWithTag("Player");
-        if (player != null) PlayerTarget = player.transform;
+        // ── 懒加载玩家引用 ──
+        StartCoroutine(LazyFindPlayer());
 
-        // 启动默认状态（若存在巡逻点则 Patrol，否则 Idle）
+        // 启动默认状态
         if (StateMachine != null)
         {
             if (config != null && config.patrolPoints != null && config.patrolPoints.Count > 0)
                 StateMachine.ChangeState(new PatrolState(this));
             else
                 StateMachine.ChangeState(new IdleState(this));
+        }
+    }
+
+    private System.Collections.IEnumerator LazyFindPlayer()
+    {
+        // 优先从 PlayerManager 拿（更可靠，避免 FindGameObjectWithTag 在 tag 变更后失效）
+        while (PlayerTarget == null)
+        {
+            if (PlayerManager.Instance != null && PlayerManager.Instance.CurrentPlayer != null)
+                PlayerTarget = PlayerManager.Instance.CurrentPlayer.transform;
+            else
+                PlayerTarget = GameObject.FindGameObjectWithTag("Player")?.transform;
+
+            yield return new WaitForSeconds(0.3f);
         }
     }
 
@@ -114,11 +128,6 @@ public class EnemyCore : MonoBehaviour, IEnemy
 
     public float GetAttackStrength()
     {
-        // 优先从 MeleeAttack 组件读取伤害值
-        if (AttackBehavior is MeleeAttack melee)
-            return melee.damage;
-        if (AttackBehavior is RangedAttack ranged)
-            return ranged.damage;
         return 10f;
     }
 

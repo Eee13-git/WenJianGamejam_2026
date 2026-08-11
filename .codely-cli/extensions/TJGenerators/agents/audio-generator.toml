@@ -59,4 +59,4 @@ allowed_tools = [
 allowed_skills = ["unity-audio-clip-generation", "unity-sound-effect-generation"]
 
 [validation]
-input_schema = { task = "string", prompt = "string?", audio_type = "string?", output_path = "string?", context = "string?", constraints = "string?" }
+input_schema = { task = "string", prompt = "string?", audio_type = "string?", duration_seconds = "number?", output_format = "string?", play_on_awake = "bool?", output_path = "string?", context = "string?", constraints = "string?" }

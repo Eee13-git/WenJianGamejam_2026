@@ -3,6 +3,8 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
+using Codely.Newtonsoft.Json;
+using Codely.Newtonsoft.Json.Linq;
 using UnityEngine.Networking;
 using UnityEditor;
 using UnityEngine;
@@ -35,6 +37,8 @@ namespace TJGenerators
 
         private readonly List<string> referenceImagePaths = new List<string>();
         private readonly List<Texture2D> referenceUploadedImages = new List<Texture2D>();
+
+        private string referenceVideoPath = "";
 
         private double _lastProgressRepaintTime;
 
@@ -268,6 +272,37 @@ namespace TJGenerators
             var genConfig = GetCurrentGeneratorConfig();
             textPrompt = DrawConfiguredTextPromptInput(textPrompt, "video_prompt_input", genConfig);
 
+            // Read current mode parameter value
+            string currentMode = GetCurrentModeValue();
+
+            // Show video upload slot for multimodal mode
+            if (currentMode == "multimodal")
+            {
+                GUILayout.Space(CommonStyles.Space3);
+                GUILayout.Label(TJGeneratorsL10n.L("参考视频（运镜/动作）"), CommonStyles.HeaderStyle);
+                EditorGUI.BeginChangeCheck();
+                var newVideoPath = EditorGUILayout.TextField("", referenceVideoPath);
+                if (EditorGUI.EndChangeCheck())
+                    referenceVideoPath = newVideoPath;
+
+                Rect dropRect = GUILayoutUtility.GetLastRect();
+                HandleVideoDragAndDrop(dropRect);
+
+                if (GUILayout.Button(TJGeneratorsL10n.L("选择视频文件"), GUILayout.Height(22)))
+                {
+                    string selected = EditorUtility.OpenFilePanel(
+                        TJGeneratorsL10n.L("选择参考视频"),
+                        "Assets",
+                        "mp4");
+                    if (!string.IsNullOrEmpty(selected))
+                    {
+                        string relPath = PathUtils.TryGetAssetsRelativePathFromAbsolute(selected);
+                        referenceVideoPath = !string.IsNullOrEmpty(relPath) ? relPath : selected;
+                        Repaint();
+                    }
+                }
+            }
+
             if (ShouldShowImageUpload(genConfig))
             {
                 GUILayout.Space(CommonStyles.Space3);
@@ -275,6 +310,43 @@ namespace TJGenerators
                     referenceImagePaths,
                     referenceUploadedImages,
                     "video_reference_upload");
+            }
+        }
+
+        private string GetCurrentModeValue()
+        {
+            if (_currentGenerator is DynamicGenerator dynamicGen)
+            {
+                var modeParam = dynamicGen.GetParameter("mode");
+                if (modeParam != null) return modeParam.ToString();
+            }
+            return "reference_image";
+        }
+
+        private void HandleVideoDragAndDrop(Rect dropRect)
+        {
+            Event evt = Event.current;
+            if (evt == null) return;
+
+            if (evt.type == EventType.DragUpdated && dropRect.Contains(evt.mousePosition))
+            {
+                DragAndDrop.visualMode = DragAndDropVisualMode.Copy;
+                evt.Use();
+            }
+            else if (evt.type == EventType.DragPerform && dropRect.Contains(evt.mousePosition))
+            {
+                DragAndDrop.AcceptDrag();
+                if (DragAndDrop.paths != null && DragAndDrop.paths.Length > 0)
+                {
+                    string path = DragAndDrop.paths[0];
+                    if (!string.IsNullOrEmpty(path) &&
+                        (path.EndsWith(".mp4", StringComparison.OrdinalIgnoreCase)))
+                    {
+                        referenceVideoPath = path;
+                        Repaint();
+                    }
+                }
+                evt.Use();
             }
         }
 
@@ -289,12 +361,16 @@ namespace TJGenerators
                 provider,
                 allParams
             );
-            SyncGenerationCostWithCurrentGeneratorState();
         }
 
         private void DrawGenerationSection(LeftPanelBottomDock.Layout layout)
         {
-            bool canGenerate = !string.IsNullOrWhiteSpace(textPrompt);
+            string currentMode = GetCurrentModeValue();
+            bool canGenerate;
+            if (currentMode == "multimodal")
+                canGenerate = !string.IsNullOrWhiteSpace(textPrompt) || !string.IsNullOrEmpty(referenceVideoPath);
+            else
+                canGenerate = !string.IsNullOrWhiteSpace(textPrompt);
             UIComponents.DrawGenerationSectionAt(
                 layout,
                 isGenerating,
@@ -311,8 +387,7 @@ namespace TJGenerators
                         _lastProgressRepaintTime = t;
                         Repaint();
                     }
-                },
-                currentGenerationCost);
+                });
         }
 
         private void DrawHistoryPanel(float panelWidth)
@@ -759,13 +834,78 @@ namespace TJGenerators
             string promptToSend = textPrompt.Trim();
             if (_currentGenerator is DynamicGenerator dynamicGen)
             {
+                // Clear leftover multimodal fields (e.g. videos) from a previous run on the reused generator.
+                dynamicGen.ClearExtraRawJsonFields();
+
                 dynamicGen.SetTextPrompt(promptToSend);
                 dynamicGen.SetImagePaths(hasImage ? referenceImagePaths : null);
 
-                // Auto-set mode based on whether a reference image is provided:
-                // image present → reference_image, text-only → text_to_video
-                string mode = hasImage ? "reference_image" : "text_to_video";
-                dynamicGen.SetParameter("mode", mode);
+                // Determine mode based on inputs and dropdown
+                string mode = GetCurrentModeValue();
+
+                // Validate image requirements for image-dependent modes
+                if (mode == "first_frame" && referenceImagePaths.Count < 1)
+                {
+                    ErrorDialogUtils.ShowErrorDialog(
+                        TJGeneratorsL10n.L("错误"),
+                        TJGeneratorsL10n.L("首帧生视频需要上传 1 张图片。"),
+                        LogTag);
+                    return;
+                }
+                if (mode == "first_last_frame" && referenceImagePaths.Count < 2)
+                {
+                    ErrorDialogUtils.ShowErrorDialog(
+                        TJGeneratorsL10n.L("错误"),
+                        TJGeneratorsL10n.L("首尾帧生视频需要上传 2 张图片（首帧 + 尾帧）。"),
+                        LogTag);
+                    return;
+                }
+                if (mode == "reference_image" && !hasImage)
+                {
+                    ErrorDialogUtils.ShowErrorDialog(
+                        TJGeneratorsL10n.L("错误"),
+                        TJGeneratorsL10n.L("图生视频需要上传参考图片。"),
+                        LogTag);
+                    return;
+                }
+
+                if (mode == "multimodal" && !string.IsNullOrEmpty(referenceVideoPath))
+                {
+                    // Upload video to TOS
+                    string absVideoPath = PathUtils.ToAbsoluteAssetPath(referenceVideoPath);
+                    if (!File.Exists(absVideoPath))
+                    {
+                        ErrorDialogUtils.ShowErrorDialog(
+                            TJGeneratorsL10n.L("错误"),
+                            TJGeneratorsL10n.L("参考视频文件不存在: ") + referenceVideoPath,
+                            LogTag);
+                        return;
+                    }
+
+                    string videoTosUrl = UploadVideoToTOS(absVideoPath);
+                    if (string.IsNullOrEmpty(videoTosUrl))
+                    {
+                        ErrorDialogUtils.ShowErrorDialog(
+                            TJGeneratorsL10n.L("错误"),
+                            TJGeneratorsL10n.L("参考视频上传失败"),
+                            LogTag);
+                        return;
+                    }
+
+                    dynamicGen.SetExtraRawJsonField("videos", "[" + JsonConvert.SerializeObject(videoTosUrl) + "]");
+                    dynamicGen.SetParameter("mode", "multimodal");
+                }
+                else if (mode == "multimodal")
+                {
+                    // No video uploaded — fall back to reference_image
+                    dynamicGen.SetParameter("mode", hasImage ? "reference_image" : "text_to_video");
+                }
+                else
+                {
+                    // first_frame, first_last_frame, reference_image, text_to_video
+                    // Images are already set above via SetImagePaths
+                    dynamicGen.SetParameter("mode", mode);
+                }
             }
 
             isGenerating = true;
@@ -961,6 +1101,34 @@ namespace TJGenerators
 
             TJGeneratorsGenerationLabel.EnableLabel(targetVideoAsset);
             Repaint();
+        }
+
+        private string UploadVideoToTOS(string absVideoPath)
+        {
+            string uploadUrl = ConfigManager.GetApiBaseUrl() + "upload/video";
+            var multipart = new MultipartRequestData
+            {
+                FilePath = absVideoPath,
+                FileName = Path.GetFileName(absVideoPath),
+                FileFieldName = "video"
+            };
+            var httpResult = GenerationBackendSyncSubmit.PostMultipart(
+                uploadUrl, multipart, GenerationRequestOrigin.Agent, "", 120f);
+            if (!httpResult.IsSuccess)
+            {
+                TJLog.LogError("[TJGeneratorsVideo] Video upload failed: " + httpResult.Error);
+                return null;
+            }
+            try
+            {
+                var resp = JObject.Parse(httpResult.Body);
+                return resp["url"]?.ToString();
+            }
+            catch (Exception e)
+            {
+                TJLog.LogError("[TJGeneratorsVideo] Parse upload response failed: " + e.Message);
+                return null;
+            }
         }
 
         private void PingTargetVideoInProject(string assetPath)

@@ -62,4 +62,4 @@ allowed_tools = [
 allowed_skills = ["unity-video-generation"]
 
 [validation]
-input_schema = { task = "string", prompt = "string?", mode = "string?", resolution = "string?", ratio = "string?", duration = "number?", image_path = "string?", output_path = "string?", context = "string?", constraints = "string?" }
+input_schema = { task = "string", prompt = "string?", mode = "string?", model = "string?", resolution = "string?", ratio = "string?", duration = "number?", image_path = "string?", video_path = "string?", reference_images = "array?", audio_paths = "array?", generate_audio = "boolean?", return_last_frame = "boolean?", output_path = "string?", context = "string?", constraints = "string?" }

@@ -82,8 +82,6 @@ namespace TJGenerators.AssetSearch
         private bool                _busy;
         private string              _errorText;
         private AssetSearchResponse _response;
-        private int _currentCredits;
-        private bool _hasLoadedUserInfo;
 
         // ===== Preview Cache =====
         private readonly Dictionary<string, Texture2D>                          _previewCache   = new Dictionary<string, Texture2D>();
@@ -136,7 +134,6 @@ namespace TJGenerators.AssetSearch
         private Texture2D _searchListItemFrameSelectedTex;
         private Texture2D _searchItemButtonTex;
         private Texture2D _searchButtonIcon;
-        private UserInfoBar.CreditsTextLayoutCache _creditsTextCache;
 
         // ===== Open =====
 
@@ -396,9 +393,6 @@ namespace TJGenerators.AssetSearch
                 position.height,
                 splitLayout.LeftPanelWidth,
                 DrawSearchActionPanel,
-                _hasLoadedUserInfo,
-                _currentCredits,
-                ref _creditsTextCache,
                 playModeHint: TJGeneratorsPlayModeGuard.SearchShortHint);
         }
 
@@ -769,14 +763,7 @@ namespace TJGenerators.AssetSearch
             EditorCoroutineUtility.StartCoroutineOwnerless(
                 UserInfoHelper.GetUserInfoCoroutine(
                     ConfigManager.GetUserInfoUrl(),
-                    credits =>
-                    {
-                        if (!credits.HasValue)
-                            return;
-                        _currentCredits = credits.Value;
-                        _hasLoadedUserInfo = true;
-                        Repaint();
-                    }));
+                    _ => Repaint()));
         }
 
         // ===== Card =====

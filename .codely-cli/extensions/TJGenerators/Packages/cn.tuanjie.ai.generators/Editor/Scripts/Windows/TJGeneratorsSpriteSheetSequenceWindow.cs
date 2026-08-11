@@ -348,13 +348,6 @@ namespace TJGenerators
                 provider,
                 filteredParams
             );
-
-            if (provider is DynamicGenerator dynamicGenerator)
-            {
-                bool hasReferenceImages = referenceImagePaths != null && referenceImagePaths.Count > 0;
-                dynamicGenerator.SyncReferenceImagesForCostPreview(hasReferenceImages);
-            }
-            SyncGenerationCostWithCurrentGeneratorState();
         }
 
         private void DrawGenerationSection(LeftPanelBottomDock.Layout layout)
@@ -368,8 +361,7 @@ namespace TJGenerators
                 canGenerate,
                 StartGeneration,
                 null,
-                Repaint,
-                currentGenerationCost
+                Repaint
             );
         }
 

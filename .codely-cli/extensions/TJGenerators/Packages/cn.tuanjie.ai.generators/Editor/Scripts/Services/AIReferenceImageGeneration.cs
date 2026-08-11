@@ -441,7 +441,7 @@ namespace TJGenerators
             string fieldName = config.request?.referenceImagesField ?? "imageUrls";
             var arr = new JArray();
             foreach (string url in referenceImageUrls)
-                arr.Add(url);
+                arr.Add(PathUtils.NormalizeRemoteUrl(url));
             o[fieldName] = arr;
         }
 
@@ -486,7 +486,7 @@ namespace TJGenerators
             }
 
             string imageUrlPath = resp?.imageUrlPath ?? "output.data.image_urls[0]";
-            string imageUrl = ExtractJsonValue(responseText, imageUrlPath);
+            string imageUrl = PathUtils.NormalizeRemoteUrl(ExtractJsonValue(responseText, imageUrlPath));
             if (string.IsNullOrEmpty(imageUrl))
             {
                 onFail?.Invoke($"Cannot extract image URL from path '{imageUrlPath}'");
@@ -501,6 +501,7 @@ namespace TJGenerators
             Action<string, Texture2D, string> onSuccess,
             Action<string> onFail)
         {
+            imageUrl = PathUtils.NormalizeRemoteUrl(imageUrl);
             using (UnityWebRequest uwr = UnityWebRequestTexture.GetTexture(imageUrl))
             {
                 uwr.timeout = ImageDownloadTimeoutSeconds;

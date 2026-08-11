@@ -21,15 +21,7 @@ namespace TJGenerators.UI
     public abstract class GenerationWindowBase : EditorWindow
     {
         // ========== 用户信息 ==========
-        protected int currentCredits;
-        protected bool hasLoadedUserInfo;
-        private UserInfoBar.CreditsTextLayoutCache _creditsTextCache;
-        protected int currentGenerationCost;
-        private readonly Dictionary<string, int> _generationCostCache =
-            new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-        private readonly List<GenerationCreditHelper.CostComponent> _estimatedCostComponents =
-            new List<GenerationCreditHelper.CostComponent>();
-        private int _lastGeneratorCostFactorsHash = int.MinValue;
+        // LastUserInfo 由 UserInfoHelper 维护，底部栏直接读取邮箱
 
         // ========== 生成器相关 ==========
         protected List<ModelGeneratorBase> _generators;
@@ -247,14 +239,10 @@ namespace TJGenerators.UI
         }
 
         /// <summary>
-        /// 标准的用户信息加载回调，设置 currentCredits、hasLoadedUserInfo 并刷新界面。
+        /// 标准的用户信息加载回调（邮箱等已写入 <see cref="UserInfoHelper.LastUserInfo"/>）。
         /// </summary>
         protected void OnUserInfoLoaded(int? credits)
         {
-            if (credits == null)
-                return;
-            currentCredits = credits.Value;
-            hasLoadedUserInfo = true;
             Repaint();
         }
 
@@ -284,9 +272,6 @@ namespace TJGenerators.UI
                 position.height,
                 leftPanelWidth,
                 drawAction,
-                hasLoadedUserInfo,
-                currentCredits,
-                ref _creditsTextCache,
                 GetStatusBarEmail());
         }
 
@@ -626,8 +611,6 @@ namespace TJGenerators.UI
             {
                 currentSelectedModel = BuildModelInfoFromGenerator(_currentGenerator);
             }
-            ResetGenerationCostFactorsTracking();
-            RefreshGenerationCost();
         }
 
         /// <summary>
@@ -748,7 +731,7 @@ namespace TJGenerators.UI
         }
 
         /// <summary>
-        /// 刷新用户信息（积分等）。子类可直接使用或重写。
+        /// 刷新用户信息。子类可直接使用或重写。
         /// </summary>
         public virtual void RefreshUserInfo()
         {
@@ -789,8 +772,6 @@ namespace TJGenerators.UI
                 _currentGenerator = _generators[indexed];
                 currentSelectedModel = model;
                 ResetInputStateAfterModelChange();
-                ResetGenerationCostFactorsTracking();
-                RefreshGenerationCost();
                 Repaint();
                 return;
             }
@@ -804,8 +785,6 @@ namespace TJGenerators.UI
                 _currentGenerator = _generators[i];
                 currentSelectedModel = model;
                 ResetInputStateAfterModelChange();
-                ResetGenerationCostFactorsTracking();
-                RefreshGenerationCost();
                 Repaint();
                 return;
             }
@@ -823,101 +802,6 @@ namespace TJGenerators.UI
         {
             if (!ShouldShowTextInput(config))
                 prompt = string.Empty;
-        }
-
-        protected void ResetGenerationCostFactorsTracking()
-        {
-            _lastGeneratorCostFactorsHash = int.MinValue;
-        }
-
-        /// <summary>
-        /// 根据 <see cref="DynamicGenerator"/> 当前输入模式、参考图、高级参数等刷新按钮积分展示。
-        /// 在参数 UI 每帧绘制末尾调用，仅在影响因素变化时请求接口。
-        /// </summary>
-        public void TryRefreshGenerationCostFromGenerator(DynamicGenerator generator)
-        {
-            if (generator == null)
-                return;
-
-            int hash = generator.ComputeCostFactorsHash();
-            if (hash == _lastGeneratorCostFactorsHash)
-                return;
-
-            _lastGeneratorCostFactorsHash = hash;
-            RefreshGenerationCost();
-        }
-
-        protected void SyncGenerationCostWithCurrentGeneratorState()
-        {
-            if (_currentGenerator is DynamicGenerator dyn)
-                TryRefreshGenerationCostFromGenerator(dyn);
-        }
-
-        protected void RefreshGenerationCost()
-        {
-            if (_currentGenerator is DynamicGenerator dynamicGenerator)
-            {
-                dynamicGenerator.BuildEstimatedCostComponents(_estimatedCostComponents);
-                if (_estimatedCostComponents.Count == 0)
-                {
-                    ApplyGenerationCost(0);
-                    return;
-                }
-
-                string cacheKey = GenerationCreditHelper.BuildTotalCostCacheKey(_estimatedCostComponents);
-                if (!string.IsNullOrEmpty(cacheKey) && _generationCostCache.TryGetValue(cacheKey, out int cached))
-                {
-                    ApplyGenerationCost(cached);
-                    return;
-                }
-
-                EditorCoroutineUtility.StartCoroutineOwnerless(
-                    GenerationCreditHelper.GetTotalGenerationCostCoroutine(
-                        _estimatedCostComponents,
-                        cost =>
-                        {
-                            int resolved = Mathf.Max(0, cost ?? 0);
-                            if (!string.IsNullOrEmpty(cacheKey))
-                                _generationCostCache[cacheKey] = resolved;
-                            ApplyGenerationCost(resolved);
-                        }));
-                return;
-            }
-
-            string modelId = currentSelectedModel?.Id ?? _currentGenerator?.GeneratorId;
-            if (string.IsNullOrEmpty(modelId))
-            {
-                ApplyGenerationCost(0);
-                return;
-            }
-
-            string apiEndpoint = _currentGenerator?.ApiEndpoint;
-            string singleCacheKey = GenerationCreditHelper.BuildCostCacheKey(modelId, apiEndpoint);
-            if (!string.IsNullOrEmpty(singleCacheKey) && _generationCostCache.TryGetValue(singleCacheKey, out int singleCached))
-            {
-                ApplyGenerationCost(singleCached);
-                return;
-            }
-
-            EditorCoroutineUtility.StartCoroutineOwnerless(
-                GenerationCreditHelper.GetGenerationCostByIdCoroutine(
-                    modelId,
-                    apiEndpoint,
-                    cost =>
-                    {
-                        int resolved = Mathf.Max(0, cost ?? 0);
-                        if (!string.IsNullOrEmpty(singleCacheKey))
-                            _generationCostCache[singleCacheKey] = resolved;
-                        ApplyGenerationCost(resolved);
-                    }));
-        }
-
-        protected void ApplyGenerationCost(int cost)
-        {
-            currentGenerationCost = Mathf.Max(0, cost);
-            if (_currentGenerator is DynamicGenerator dynamicGenerator)
-                dynamicGenerator.SetGenerateCost(currentGenerationCost);
-            Repaint();
         }
 
         /// <summary>
@@ -1027,7 +911,7 @@ namespace TJGenerators.UI
             => config?.uiLayout == null || config.uiLayout.showImageUpload;
 
         /// <summary>
-        /// 当前生成器禁用参考图上传时，清空列表中的参考图并同步积分预览状态。
+        /// 当前生成器禁用参考图上传时，清空列表中的参考图。
         /// </summary>
         protected void ClearReferenceImagesWhenUploadHidden(
             GeneratorConfig config,
@@ -1042,11 +926,10 @@ namespace TJGenerators.UI
                 return;
 
             UploadImageComponents.ClearReferenceImages(referenceImagePaths, referenceUploadedImages);
-            SyncReferenceImagesForCostPreview(false);
         }
 
         /// <summary>
-        /// 当前生成器禁用参考图上传时，清空单张参考图并同步积分预览状态。
+        /// 当前生成器禁用参考图上传时，清空单张参考图。
         /// </summary>
         protected void ClearSingleReferenceImageWhenUploadHidden(
             GeneratorConfig config,
@@ -1059,13 +942,6 @@ namespace TJGenerators.UI
                 return;
 
             UploadImageComponents.ClearSingleReferenceImage(ref imagePath, ref uploadedImage);
-            SyncReferenceImagesForCostPreview(false);
-        }
-
-        private void SyncReferenceImagesForCostPreview(bool hasReferenceImages)
-        {
-            if (_currentGenerator is DynamicGenerator dyn)
-                dyn.SyncReferenceImagesForCostPreview(hasReferenceImages);
         }
 
         /// <summary>
@@ -1199,9 +1075,6 @@ namespace TJGenerators.UI
                     path,
                     texture,
                     Repaint);
-                if (_currentGenerator is DynamicGenerator dyn)
-                    dyn.SyncReferenceImagesForCostPreview(
-                        referenceImagePaths != null && referenceImagePaths.Count > 0);
             });
         }
 

@@ -26,10 +26,46 @@ MonoBehaviour:
   leftDoorOffset: {x: -10.5, y: 0}
   rightDoorOffset: {x: 10.5, y: 0}
   enemyPool:
-  - enemyPrefab: {fileID: 2633800766284816993, guid: f164b6a17b3542a4ca28580a82e33f3f, type: 3}
+  - enemyPrefab: {fileID: 1543939389936749292, guid: be4429c5414d5d54bafd276834108740, type: 3}
     minCount: 1
-    maxCount: 3
+    maxCount: 5
     weight: 1
+  - enemyPrefab: {fileID: 3394569538219518364, guid: 19a7e932d6c85e84289cbb55e205b7ce, type: 3}
+    minCount: 1
+    maxCount: 5
+    weight: 1.2
+  - enemyPrefab: {fileID: 6216737995924536335, guid: 2c118a3cc72911643aad3018b2457e4c, type: 3}
+    minCount: 1
+    maxCount: 5
+    weight: 0.8
+  - enemyPrefab: {fileID: 6313027962090680599, guid: eb90b4ca14cae6a41ad0a39728ccd795, type: 3}
+    minCount: 1
+    maxCount: 5
+    weight: 0.5
+  - enemyPrefab: {fileID: 1669273398600419878, guid: d8cb411d72555344f8623865e0575546, type: 3}
+    minCount: 1
+    maxCount: 5
+    weight: 1
+  - enemyPrefab: {fileID: 1587994525134528811, guid: 327f1296c8fb88a4aa4cced41d3b2f96, type: 3}
+    minCount: 1
+    maxCount: 5
+    weight: 0.7
+  - enemyPrefab: {fileID: 459126445960509181, guid: 41555d3c820cb7340aaef8e8cfd45346, type: 3}
+    minCount: 1
+    maxCount: 5
+    weight: 1
+  - enemyPrefab: {fileID: 8995715563813495099, guid: f85e5233d548f994788c83481e2df3ec, type: 3}
+    minCount: 1
+    maxCount: 5
+    weight: 1.3
+  - enemyPrefab: {fileID: 5938946019499785119, guid: 7d35103aa466f4545b1e08a2ee4a646c, type: 3}
+    minCount: 1
+    maxCount: 5
+    weight: 1.2
+  - enemyPrefab: {fileID: 2800763903024477077, guid: 67adfd3a041fbfa42bdb10ec1bad8d2f, type: 3}
+    minCount: 1
+    maxCount: 5
+    weight: 0.4
   minEnemies: 1
   maxEnemies: 2
   itemPool:

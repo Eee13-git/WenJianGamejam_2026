@@ -11,6 +11,7 @@ using TJGenerators;
 using TJGenerators.Generators;
 using TJGenerators.Config;
 using TJGenerators.Pipeline;
+using TJGenerators.PostProcessing;
 using TJGenerators.Utils;
 using Unity.EditorCoroutines.Editor;
 #endif
@@ -18,11 +19,9 @@ using Unity.EditorCoroutines.Editor;
 namespace UnityTcp.Editor.Tools
 {
     /// <summary>
-    /// CustomTool for generating game UI asset kits via a two-step workflow.
-    /// Step 1: text→UI screenshot (frontier-game-design, landscape_16_9)
-    /// Step 2: screenshot→cutout sheet (frontier-game-design, square_hd, image-to-image)
-    /// Reuses the frontier-game-design config and endpoint.
-    /// Uses ImageTaskTracker + ImagePipelineHost for both steps.
+    /// CustomTools for generating game UI asset kits.
+    /// generate_game_ui_kit: two async steps (Step 1 text→screenshot, Step 2 screenshot→cutout sheet).
+    /// slice_image: synchronous CV connected-component slicing of cutout sheet into individual sprites.
     /// </summary>
     public static class GenerateGameUiKitTool
     {
@@ -206,6 +205,134 @@ namespace UnityTcp.Editor.Tools
                 {
                     { "success", false },
                     { "message", $"Error generating game UI kit: {e.Message}" }
+                };
+            }
+#else
+            return new Dictionary<string, object>
+            {
+                { "success", false },
+                { "message", "This tool only works in Unity Editor." }
+            };
+#endif
+        }
+
+        [ExecuteCustomTool.CustomTool("slice_image",
+            "Slice a sprite sheet / cutout sheet into individual sprite PNGs using CV connected-component detection. " +
+            "Automatically detects background (transparent or solid color like magenta), finds connected regions via 8-connected BFS, " +
+            "applies feather + color decontamination to remove background fringe, and exports each element as a separate PNG. " +
+            "Parameters: image_path (required, local asset path), " +
+            "background_mode (optional 'auto'|'transparent'|'solid_color', default 'auto' — for magenta cutout sheets use 'solid_color'), " +
+            "color_tolerance (optional 0-100, default 15, higher = more pixels treated as background), " +
+            "alpha_threshold (optional 0-1, default 0.1, used when background_mode is 'transparent'), " +
+            "min_region_pixels (optional, default 100, regions smaller than this are ignored), " +
+            "padding (optional, default 2, extra pixels around each sliced element), " +
+            "set_as_sprite (optional, default true, auto-set TextureImporterType.Sprite on output). " +
+            "Returns: sliced_count, output_directory, sliced_asset_paths array. " +
+            "This is a synchronous operation — no task_id or polling needed.")]
+        public static object SliceImage(JObject parameters)
+        {
+#if UNITY_EDITOR
+            try
+            {
+                TJLog.Log($"[GenerateGameUiKitTool] SliceImage parameters: {parameters}");
+
+                string imagePath = parameters["image_path"]?.ToString();
+                if (string.IsNullOrEmpty(imagePath))
+                {
+                    return new Dictionary<string, object>
+                    {
+                        { "success", false },
+                        { "message", "'image_path' parameter is required" }
+                    };
+                }
+
+                // Load readable texture
+                var readableTex = SpriteSequencePostProcess.LoadReadableTextureFromAssetPath(imagePath);
+                if (readableTex == null)
+                {
+                    return new Dictionary<string, object>
+                    {
+                        { "success", false },
+                        { "message", $"Failed to load readable texture from: {imagePath}. Ensure the file exists and is a valid image." }
+                    };
+                }
+
+                try
+                {
+                    // Parse parameters
+                    string bgModeStr = parameters["background_mode"]?.ToString() ?? "auto";
+                    ImageSlicePostProcess.BackgroundMode bgMode;
+                    switch (bgModeStr.ToLowerInvariant())
+                    {
+                        case "transparent":
+                            bgMode = ImageSlicePostProcess.BackgroundMode.Transparent;
+                            break;
+                        case "solid_color":
+                        case "solidcolor":
+                            bgMode = ImageSlicePostProcess.BackgroundMode.SolidColor;
+                            break;
+                        default:
+                            bgMode = ImageSlicePostProcess.BackgroundMode.Auto;
+                            break;
+                    }
+
+                    float alphaThreshold = parameters["alpha_threshold"] != null
+                        ? (float)parameters["alpha_threshold"].Value<double>()
+                        : 0.1f;
+                    float colorTolerance = parameters["color_tolerance"] != null
+                        ? (float)parameters["color_tolerance"].Value<double>()
+                        : 15f;
+                    int minRegionPixels = parameters["min_region_pixels"]?.Value<int>() ?? 100;
+                    int padding = parameters["padding"]?.Value<int>() ?? 2;
+                    bool setAsSprite = parameters["set_as_sprite"]?.Value<bool>() ?? true;
+
+                    TJLog.Log($"[GenerateGameUiKitTool] SliceImage: bgMode={bgMode}, alphaThreshold={alphaThreshold}, " +
+                        $"colorTolerance={colorTolerance}, minRegionPixels={minRegionPixels}, padding={padding}, setAsSprite={setAsSprite}");
+
+                    var result = ImageSlicePostProcess.Export(
+                        readableTex,
+                        imagePath,
+                        bgMode,
+                        alphaThreshold,
+                        colorTolerance,
+                        minRegionPixels,
+                        padding,
+                        setAsSprite);
+
+                    if (result.ExportedCount == 0)
+                    {
+                        return new Dictionary<string, object>
+                        {
+                            { "success", false },
+                            { "message", "No regions detected. Try adjusting background_mode, color_tolerance, or min_region_pixels." }
+                        };
+                    }
+
+                    TJLog.Log($"[GenerateGameUiKitTool] SliceImage completed: {result.ExportedCount} sprites exported to {result.OutputDirectory}");
+
+                    return new Dictionary<string, object>
+                    {
+                        { "success", true },
+                        { "sliced_count", result.ExportedCount },
+                        { "output_directory", result.OutputDirectory },
+                        { "sliced_asset_paths", result.AssetPaths },
+                        { "message", $"Successfully sliced {result.ExportedCount} sprite(s) into {result.OutputDirectory}" }
+                    };
+                }
+                finally
+                {
+                    // Destroy the runtime texture if it's not an asset
+                    if (string.IsNullOrEmpty(AssetDatabase.GetAssetPath(readableTex)))
+                        UnityEngine.Object.DestroyImmediate(readableTex);
+                }
+            }
+            catch (Exception e)
+            {
+                TJLog.LogError($"[GenerateGameUiKitTool] SliceImage error: {e}");
+                return new Dictionary<string, object>
+                {
+                    { "success", false },
+                    { "message", $"Error slicing image: {e.Message}" }
                 };
             }
 #else

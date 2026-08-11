@@ -3,21 +3,16 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
-using Codely.Newtonsoft.Json;
-using Codely.Newtonsoft.Json.Linq;
 using UnityEditor;
 using UnityEditor.Animations;
 using UnityEngine;
-using UnityEngine.Networking;
 using TJGenerators;
 using TJGenerators.Generators;
 using TJGenerators.Config;
 using TJGenerators.Utils;
 using TJGenerators.PostProcessing;
-using Unity.UniAsset.Manager.Editor.InternalBridge;
 using Unity.EditorCoroutines.Editor;
 
 namespace TJGenerators.Pipeline
@@ -28,15 +23,13 @@ namespace TJGenerators.Pipeline
     /// </summary>
     public class GenerationPipeline
     {
-        private readonly ConfigType _configType;
-
         private string API_BASE_URL => ConfigManager.GetApiBaseUrl();
         private int MAX_POLL_RETRIES => ConfigManager.GetPollMaxRetries();
         private float POLL_INTERVAL => ConfigManager.GetPollInterval();
 
         private const string SAVE_DIRECTORY = "Assets/TJGenerators/";
         private const string HISTORY_DIRECTORY = "Assets/TJGenerators/History/";
-        
+
         private IGenerationPipelineHost _host;
         private TJGeneratorsTaskHandle _activeTaskHandle;
         private IGenerationBackendTransport _transport;
@@ -51,11 +44,6 @@ namespace TJGenerators.Pipeline
         /// 默认 agent；UI 窗口创建 Pipeline 时显式传入 ui。
         /// </summary>
         private readonly string _fromMethod;
-
-        /// <summary>
-        /// 当前包版本号，通过 X-Package-Version 头与 fromMethod 并列上报。
-        /// </summary>
-        private readonly string _packageVersion;
 
         /// <summary>
         /// 当前 Agent 会话 ID，通过 X-Session-Id 头上报（可为空）。
@@ -99,13 +87,18 @@ namespace TJGenerators.Pipeline
             public string Error;
         }
 
-        public GenerationPipeline(IGenerationPipelineHost host, ConfigType configType,
-            string fromMethod = GenerationRequestOrigin.Agent, string sessionId = "", string toolName = "")
+        public GenerationPipeline(
+            IGenerationPipelineHost host,
+            ConfigType configType,
+            string fromMethod = GenerationRequestOrigin.Agent,
+            string sessionId = "",
+            string toolName = ""
+        )
         {
             _host = host;
-            _configType = configType;
-            _fromMethod = string.IsNullOrEmpty(fromMethod) ? GenerationRequestOrigin.Agent : fromMethod;
-            _packageVersion = GenerationRequestOrigin.GetPackageVersion();
+            _fromMethod = string.IsNullOrEmpty(fromMethod)
+                ? GenerationRequestOrigin.Agent
+                : fromMethod;
             _sessionId = sessionId ?? "";
             _toolName = toolName ?? "";
             _mediaHandlers = new GenerationMediaAssetHandlers(
@@ -115,7 +108,8 @@ namespace TJGenerators.Pipeline
                     OnError = (g, msg) => HandleError(g, msg),
                     OnComplete = (g, path, urls, paths) => CompleteGeneration(g, path, urls, paths),
                 },
-                HISTORY_DIRECTORY);
+                HISTORY_DIRECTORY
+            );
         }
 
         /// <summary>
@@ -140,11 +134,16 @@ namespace TJGenerators.Pipeline
 
         private void EnsureTransport(ModelGeneratorBase generator)
         {
-            if (_transport != null) return;
+            if (_transport != null)
+                return;
             _transport = GenerationBackendTransportFactory.Create(_fromMethod, _sessionId);
         }
-        
-        public IEnumerator StartGeneration(ModelGeneratorBase generator, string assetGuid, TJGeneratorsTaskHandle taskHandle = null)
+
+        public IEnumerator StartGeneration(
+            ModelGeneratorBase generator,
+            string assetGuid,
+            TJGeneratorsTaskHandle taskHandle = null
+        )
         {
             _pipelineSettings = generator.GetPipelineSettings();
             _activeTaskHandle = taskHandle;
@@ -169,7 +168,7 @@ namespace TJGenerators.Pipeline
                 }
                 yield break;
             }
-            
+
             generator.CurrentGeneratingTaskId = TJGeneratorsHistoryManager.AddGeneratingPlaceholder(
                 generator.GetPrompt(),
                 generator.GetImagePath(),
@@ -179,12 +178,12 @@ namespace TJGenerators.Pipeline
                 generator.GetHistoryDisplayPrompt(),
                 _sessionId
             );
-            
+
             if (_activeTaskHandle != null)
             {
                 _activeTaskHandle.SetLocalTaskId(generator.CurrentGeneratingTaskId);
             }
-            
+
             generator.IsRunning = true;
             RegisterActiveGenerator(generator);
             generator.ButtonText = TJGeneratorsL10n.L("上传中...");
@@ -195,7 +194,7 @@ namespace TJGenerators.Pipeline
 
             yield return SendGenerationRequest(generator, assetGuid);
         }
-        
+
         /// <summary>
         /// 从已成功提交的后端任务ID开始轮询和下载，跳过 HTTP 提交阶段。
         /// 由 CustomTool 两阶段模式使用：外部同步提交后，由此方法接管剩余流程。
@@ -204,7 +203,8 @@ namespace TJGenerators.Pipeline
             ModelGeneratorBase generator,
             string assetGuid,
             string backendTaskId,
-            TJGeneratorsTaskHandle taskHandle = null)
+            TJGeneratorsTaskHandle taskHandle = null
+        )
         {
             _pipelineSettings = generator.GetPipelineSettings();
             _activeTaskHandle = taskHandle;
@@ -252,7 +252,9 @@ namespace TJGenerators.Pipeline
                 _activeTaskHandle.NotifyCreated();
             }
 
-            TJLog.Log($"[GenerationPipeline] StartFromSubmittedTask: 跳过提交，直接轮询 backendTaskId={backendTaskId}");
+            TJLog.Log(
+                $"[GenerationPipeline] StartFromSubmittedTask: 跳过提交，直接轮询 backendTaskId={backendTaskId}"
+            );
 
             _mediaHandlers.TryInitializeMediaSavePaths(generator);
 
@@ -266,18 +268,26 @@ namespace TJGenerators.Pipeline
             string endpoint = generator.ApiEndpoint;
             if (string.IsNullOrWhiteSpace(endpoint))
             {
-                HandleError(generator, $"No API endpoint configured for generator '{generator.GeneratorId}'.");
+                HandleError(
+                    generator,
+                    $"No API endpoint configured for generator '{generator.GeneratorId}'."
+                );
                 yield break;
             }
 
             string url = API_BASE_URL + endpoint;
             TJLog.Log($"[GenerationPipeline] Building request payload...");
             var requestData = generator.BuildRequestData();
-            TJLog.Log($"[GenerationPipeline] 请求数据类型: {requestData?.GetType().Name ?? "null"}");
+            TJLog.Log(
+                $"[GenerationPipeline] 请求数据类型: {requestData?.GetType().Name ?? "null"}"
+            );
 
             // 在发送HTTP请求之前保存占位任务记录（使用localTaskId作为backendTaskId占位符）
             // 防止domain reload发生在HTTP请求等待期间导致任务记录丢失
-            var submittingTaskData = generator.CreateInterruptedTaskData(generator.CurrentGeneratingTaskId, assetGuid);
+            var submittingTaskData = generator.CreateInterruptedTaskData(
+                generator.CurrentGeneratingTaskId,
+                assetGuid
+            );
             submittingTaskData.status = "submitting";
             if (!string.IsNullOrEmpty(_toolName))
                 submittingTaskData.toolName = _toolName;
@@ -293,7 +303,12 @@ namespace TJGenerators.Pipeline
             if (requestData is MultipartRequestData multipartData)
             {
                 TJLog.Log($"[GenerationPipeline] 发送Multipart请求到: {url}");
-                yield return _transport.CreateTaskMultipart(url, multipartData, r => response = r, e => transportError = e);
+                yield return _transport.CreateTaskMultipart(
+                    url,
+                    multipartData,
+                    r => response = r,
+                    e => transportError = e
+                );
             }
             else
             {
@@ -306,12 +321,17 @@ namespace TJGenerators.Pipeline
                 {
                     jsonData = JsonUtility.ToJson(requestData);
                 }
-                
+
                 TJLog.Log($"[GenerationPipeline] 发送请求到: {url}");
                 TJLog.Log($"[GenerationPipeline] 请求体: {jsonData}");
-                
+
                 byte[] postData = System.Text.Encoding.UTF8.GetBytes(jsonData);
-                yield return _transport.CreateTask(url, postData, r => response = r, e => transportError = e);
+                yield return _transport.CreateTask(
+                    url,
+                    postData,
+                    r => response = r,
+                    e => transportError = e
+                );
             }
 
 #if TJGENERATORS_DEBUG
@@ -351,13 +371,17 @@ namespace TJGenerators.Pipeline
                 if (_activeTaskHandle != null)
                 {
                     _activeTaskHandle.SetBackendTaskId(response.taskId);
-                    _activeTaskHandle.SetStatus(string.IsNullOrEmpty(response.status) ? "pending" : response.status);
+                    _activeTaskHandle.SetStatus(
+                        string.IsNullOrEmpty(response.status) ? "pending" : response.status
+                    );
                     _activeTaskHandle.NotifyCreated();
                 }
 
                 generator.ButtonText = TJGeneratorsL10n.L("生成中...");
                 _host.Repaint();
-                EditorCoroutineUtility.StartCoroutineOwnerless(PollTaskStatus(generator, response.taskId));
+                EditorCoroutineUtility.StartCoroutineOwnerless(
+                    PollTaskStatus(generator, response.taskId)
+                );
             }
             else
             {
@@ -375,10 +399,9 @@ namespace TJGenerators.Pipeline
 #if TJGENERATORS_DEBUG
             int abortEpoch = TJGeneratorsTaskRecovery.GetLocalPollAbortEpoch();
 #endif
-            
             bool taskCompleted = false;
             int retryCount = 0;
-            
+
             while (!taskCompleted && retryCount < MAX_POLL_RETRIES)
             {
 #if TJGENERATORS_DEBUG
@@ -394,7 +417,12 @@ namespace TJGenerators.Pipeline
 
                 TJTaskStatusResponse response = null;
                 string transportError = null;
-                yield return _transport.PollStatus(taskId, url, r => response = r, e => transportError = e);
+                yield return _transport.PollStatus(
+                    taskId,
+                    url,
+                    r => response = r,
+                    e => transportError = e
+                );
 
 #if TJGENERATORS_DEBUG
                 if (TJGeneratorsTaskRecovery.WasLocalPollAborted(abortEpoch))
@@ -421,7 +449,9 @@ namespace TJGenerators.Pipeline
 
                 if (response != null)
                 {
-                    TJLog.Log($"[GenerationPipeline] 任务状态: {response.status}, 进度: {response.progress}");
+                    TJLog.Log(
+                        $"[GenerationPipeline] 任务状态: {response.status}, 进度: {response.progress}"
+                    );
 
                     generator.UpdateButtonStatus(response.status, response.progress);
                     UpdateHistoryProgress(generator, response.progress);
@@ -449,9 +479,13 @@ namespace TJGenerators.Pipeline
                         if (!string.IsNullOrEmpty(completedBackendTaskId))
                         {
                             shouldDownload = TJGeneratorsTaskRecovery.RemoveInterruptedTask(
-                                completedBackendTaskId, clearRecovering: false);
+                                completedBackendTaskId,
+                                clearRecovering: false
+                            );
                             if (!shouldDownload)
-                                TJLog.Log($"[GenerationPipeline] 任务 {completedBackendTaskId} 已被其他协程处理，跳过重复下载。");
+                                TJLog.Log(
+                                    $"[GenerationPipeline] 任务 {completedBackendTaskId} 已被其他协程处理，跳过重复下载。"
+                                );
                         }
                         if (shouldDownload)
                         {
@@ -462,14 +496,31 @@ namespace TJGenerators.Pipeline
                         }
                         taskCompleted = true;
                     }
-                    else if (response.status == TaskStatus.Failed || response.status == TaskStatus.Error || response.status == TaskStatus.Cancelled)
+                    else if (
+                        response.status == TaskStatus.Failed
+                        || response.status == TaskStatus.Error
+                        || response.status == TaskStatus.Cancelled
+                    )
                     {
-                        string detail = !string.IsNullOrEmpty(response.error) ? response.error
+                        string detail = !string.IsNullOrEmpty(response.error)
+                            ? response.error
                             : (!string.IsNullOrEmpty(response.message) ? response.message : null);
-                        
+
                         if (response.errorCode == "content_moderation")
                         {
-                            HandleError(generator, TJGeneratorsL10n.L("生成内容可能涉及敏感信息，请修改后重试"), response.status == TaskStatus.Cancelled ? TaskStatus.Cancelled : TaskStatus.Error);
+                            string baseMsg = TJGeneratorsL10n.L(
+                                "生成内容可能涉及敏感信息，请修改后重试"
+                            );
+                            string fullMsg = string.IsNullOrEmpty(detail)
+                                ? baseMsg
+                                : $"{baseMsg}\n{TJGeneratorsL10n.L("拦截原因")}: {detail}";
+                            HandleError(
+                                generator,
+                                fullMsg,
+                                response.status == TaskStatus.Cancelled
+                                    ? TaskStatus.Cancelled
+                                    : TaskStatus.Error
+                            );
                             taskCompleted = true;
                         }
                         else
@@ -477,12 +528,31 @@ namespace TJGenerators.Pipeline
                             string enhancedError = EnhanceErrorMessage(detail, generator);
                             string msg;
                             if (response.status == TaskStatus.Cancelled)
-                                msg = !string.IsNullOrEmpty(detail) ? string.Format(TJGeneratorsL10n.L("任务已取消: {0}"), detail) : TJGeneratorsL10n.L("任务已取消");
+                                msg = !string.IsNullOrEmpty(detail)
+                                    ? string.Format(TJGeneratorsL10n.L("任务已取消: {0}"), detail)
+                                    : TJGeneratorsL10n.L("任务已取消");
                             else
-                                msg = !string.IsNullOrEmpty(enhancedError) ? enhancedError : 
-                                        (!string.IsNullOrEmpty(detail) ? string.Format(TJGeneratorsL10n.L("任务失败: {0}"), detail) : string.Format(TJGeneratorsL10n.L("任务失败: {0}"), response.status));
-                            
-                            HandleError(generator, msg, response.status == TaskStatus.Cancelled ? TaskStatus.Cancelled : TaskStatus.Error);
+                                msg = !string.IsNullOrEmpty(enhancedError)
+                                    ? enhancedError
+                                    : (
+                                        !string.IsNullOrEmpty(detail)
+                                            ? string.Format(
+                                                TJGeneratorsL10n.L("任务失败: {0}"),
+                                                detail
+                                            )
+                                            : string.Format(
+                                                TJGeneratorsL10n.L("任务失败: {0}"),
+                                                response.status
+                                            )
+                                    );
+
+                            HandleError(
+                                generator,
+                                msg,
+                                response.status == TaskStatus.Cancelled
+                                    ? TaskStatus.Cancelled
+                                    : TaskStatus.Error
+                            );
                             taskCompleted = true;
                         }
                     }
@@ -492,7 +562,7 @@ namespace TJGenerators.Pipeline
                     HandleError(generator, TJGeneratorsL10n.L("响应数据无效"));
                     taskCompleted = true;
                 }
-                
+
                 if (!taskCompleted && retryCount < MAX_POLL_RETRIES)
                 {
 #if TJGENERATORS_DEBUG
@@ -502,23 +572,29 @@ namespace TJGenerators.Pipeline
 #endif
                 }
             }
-            
+
             if (!taskCompleted && retryCount >= MAX_POLL_RETRIES)
             {
-                HandlePollingTimeout(generator, TJGeneratorsL10n.L("轮询超时，任务可能仍在后端运行。重新打开窗口可继续等待。"));
+                HandlePollingTimeout(
+                    generator,
+                    TJGeneratorsL10n.L("轮询超时，任务可能仍在后端运行。重新打开窗口可继续等待。")
+                );
             }
         }
-        
-        private IEnumerator CompleteTask(ModelGeneratorBase generator, TJTaskStatusResponse response)
+
+        private IEnumerator CompleteTask(
+            ModelGeneratorBase generator,
+            TJTaskStatusResponse response
+        )
         {
             string previewImageUrl = generator.GetPreviewImageUrl(response);
             if (!string.IsNullOrEmpty(previewImageUrl))
             {
                 TJLog.Log($"[GenerationPipeline] 获取到预览图URL: {previewImageUrl}");
             }
-            
+
             _currentPreviewUrl = previewImageUrl;
-            
+
             if (_activeTaskHandle != null)
             {
                 _activeTaskHandle.SetPreviewUrl(previewImageUrl);
@@ -526,39 +602,72 @@ namespace TJGenerators.Pipeline
 
             LastCompletedResponse = response;
             string outputType = generator.GetOutputType();
-            if (string.Equals(outputType, GenerationOutputTypes.Audio, StringComparison.OrdinalIgnoreCase))
+            if (
+                string.Equals(
+                    outputType,
+                    GenerationOutputTypes.Audio,
+                    StringComparison.OrdinalIgnoreCase
+                )
+            )
             {
                 yield return _mediaHandlers.HandleAudioAsset(generator, response);
                 yield break;
             }
-            if (string.Equals(outputType, GenerationOutputTypes.Video, StringComparison.OrdinalIgnoreCase))
+            if (
+                string.Equals(
+                    outputType,
+                    GenerationOutputTypes.Video,
+                    StringComparison.OrdinalIgnoreCase
+                )
+            )
             {
-                yield return _mediaHandlers.HandleVideoAsset(generator, response, _currentPreviewUrl);
+                yield return _mediaHandlers.HandleVideoAsset(
+                    generator,
+                    response,
+                    _currentPreviewUrl
+                );
                 yield break;
             }
-            if (string.Equals(outputType, GenerationOutputTypes.SpriteSequence, StringComparison.OrdinalIgnoreCase))
+            if (
+                string.Equals(
+                    outputType,
+                    GenerationOutputTypes.SpriteSequence,
+                    StringComparison.OrdinalIgnoreCase
+                )
+            )
             {
                 EnsureTransport(generator);
                 yield return _mediaHandlers.HandleSpriteSequenceAsset(
-                    generator, response, _transport, _currentPreviewUrl);
+                    generator,
+                    response,
+                    _transport,
+                    _currentPreviewUrl
+                );
                 yield break;
             }
-            if (outputType != GenerationOutputTypes.Model &&
-                !string.Equals(outputType, GenerationOutputTypes.RiggedModel, StringComparison.OrdinalIgnoreCase))
+            if (
+                outputType != GenerationOutputTypes.Model
+                && !string.Equals(
+                    outputType,
+                    GenerationOutputTypes.RiggedModel,
+                    StringComparison.OrdinalIgnoreCase
+                )
+            )
             {
                 EnsureTransport(generator);
                 yield return _mediaHandlers.HandleTextureAsset(generator, response, _transport);
                 yield break;
             }
-            
-            
+
             generator.ButtonText = TJGeneratorsL10n.L("下载中...");
             _host.Repaint();
 
             string modelUrl = generator.GetDownloadUrl(response);
 
             string renderedImageUrl = generator.GetRenderedImageUrl(response);
-            bool isFBX = !string.IsNullOrEmpty(modelUrl) && modelUrl.EndsWith(".fbx", StringComparison.OrdinalIgnoreCase);
+            bool isFBX =
+                !string.IsNullOrEmpty(modelUrl)
+                && modelUrl.EndsWith(".fbx", StringComparison.OrdinalIgnoreCase);
 
             if (!string.IsNullOrEmpty(modelUrl))
             {
@@ -572,16 +681,23 @@ namespace TJGenerators.Pipeline
                 string savePath = GetModelSavePath(fileName);
 
                 TJLog.Log($"[GenerationPipeline] 开始下载: {modelUrl}");
-                
+
                 string animationUrl = generator.GetAnimationUrl(response);
                 string walkingAnimUrl = generator.GetWalkingAnimationUrl(response);
                 string runningAnimUrl = generator.GetRunningAnimationUrl(response);
-                bool hasAnimations = !string.IsNullOrEmpty(animationUrl) || 
-                                     !string.IsNullOrEmpty(walkingAnimUrl) || 
-                                     !string.IsNullOrEmpty(runningAnimUrl);
-                
-                yield return DownloadModel(generator, modelUrl, savePath, isFBX, renderedImageUrl, 
-                    hasAnimations ? response : null);
+                bool hasAnimations =
+                    !string.IsNullOrEmpty(animationUrl)
+                    || !string.IsNullOrEmpty(walkingAnimUrl)
+                    || !string.IsNullOrEmpty(runningAnimUrl);
+
+                yield return DownloadModel(
+                    generator,
+                    modelUrl,
+                    savePath,
+                    isFBX,
+                    renderedImageUrl,
+                    hasAnimations ? response : null
+                );
             }
             else
             {
@@ -589,126 +705,166 @@ namespace TJGenerators.Pipeline
                 HandleError(generator, TJGeneratorsL10n.L("未找到模型下载URL"));
             }
         }
-        
+
         /// <summary>
         /// 下载模型文件。当 isFBX 且 renderedImageUrl 非空时，会下载 webp 贴图并应用到 FBX 材质。
         /// 如果 response 不为 null，还会下载动画模型文件。
         /// </summary>
-        private IEnumerator DownloadModel(ModelGeneratorBase generator, string modelUrl, string savePath, bool isFBX = false, string renderedImageUrl = null, TJTaskStatusResponse response = null)
+        private IEnumerator DownloadModel(
+            ModelGeneratorBase generator,
+            string modelUrl,
+            string savePath,
+            bool isFBX = false,
+            string renderedImageUrl = null,
+            TJTaskStatusResponse response = null
+        )
         {
             string uniquePath = ResolveModelDownloadPath(savePath, modelUrl);
-            bool isZipFile = savePath.EndsWith(".zip", StringComparison.OrdinalIgnoreCase) || 
-                             modelUrl.Contains(".zip");
-            
-            using (UnityWebRequest uwr = UnityWebRequest.Get(modelUrl))
-            {
-                uwr.downloadHandler = new DownloadHandlerBuffer();
-                
-                yield return uwr.SendWebRequest();
-                yield return PipelineDownloadHelper.WaitForWebRequest(uwr, 300f);
+            bool isZipFile =
+                savePath.EndsWith(".zip", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(
+                    GenerationAssetFormatUtils.GetExtensionFromUrl(modelUrl),
+                    ".zip",
+                    StringComparison.OrdinalIgnoreCase
+                );
 
-                if (UnityWebRequestCompat.IsNotSuccess(uwr))
+            byte[] modelData = null;
+            string downloadError = null;
+            yield return PipelineDownloadHelper.DownloadUrlToFile(
+                modelUrl,
+                uniquePath,
+                ConfigManager.GetDownloadTimeout(),
+                onSuccess: data => modelData = data,
+                onError: err => downloadError = err
+            );
+
+            if (!string.IsNullOrEmpty(downloadError) || modelData == null || modelData.Length == 0)
+            {
+                TJLog.LogError($"[GenerationPipeline] 下载失败: {downloadError}");
+                HandleError(
+                    generator,
+                    !string.IsNullOrEmpty(downloadError)
+                        ? downloadError
+                        : TJGeneratorsL10n.L("下载模型失败")
+                );
+                yield break;
+            }
+
+            string finalModelPath = uniquePath;
+
+            if (isZipFile)
+            {
+                finalModelPath = ZipExtractor.ExtractZipAndGetModelPath(
+                    modelData,
+                    uniquePath
+                );
+                if (string.IsNullOrEmpty(finalModelPath))
                 {
-                    TJLog.LogError($"[GenerationPipeline] 下载失败: {uwr.error}");
-                    HandleError(generator, ErrorDialogUtils.GetFriendlyErrorMessage(uwr, TJGeneratorsL10n.L("下载模型失败")));
+                    HandleError(
+                        generator,
+                        TJGeneratorsL10n.L("解压ZIP文件失败或未找到模型文件")
+                    );
                     yield break;
                 }
-                else
-                {
-                    byte[] modelData = uwr.downloadHandler.data;
-                    string finalModelPath = uniquePath;
-                    
-                    if (isZipFile)
-                    {
-                        finalModelPath = ZipExtractor.ExtractZipAndGetModelPath(modelData, uniquePath);
-                        if (string.IsNullOrEmpty(finalModelPath))
-                        {
-                            HandleError(generator, TJGeneratorsL10n.L("解压ZIP文件失败或未找到模型文件"));
-                            yield break;
-                        }
-                    }
-                    else
-                    {
-                        File.WriteAllBytes(PathUtils.ToAbsoluteAssetPath(uniquePath), modelData);
-                        PathUtils.ImportAssetAfterDiskWrite(finalModelPath);
-                    }
-                    
-                    string renderedTexturePath = null;
-                    if (!string.IsNullOrEmpty(renderedImageUrl))
-                    {
-                        string modelDir = Path.GetDirectoryName(finalModelPath);
-                        string renderedBase = Path.GetFileNameWithoutExtension(finalModelPath);
-                        string renderedFileName = $"{renderedBase}_render.webp";
-                        renderedTexturePath = Path.Combine(modelDir, renderedFileName).Replace("\\", "/");
-                        yield return DownloadRenderedImage(renderedImageUrl, renderedTexturePath);
-                    }
-
-                    if (isFBX)
-                    {
-                        bool hasAnimations = response != null && (
-                            !string.IsNullOrEmpty(generator.GetAnimationUrl(response)) ||
-                            !string.IsNullOrEmpty(generator.GetWalkingAnimationUrl(response)) ||
-                            !string.IsNullOrEmpty(generator.GetRunningAnimationUrl(response))
-                        );
-                        ModelPostProcessing(finalModelPath, renderedTexturePath, hasAnimations);
-                        AssetDatabase.Refresh();
-                    }
-
-                    if (finalModelPath.EndsWith(".obj", StringComparison.OrdinalIgnoreCase))
-                    {
-                        ObjModelPostProcessing(finalModelPath);
-                        AssetDatabase.Refresh();
-                    }
-
-                    if (response != null)
-                    {
-                        yield return DownloadAnimationModels(generator, response, finalModelPath);
-                    }
-
-                    if (string.Equals(generator.GetOutputType(), GenerationOutputTypes.RiggedModel, StringComparison.OrdinalIgnoreCase)
-                        && finalModelPath.EndsWith(".fbx", StringComparison.OrdinalIgnoreCase))
-                    {
-                        string sourceModelPath = generator is DynamicGenerator dg
-                            ? dg.GetUploadedModelAssetPath()
-                            : null;
-                        RiggedModelPostProcess.FinalizeRiggedImport(
-                            finalModelPath, sourceModelPath, renderedTexturePath);
-                    }
-
-                    // 混元 Motion 等：动画面片在单一主 FBX 内且无单独动画下载 URL 时，从主 FBX 建单状态自循环控制器
-                    if (_pipelineSettings.GetPostProcessingSingleClipLoopAnimatorController()
-                        && finalModelPath.EndsWith(".fbx", StringComparison.OrdinalIgnoreCase)
-                        && !generator.GetAddMotionEnabled())
-                    {
-                        string modelDir = Path.GetDirectoryName(finalModelPath)?.Replace("\\", "/") ?? "";
-                        string baseName = Path.GetFileNameWithoutExtension(finalModelPath);
-                        RiggedModelPostProcess.CreateSingleClipLoopAnimatorControllerFromMotionClip(
-                            modelDir, baseName, finalModelPath);
-                    }
-
-                    string modelPathForBind = finalModelPath;
-                    if (generator.GetAddMotionEnabled())
-                    {
-                        _postMotionRiggedPath = null;
-                        yield return RunMotionPostProcessing(
-                            generator,
-                            finalModelPath,
-                            generator.GetMotionDescription(),
-                            renderedTexturePath
-                        );
-                        if (!string.IsNullOrEmpty(_postMotionRiggedPath))
-                            modelPathForBind = _postMotionRiggedPath;
-                    }
-
-                    // 绑定到Prefab：UniRig + 混元 Motion 后的 FBX 姿态/尺度已由管线决定，勿再套后处理里的 modelScale/rotation。
-                    bool addMotion = generator.GetAddMotionEnabled();
-                    float bindScale = addMotion ? 1f : _pipelineSettings.GetModelScale();
-                    Vector3 bindRotation = addMotion ? Vector3.zero : _pipelineSettings.GetModelRotation();
-                    BindModelToPrefab(modelPathForBind, bindScale, bindRotation);
-                    
-                    CompleteGeneration(generator, modelPathForBind);
-                }
             }
+            else
+            {
+                PathUtils.ImportAssetAfterDiskWrite(finalModelPath);
+            }
+
+            string renderedTexturePath = null;
+            if (!string.IsNullOrEmpty(renderedImageUrl))
+            {
+                string modelDir = Path.GetDirectoryName(finalModelPath);
+                string renderedBase = Path.GetFileNameWithoutExtension(finalModelPath);
+                string renderedFileName = $"{renderedBase}_render.webp";
+                renderedTexturePath = Path.Combine(modelDir, renderedFileName)
+                    .Replace("\\", "/");
+                yield return DownloadRenderedImage(renderedImageUrl, renderedTexturePath);
+            }
+
+            if (isFBX)
+            {
+                bool hasAnimations =
+                    response != null
+                    && (
+                        !string.IsNullOrEmpty(generator.GetAnimationUrl(response))
+                        || !string.IsNullOrEmpty(generator.GetWalkingAnimationUrl(response))
+                        || !string.IsNullOrEmpty(generator.GetRunningAnimationUrl(response))
+                    );
+                ModelPostProcessing(finalModelPath, renderedTexturePath, hasAnimations);
+                AssetDatabase.Refresh();
+            }
+
+            if (finalModelPath.EndsWith(".obj", StringComparison.OrdinalIgnoreCase))
+            {
+                ObjModelPostProcessing(finalModelPath);
+                AssetDatabase.Refresh();
+            }
+
+            if (response != null)
+            {
+                yield return DownloadAnimationModels(generator, response, finalModelPath);
+            }
+
+            if (
+                string.Equals(
+                    generator.GetOutputType(),
+                    GenerationOutputTypes.RiggedModel,
+                    StringComparison.OrdinalIgnoreCase
+                ) && finalModelPath.EndsWith(".fbx", StringComparison.OrdinalIgnoreCase)
+            )
+            {
+                string sourceModelPath = generator is DynamicGenerator dg
+                    ? dg.GetUploadedModelAssetPath()
+                    : null;
+                RiggedModelPostProcess.FinalizeRiggedImport(
+                    finalModelPath,
+                    sourceModelPath,
+                    renderedTexturePath
+                );
+            }
+
+            // 混元 Motion 等：动画面片在单一主 FBX 内且无单独动画下载 URL 时，从主 FBX 建单状态自循环控制器
+            if (
+                _pipelineSettings.GetPostProcessingSingleClipLoopAnimatorController()
+                && finalModelPath.EndsWith(".fbx", StringComparison.OrdinalIgnoreCase)
+                && !generator.GetAddMotionEnabled()
+            )
+            {
+                string modelDir =
+                    Path.GetDirectoryName(finalModelPath)?.Replace("\\", "/") ?? "";
+                string baseName = Path.GetFileNameWithoutExtension(finalModelPath);
+                RiggedModelPostProcess.CreateSingleClipLoopAnimatorControllerFromMotionClip(
+                    modelDir,
+                    baseName,
+                    finalModelPath
+                );
+            }
+
+            string modelPathForBind = finalModelPath;
+            if (generator.GetAddMotionEnabled())
+            {
+                _postMotionRiggedPath = null;
+                yield return RunMotionPostProcessing(
+                    generator,
+                    finalModelPath,
+                    generator.GetMotionDescription(),
+                    renderedTexturePath
+                );
+                if (!string.IsNullOrEmpty(_postMotionRiggedPath))
+                    modelPathForBind = _postMotionRiggedPath;
+            }
+
+            // 绑定到Prefab：UniRig + 混元 Motion 后的 FBX 姿态/尺度已由管线决定，勿再套后处理里的 modelScale/rotation。
+            bool addMotion = generator.GetAddMotionEnabled();
+            float bindScale = addMotion ? 1f : _pipelineSettings.GetModelScale();
+            Vector3 bindRotation = addMotion
+                ? Vector3.zero
+                : _pipelineSettings.GetModelRotation();
+            BindModelToPrefab(modelPathForBind, bindScale, bindRotation);
+
+            CompleteGeneration(generator, modelPathForBind);
         }
 
         /// <summary>
@@ -741,7 +897,12 @@ namespace TJGenerators.Pipeline
 
                 TJTaskStatusResponse resp = null;
                 string transportError = null;
-                yield return _transport.PollStatus(taskId, pollUrl, r => resp = r, e => transportError = e);
+                yield return _transport.PollStatus(
+                    taskId,
+                    pollUrl,
+                    r => resp = r,
+                    e => transportError = e
+                );
 
 #if TJGENERATORS_DEBUG
                 if (TJGeneratorsTaskRecovery.WasLocalPollAborted(abortEpoch))
@@ -776,13 +937,28 @@ namespace TJGenerators.Pipeline
                     yield break;
                 }
 
-                if (resp.status == TaskStatus.Failed || resp.status == TaskStatus.Error || resp.status == TaskStatus.Cancelled)
+                if (
+                    resp.status == TaskStatus.Failed
+                    || resp.status == TaskStatus.Error
+                    || resp.status == TaskStatus.Cancelled
+                )
                 {
-                    outcome.Error = resp.status == TaskStatus.Cancelled
-                        ? (!string.IsNullOrEmpty(resp.error) ? resp.error : TJGeneratorsL10n.L("任务已取消"))
-                        : (!string.IsNullOrEmpty(resp.error)
-                            ? resp.error
-                            : (!string.IsNullOrEmpty(resp.message) ? resp.message : resp.status));
+                    outcome.Error =
+                        resp.status == TaskStatus.Cancelled
+                            ? (
+                                !string.IsNullOrEmpty(resp.error)
+                                    ? resp.error
+                                    : TJGeneratorsL10n.L("任务已取消")
+                            )
+                            : (
+                                !string.IsNullOrEmpty(resp.error)
+                                    ? resp.error
+                                    : (
+                                        !string.IsNullOrEmpty(resp.message)
+                                            ? resp.message
+                                            : resp.status
+                                    )
+                            );
                     yield break;
                 }
 
@@ -796,14 +972,17 @@ namespace TJGenerators.Pipeline
             outcome.Error = TJGeneratorsL10n.L("轮询超时");
         }
 
-        private static string GetMappedDownloadUrl(TJTaskStatusResponse response, GeneratorConfig cfg)
+        private static string GetMappedDownloadUrl(
+            TJTaskStatusResponse response,
+            GeneratorConfig cfg
+        )
         {
             if (response?.output?.data?.result == null || cfg?.responseMapping == null)
                 return null;
             string path = cfg.responseMapping.downloadUrlPath;
             if (string.IsNullOrEmpty(path))
                 path = "model";
-            return PathUtils.GetString(response.output.data.result, path);
+            return PathUtils.GetUrlString(response.output.data.result, path);
         }
 
         /// <summary>
@@ -824,17 +1003,24 @@ namespace TJGenerators.Pipeline
             string absMesh = PathUtils.ToAbsoluteAssetPath(extractedModelPath);
             if (!File.Exists(absMesh))
             {
-                TJLog.LogWarning($"[GenerationPipeline] 后处理动作：模型文件不存在: {extractedModelPath}");
+                TJLog.LogWarning(
+                    $"[GenerationPipeline] 后处理动作：模型文件不存在: {extractedModelPath}"
+                );
                 yield break;
             }
 
             EnsureTransport(generator);
 
             var unirigCfg = ConfigManager.GetGeneratorConfig(ConfigType.Generator, "unirig");
-            var motionCfg = ConfigManager.GetGeneratorConfig(ConfigType.Generator, "hunyuan-motion");
+            var motionCfg = ConfigManager.GetGeneratorConfig(
+                ConfigType.Generator,
+                "hunyuan-motion"
+            );
             if (unirigCfg == null || motionCfg == null)
             {
-                TJLog.LogWarning("[GenerationPipeline] 后处理动作：未找到 unirig 或 hunyuan-motion 配置，跳过后处理");
+                TJLog.LogWarning(
+                    "[GenerationPipeline] 后处理动作：未找到 unirig 或 hunyuan-motion 配置，跳过后处理"
+                );
                 yield break;
             }
 
@@ -868,14 +1054,25 @@ namespace TJGenerators.Pipeline
                 e => createErr = e
             );
 
-            if (!string.IsNullOrEmpty(createErr) || createResp == null || string.IsNullOrEmpty(createResp.taskId))
+            if (
+                !string.IsNullOrEmpty(createErr)
+                || createResp == null
+                || string.IsNullOrEmpty(createResp.taskId)
+            )
             {
-                TJLog.LogWarning($"[GenerationPipeline] 后处理动作：UniRig 提交失败: {createErr ?? "无 taskId"}");
+                TJLog.LogWarning(
+                    $"[GenerationPipeline] 后处理动作：UniRig 提交失败: {createErr ?? "无 taskId"}"
+                );
                 yield break;
             }
 
             var unirigOutcome = new MotionSubTaskPollOutcome();
-            yield return PollSimpleTaskUntilComplete(generator, createResp.taskId, TJGeneratorsL10n.L("绑骨"), unirigOutcome);
+            yield return PollSimpleTaskUntilComplete(
+                generator,
+                createResp.taskId,
+                TJGeneratorsL10n.L("绑骨"),
+                unirigOutcome
+            );
             if (unirigOutcome.Completed == null)
             {
                 TJLog.LogWarning(
@@ -892,7 +1089,8 @@ namespace TJGenerators.Pipeline
             }
 
             string riggedExt = GenerationAssetFormatUtils.GetExtensionFromUrl(riggedUrl) ?? ".fbx";
-            string riggedSavePath = Path.Combine(modelDir, baseName + "_rigged" + riggedExt).Replace("\\", "/");
+            string riggedSavePath = Path.Combine(modelDir, baseName + "_rigged" + riggedExt)
+                .Replace("\\", "/");
             generator.ButtonText = TJGeneratorsL10n.L("下载绑骨模型...");
             _host.Repaint();
             yield return DownloadFile(riggedUrl, riggedSavePath);
@@ -906,13 +1104,19 @@ namespace TJGenerators.Pipeline
             if (riggedSavePath.EndsWith(".fbx", StringComparison.OrdinalIgnoreCase))
             {
                 RiggedModelPostProcess.FinalizeRiggedImport(
-                    riggedSavePath, extractedModelPath, renderedTexturePath);
+                    riggedSavePath,
+                    extractedModelPath,
+                    renderedTexturePath
+                );
             }
             else
             {
                 AssetDatabase.Refresh();
                 RiggedModelPostProcess.ApplyTexturesFromSourceToRiggedModel(
-                    extractedModelPath, riggedSavePath, renderedTexturePath);
+                    extractedModelPath,
+                    riggedSavePath,
+                    renderedTexturePath
+                );
             }
 
             _postMotionRiggedPath = riggedSavePath;
@@ -945,7 +1149,12 @@ namespace TJGenerators.Pipeline
             string motionCreateErr = null;
             generator.ButtonText = TJGeneratorsL10n.L("提交动作生成...");
             _host.Repaint();
-            yield return _transport.CreateTask(motionUrl, motionBytes, r => motionCreate = r, e => motionCreateErr = e);
+            yield return _transport.CreateTask(
+                motionUrl,
+                motionBytes,
+                r => motionCreate = r,
+                e => motionCreateErr = e
+            );
 
             if (
                 !string.IsNullOrEmpty(motionCreateErr)
@@ -981,8 +1190,10 @@ namespace TJGenerators.Pipeline
                 yield break;
             }
 
-            string motionExt = GenerationAssetFormatUtils.GetExtensionFromUrl(motionFbxUrl) ?? ".fbx";
-            string motionSavePath = Path.Combine(modelDir, baseName + "_motion" + motionExt).Replace("\\", "/");
+            string motionExt =
+                GenerationAssetFormatUtils.GetExtensionFromUrl(motionFbxUrl) ?? ".fbx";
+            string motionSavePath = Path.Combine(modelDir, baseName + "_motion" + motionExt)
+                .Replace("\\", "/");
             generator.ButtonText = TJGeneratorsL10n.L("下载动作模型...");
             _host.Repaint();
             yield return DownloadFile(motionFbxUrl, motionSavePath);
@@ -994,7 +1205,7 @@ namespace TJGenerators.Pipeline
             }
 
             if (motionSavePath.EndsWith(".fbx", StringComparison.OrdinalIgnoreCase))
-                SetupAnimationImport(motionSavePath);
+                RiggedModelPostProcess.SetupAnimationImport(motionSavePath);
 
             AssetDatabase.Refresh();
 
@@ -1002,29 +1213,43 @@ namespace TJGenerators.Pipeline
             generator.ButtonText = TJGeneratorsL10n.L("创建动画控制器...");
             _host.Repaint();
             RiggedModelPostProcess.CreateSingleClipLoopAnimatorControllerFromMotionClip(
-                modelDir, riggedBaseName, motionSavePath);
-        }        private IEnumerator DownloadAnimationModels(ModelGeneratorBase generator, TJTaskStatusResponse response, string mainModelPath)
+                modelDir,
+                riggedBaseName,
+                motionSavePath
+            );
+        }
+
+        private IEnumerator DownloadAnimationModels(
+            ModelGeneratorBase generator,
+            TJTaskStatusResponse response,
+            string mainModelPath
+        )
         {
             string modelDir = Path.GetDirectoryName(mainModelPath);
             string baseName = Path.GetFileNameWithoutExtension(mainModelPath);
-            
+
             string animationUrl = generator.GetAnimationUrl(response);
             string walkingAnimUrl = generator.GetWalkingAnimationUrl(response);
             string runningAnimUrl = generator.GetRunningAnimationUrl(response);
-            
+
             string animPath = null;
             string walkPath = null;
             string runPath = null;
-            
+
             if (!string.IsNullOrEmpty(animationUrl))
             {
                 generator.ButtonText = TJGeneratorsL10n.L("下载动画...");
                 _host.Repaint();
 
-                string animExt = GenerationAssetFormatUtils.GetExtensionFromUrl(animationUrl) ?? ".fbx";
-                animPath = Path.Combine(modelDir, baseName + "_animation" + animExt).Replace("\\", "/");
+                string animExt =
+                    GenerationAssetFormatUtils.GetExtensionFromUrl(animationUrl) ?? ".fbx";
+                animPath = Path.Combine(modelDir, baseName + "_animation" + animExt)
+                    .Replace("\\", "/");
                 TJLog.Log($"[GenerationPipeline] 下载动画模型: {animationUrl} -> {animPath}");
-                yield return DownloadFile(animationUrl, animPath);
+                bool animDownloaded = false;
+                yield return DownloadFile(animationUrl, animPath, ok => animDownloaded = ok);
+                if (!animDownloaded)
+                    animPath = null;
             }
 
             if (!string.IsNullOrEmpty(walkingAnimUrl))
@@ -1032,10 +1257,15 @@ namespace TJGenerators.Pipeline
                 generator.ButtonText = TJGeneratorsL10n.L("下载行走动画...");
                 _host.Repaint();
 
-                string walkExt = GenerationAssetFormatUtils.GetExtensionFromUrl(walkingAnimUrl) ?? ".fbx";
-                walkPath = Path.Combine(modelDir, baseName + "_walking" + walkExt).Replace("\\", "/");
+                string walkExt =
+                    GenerationAssetFormatUtils.GetExtensionFromUrl(walkingAnimUrl) ?? ".fbx";
+                walkPath = Path.Combine(modelDir, baseName + "_walking" + walkExt)
+                    .Replace("\\", "/");
                 TJLog.Log($"[GenerationPipeline] 下载行走动画: {walkingAnimUrl} -> {walkPath}");
-                yield return DownloadFile(walkingAnimUrl, walkPath);
+                bool walkDownloaded = false;
+                yield return DownloadFile(walkingAnimUrl, walkPath, ok => walkDownloaded = ok);
+                if (!walkDownloaded)
+                    walkPath = null;
             }
 
             if (!string.IsNullOrEmpty(runningAnimUrl))
@@ -1043,20 +1273,37 @@ namespace TJGenerators.Pipeline
                 generator.ButtonText = TJGeneratorsL10n.L("下载奔跑动画...");
                 _host.Repaint();
 
-                string runExt = GenerationAssetFormatUtils.GetExtensionFromUrl(runningAnimUrl) ?? ".fbx";
+                string runExt =
+                    GenerationAssetFormatUtils.GetExtensionFromUrl(runningAnimUrl) ?? ".fbx";
                 runPath = Path.Combine(modelDir, baseName + "_running" + runExt).Replace("\\", "/");
                 TJLog.Log($"[GenerationPipeline] 下载奔跑动画: {runningAnimUrl} -> {runPath}");
-                yield return DownloadFile(runningAnimUrl, runPath);
+                bool runDownloaded = false;
+                yield return DownloadFile(runningAnimUrl, runPath, ok => runDownloaded = ok);
+                if (!runDownloaded)
+                    runPath = null;
             }
 
-            if (!string.IsNullOrEmpty(animPath) && animPath.EndsWith(".fbx", StringComparison.OrdinalIgnoreCase))
-                SetupAnimationImport(animPath);
-            if (!string.IsNullOrEmpty(walkPath) && walkPath.EndsWith(".fbx", StringComparison.OrdinalIgnoreCase))
-                SetupAnimationImport(walkPath);
-            if (!string.IsNullOrEmpty(runPath) && runPath.EndsWith(".fbx", StringComparison.OrdinalIgnoreCase))
-                SetupAnimationImport(runPath);
+            if (
+                !string.IsNullOrEmpty(animPath)
+                && animPath.EndsWith(".fbx", StringComparison.OrdinalIgnoreCase)
+            )
+                RiggedModelPostProcess.SetupAnimationImport(animPath, loopTime: false);
+            if (
+                !string.IsNullOrEmpty(walkPath)
+                && walkPath.EndsWith(".fbx", StringComparison.OrdinalIgnoreCase)
+            )
+                RiggedModelPostProcess.SetupAnimationImport(walkPath, loopTime: true);
+            if (
+                !string.IsNullOrEmpty(runPath)
+                && runPath.EndsWith(".fbx", StringComparison.OrdinalIgnoreCase)
+            )
+                RiggedModelPostProcess.SetupAnimationImport(runPath, loopTime: true);
 
-            if (!string.IsNullOrEmpty(animPath) || !string.IsNullOrEmpty(walkPath) || !string.IsNullOrEmpty(runPath))
+            if (
+                !string.IsNullOrEmpty(animPath)
+                || !string.IsNullOrEmpty(walkPath)
+                || !string.IsNullOrEmpty(runPath)
+            )
             {
                 generator.ButtonText = TJGeneratorsL10n.L("创建动画控制器...");
                 _host.Repaint();
@@ -1065,7 +1312,11 @@ namespace TJGenerators.Pipeline
             }
         }
 
-        private IEnumerator DownloadFile(string url, string savePath)
+        private IEnumerator DownloadFile(
+            string url,
+            string savePath,
+            Action<bool> onComplete = null
+        )
         {
             string directory = Path.GetDirectoryName(savePath)?.Replace('\\', '/');
             if (!string.IsNullOrEmpty(directory))
@@ -1076,65 +1327,83 @@ namespace TJGenerators.Pipeline
                 url,
                 savePath,
                 120f,
-                onError: err => downloadError = err);
+                onError: err => downloadError = err
+            );
 
-            if (string.IsNullOrEmpty(downloadError))
+            bool success = string.IsNullOrEmpty(downloadError);
+            if (success)
             {
                 PathUtils.ImportAssetAfterDiskWrite(savePath);
                 TJLog.Log($"[GenerationPipeline] 文件下载完成: {savePath}");
             }
             else
             {
-                TJLog.LogWarning($"[GenerationPipeline] 文件下载失败: {url}, error: {downloadError}");
+                TJLog.LogWarning(
+                    $"[GenerationPipeline] 文件下载失败: {url}, error: {downloadError}"
+                );
             }
+
+            onComplete?.Invoke(success);
         }
-        
-        private void SetupAnimationImport(string assetPath) =>
-            RiggedModelPostProcess.SetupAnimationImport(assetPath);
-        
-        private void CreateAnimatorController(string modelDir, string baseName, string animPath, string walkPath, string runPath)
+
+        private void CreateAnimatorController(
+            string modelDir,
+            string baseName,
+            string animPath,
+            string walkPath,
+            string runPath
+        )
         {
             try
             {
                 modelDir = PathUtils.NormalizeModelDirectory(modelDir);
 
-                string controllerPath = Path.Combine(modelDir, baseName + "_Controller.controller").Replace("\\", "/");
+                string controllerPath = Path.Combine(modelDir, baseName + "_Controller.controller")
+                    .Replace("\\", "/");
                 string controllerDir = Path.GetDirectoryName(controllerPath).Replace("\\", "/");
                 string absoluteControllerDir = PathUtils.ToAbsoluteAssetPath(controllerDir);
-                if (!string.IsNullOrEmpty(absoluteControllerDir) && !Directory.Exists(absoluteControllerDir))
+                if (
+                    !string.IsNullOrEmpty(absoluteControllerDir)
+                    && !Directory.Exists(absoluteControllerDir)
+                )
                     Directory.CreateDirectory(absoluteControllerDir);
 
-                if (AssetDatabase.LoadAssetAtPath<RuntimeAnimatorController>(controllerPath) != null)
+                if (
+                    AssetDatabase.LoadAssetAtPath<RuntimeAnimatorController>(controllerPath) != null
+                )
                 {
                     TJLog.Log($"[GenerationPipeline] Animator Controller 已存在: {controllerPath}");
                     return;
                 }
-                
+
                 var controller = AnimatorController.CreateAnimatorControllerAtPath(controllerPath);
                 if (controller == null)
                 {
-                    TJLog.LogWarning($"[GenerationPipeline] 无法创建 Animator Controller: {controllerPath}");
+                    TJLog.LogWarning(
+                        $"[GenerationPipeline] 无法创建 Animator Controller: {controllerPath}"
+                    );
                     return;
                 }
-                
+
                 controller.AddParameter("Speed", AnimatorControllerParameterType.Float);
                 controller.AddParameter("Action", AnimatorControllerParameterType.Trigger);
                 var rootStateMachine = controller.layers[0].stateMachine;
-                
+
                 AnimationClip animClip = null;
                 AnimationClip walkClip = null;
                 AnimationClip runClip = null;
-                
+
                 if (!string.IsNullOrEmpty(animPath))
-                    animClip = GetAnimationClipFromFbx(animPath);
+                    animClip = RiggedModelPostProcess.GetAnimationClipFromFbx(animPath);
                 if (!string.IsNullOrEmpty(walkPath))
-                    walkClip = GetAnimationClipFromFbx(walkPath);
+                    walkClip = RiggedModelPostProcess.GetAnimationClipFromFbx(walkPath);
                 if (!string.IsNullOrEmpty(runPath))
-                    runClip = GetAnimationClipFromFbx(runPath);
-                
+                    runClip = RiggedModelPostProcess.GetAnimationClipFromFbx(runPath);
+
                 // 创建 Idle 状态 — 兜底状态；有行走动画时复用其 clip，避免 Play 时出现 T-pose
                 var idleState = rootStateMachine.AddState("Idle");
-                if (walkClip != null) idleState.motion = walkClip;
+                if (walkClip != null)
+                    idleState.motion = walkClip;
 
                 AnimatorState walkState = null;
                 if (walkClip != null)
@@ -1208,10 +1477,10 @@ namespace TJGenerators.Pipeline
                     rootStateMachine.defaultState = walkState;
                 else
                     rootStateMachine.defaultState = idleState;
-                
+
                 AssetDatabase.SaveAssets();
                 AssetDatabase.Refresh();
-                
+
                 TJLog.Log($"[GenerationPipeline] Animator Controller 创建完成: {controllerPath}");
             }
             catch (Exception e)
@@ -1220,71 +1489,73 @@ namespace TJGenerators.Pipeline
             }
         }
 
-        private AnimationClip GetAnimationClipFromFbx(string fbxPath) =>
-            RiggedModelPostProcess.GetAnimationClipFromFbx(fbxPath);
-        
         /// <summary>
         /// 下载 Tripo rendered_image (webp) 到模型目录，供 FBX 材质使用。
         /// </summary>
         private IEnumerator DownloadRenderedImage(string imageUrl, string unityRelativePath)
         {
-            string fullPath = Path.GetFullPath(Path.Combine(Application.dataPath, "..", unityRelativePath));
-            string directory = Path.GetDirectoryName(fullPath);
-            if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
+            byte[] imageData = null;
+            string downloadError = null;
+            yield return PipelineDownloadHelper.DownloadUrlToFile(
+                imageUrl,
+                unityRelativePath,
+                60f,
+                onSuccess: data => imageData = data,
+                onError: err => downloadError = err
+            );
+
+            if (string.IsNullOrEmpty(downloadError) && imageData != null && imageData.Length > 0)
             {
-                Directory.CreateDirectory(directory);
+                TJLog.Log(
+                    $"[GenerationPipeline] rendered_image 已下载: {unityRelativePath}, size={imageData.Length}"
+                );
+                PathUtils.ImportAssetAfterDiskWrite(unityRelativePath);
             }
-            
-            using (UnityWebRequest uwr = UnityWebRequest.Get(imageUrl))
+            else
             {
-                uwr.downloadHandler = new DownloadHandlerBuffer();
-                yield return uwr.SendWebRequest();
-                
-                float timeout = 60f;
-                float timeElapsed = 0f;
-                while (UnityWebRequestCompat.IsInProgress(uwr) && timeElapsed < timeout)
-                {
-                    timeElapsed += 0.5f;
-                    yield return null;
-                }
-                
-                if (UnityWebRequestCompat.IsSuccess(uwr) && uwr.downloadHandler?.data != null)
-                {
-                    File.WriteAllBytes(fullPath, uwr.downloadHandler.data);
-                    TJLog.Log($"[GenerationPipeline] rendered_image 已下载: {unityRelativePath}, size={uwr.downloadHandler.data.Length}");
-                    PathUtils.ImportAssetAfterDiskWrite(unityRelativePath);
-                }
-                else
-                {
-                    TJLog.LogWarning($"[GenerationPipeline] rendered_image 下载失败: {imageUrl}, error={uwr.error}");
-                }
+                TJLog.LogWarning(
+                    $"[GenerationPipeline] rendered_image 下载失败: {imageUrl}, error={downloadError}"
+                );
             }
-        }        private void ObjModelPostProcessing(string assetPath)
+        }
+
+        private void ObjModelPostProcessing(string assetPath)
         {
             ModelImporter modelImporter = AssetImporter.GetAtPath(assetPath) as ModelImporter;
             if (modelImporter != null)
             {
-                string directoryPath = Path.GetDirectoryName(assetPath);
-                
+                string directoryPath = Path.GetDirectoryName(assetPath)?.Replace("\\", "/");
+                string absoluteDirectoryPath = PathUtils.ToAbsoluteAssetPath(directoryPath);
+
                 modelImporter.importNormals = ModelImporterNormals.Calculate;
-                modelImporter.normalCalculationMode = ModelImporterNormalCalculationMode.AreaAndAngleWeighted;
+                modelImporter.normalCalculationMode =
+                    ModelImporterNormalCalculationMode.AreaAndAngleWeighted;
                 modelImporter.importBlendShapes = true;
                 modelImporter.importTangents = ModelImporterTangents.CalculateMikk;
-                modelImporter.SearchAndRemapMaterials(ModelImporterMaterialName.BasedOnTextureName, ModelImporterMaterialSearch.Local);
+                modelImporter.isReadable = true;
+                modelImporter.SearchAndRemapMaterials(
+                    ModelImporterMaterialName.BasedOnTextureName,
+                    ModelImporterMaterialSearch.Local
+                );
                 modelImporter.SaveAndReimport();
                 AssetDatabase.Refresh();
-                
-                foreach (string filePath in Directory.GetFiles(directoryPath))
+
+                foreach (string filePath in Directory.GetFiles(absoluteDirectoryPath))
                 {
                     string extension = Path.GetExtension(filePath).ToLower();
                     if (extension == ".png" || extension == ".jpg" || extension == ".jpeg")
                     {
                         string fileName = Path.GetFileName(filePath).ToLower();
-                        string unityPath = filePath.Replace("\\", "/");
-                        
-                        if (fileName.Contains("normal") || fileName.Contains("_n.") || fileName.Contains("_norm"))
+                        string unityPath = PathUtils.AbsolutePathToAssetsRelative(filePath);
+
+                        if (
+                            fileName.Contains("normal")
+                            || fileName.Contains("_n.")
+                            || fileName.Contains("_norm")
+                        )
                         {
-                            TextureImporter textureImporter = AssetImporter.GetAtPath(unityPath) as TextureImporter;
+                            TextureImporter textureImporter =
+                                AssetImporter.GetAtPath(unityPath) as TextureImporter;
                             if (textureImporter != null)
                             {
                                 textureImporter.textureType = TextureImporterType.NormalMap;
@@ -1293,28 +1564,28 @@ namespace TJGenerators.Pipeline
                         }
                     }
                 }
-                
-                TJLog.Log($"[GenerationPipeline] OBJ模型导入设置已配置: 法线计算={modelImporter.importNormals}, 切线计算={modelImporter.importTangents}");
+
+                TJLog.Log(
+                    $"[GenerationPipeline] OBJ模型导入设置已配置: 法线计算={modelImporter.importNormals}, 切线计算={modelImporter.importTangents}"
+                );
                 TJLog.Log($"[GenerationPipeline] OBJ模型后处理完成: {assetPath}");
             }
         }
 
-        
         /// <summary>
         /// 将生成的模型绑定到目标 Prefab。
         /// 仅替换名为 "GeneratedModel" 或 "Placeholder" 的子对象，保留其他子对象和根组件。
         /// </summary>
-        public void BindModelToPrefab(string modelPath, float scale = 1f, Vector3 rotation = default)
+        public void BindModelToPrefab(
+            string modelPath,
+            float scale = 1f,
+            Vector3 rotation = default
+        )
         {
-            if (rotation == default)
-            {
-                rotation = new Vector3(0f, 0f, 0f);
-            }
-            
             var targetAsset = _host.GetTargetAsset();
             if (targetAsset == null || !targetAsset.IsValid())
                 return;
-            
+
             string prefabPath = targetAsset.GetPath();
             var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath);
             if (prefab == null)
@@ -1322,7 +1593,7 @@ namespace TJGenerators.Pipeline
                 TJLog.LogError($"[GenerationPipeline] 无法加载目标Prefab: {prefabPath}");
                 return;
             }
-            
+
             var modelPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(modelPath);
             if (modelPrefab == null)
             {
@@ -1334,7 +1605,7 @@ namespace TJGenerators.Pipeline
             // override，使实例位置重置回原点。提前保存所有场景实例的 local transform，
             // 在 AssetDatabase.Refresh() 之后恢复，避免用户手动调整的位置被覆盖。
             var savedInstanceTransforms = CollectSceneInstanceLocalTransforms(prefab);
-            
+
             // Use prefabPath directly — GetPrefabAssetPathOfNearestInstanceRoot only works on scene
             // instances, not on prefab assets loaded via LoadAssetAtPath (returns "" for assets).
             string prefabAssetPath = prefabPath.Replace("\\", "/");
@@ -1351,7 +1622,9 @@ namespace TJGenerators.Pipeline
                     }
                 }
 
-                var modelInstance = PrefabUtility.InstantiatePrefab(modelPrefab, prefabRoot.transform) as GameObject;
+                var modelInstance =
+                    PrefabUtility.InstantiatePrefab(modelPrefab, prefabRoot.transform)
+                    as GameObject;
                 if (modelInstance != null)
                 {
                     modelInstance.name = "GeneratedModel";
@@ -1373,17 +1646,21 @@ namespace TJGenerators.Pipeline
                     }
                 }
 
-                string modelDir2     = Path.GetDirectoryName(modelPath)?.Replace("\\", "/") ?? "";
+                string modelDir2 = Path.GetDirectoryName(modelPath)?.Replace("\\", "/") ?? "";
                 string modelBaseName = Path.GetFileNameWithoutExtension(modelPath);
-                string ctrlPath      = Path.Combine(modelDir2, modelBaseName + "_Controller.controller").Replace("\\", "/");
-                var    ctrl          = AssetDatabase.LoadAssetAtPath<RuntimeAnimatorController>(ctrlPath);
+                string ctrlPath = Path.Combine(modelDir2, modelBaseName + "_Controller.controller")
+                    .Replace("\\", "/");
+                var ctrl = AssetDatabase.LoadAssetAtPath<RuntimeAnimatorController>(ctrlPath);
 
                 var animator = prefabRoot.GetComponent<Animator>();
                 if (ctrl != null || bindAvatar != null)
                 {
-                    if (animator == null) animator = prefabRoot.AddComponent<Animator>();
-                    if (ctrl != null)        animator.runtimeAnimatorController = ctrl;
-                    if (bindAvatar != null)  animator.avatar = bindAvatar;
+                    if (animator == null)
+                        animator = prefabRoot.AddComponent<Animator>();
+                    if (ctrl != null)
+                        animator.runtimeAnimatorController = ctrl;
+                    if (bindAvatar != null)
+                        animator.avatar = bindAvatar;
                 }
                 else
                 {
@@ -1414,7 +1691,9 @@ namespace TJGenerators.Pipeline
         /// <summary>
         /// 收集活动场景中所有属于指定 Prefab 的顶层实例的 local transform。
         /// </summary>
-        private static List<InstanceTransformSnapshot> CollectSceneInstanceLocalTransforms(GameObject prefabAsset)
+        private static List<InstanceTransformSnapshot> CollectSceneInstanceLocalTransforms(
+            GameObject prefabAsset
+        )
         {
             var result = new List<InstanceTransformSnapshot>();
             if (prefabAsset == null)
@@ -1433,18 +1712,21 @@ namespace TJGenerators.Pipeline
         private static void CollectPrefabInstancesRecursive(
             GameObject obj,
             GameObject prefabAsset,
-            List<InstanceTransformSnapshot> result)
+            List<InstanceTransformSnapshot> result
+        )
         {
             var source = PrefabUtility.GetCorrespondingObjectFromSource(obj);
             if (source == prefabAsset)
             {
-                result.Add(new InstanceTransformSnapshot
-                {
-                    Transform     = obj.transform,
-                    LocalPosition = obj.transform.localPosition,
-                    LocalRotation = obj.transform.localRotation,
-                    LocalScale    = obj.transform.localScale,
-                });
+                result.Add(
+                    new InstanceTransformSnapshot
+                    {
+                        Transform = obj.transform,
+                        LocalPosition = obj.transform.localPosition,
+                        LocalRotation = obj.transform.localRotation,
+                        LocalScale = obj.transform.localScale,
+                    }
+                );
                 return;
             }
 
@@ -1455,7 +1737,9 @@ namespace TJGenerators.Pipeline
         /// <summary>
         /// 将场景实例的 local transform 恢复到快照中保存的值（配合 Undo 使操作可撤销）。
         /// </summary>
-        private static void RestoreSceneInstanceLocalTransforms(List<InstanceTransformSnapshot> snapshots)
+        private static void RestoreSceneInstanceLocalTransforms(
+            List<InstanceTransformSnapshot> snapshots
+        )
         {
             foreach (var snap in snapshots)
             {
@@ -1464,7 +1748,7 @@ namespace TJGenerators.Pipeline
                 Undo.RecordObject(snap.Transform, "Restore Instance Transform After Generation");
                 snap.Transform.localPosition = snap.LocalPosition;
                 snap.Transform.localRotation = snap.LocalRotation;
-                snap.Transform.localScale    = snap.LocalScale;
+                snap.Transform.localScale = snap.LocalScale;
             }
         }
 
@@ -1536,7 +1820,8 @@ namespace TJGenerators.Pipeline
         /// </summary>
         private static void ApplyDefaultMaterialIfMissing(GameObject root)
         {
-            if (root == null) return;
+            if (root == null)
+                return;
 
             var defaultMat = GetOrCreateDefaultMaterial();
             if (defaultMat == null)
@@ -1547,15 +1832,18 @@ namespace TJGenerators.Pipeline
             var renderers = root.GetComponentsInChildren<Renderer>(true);
             foreach (var renderer in renderers)
             {
-                if (renderer == null || renderer.sharedMaterials == null) continue;
+                if (renderer == null || renderer.sharedMaterials == null)
+                    continue;
 
                 var mats = renderer.sharedMaterials;
                 bool changed = false;
                 for (int i = 0; i < mats.Length; i++)
                 {
                     var mat = mats[i];
-                    bool missingShader = mat == null || mat.shader == null ||
-                                         mat.shader.name == "Hidden/InternalErrorShader";
+                    bool missingShader =
+                        mat == null
+                        || mat.shader == null
+                        || mat.shader.name == "Hidden/InternalErrorShader";
                     if (missingShader)
                     {
                         mats[i] = defaultMat;
@@ -1570,11 +1858,15 @@ namespace TJGenerators.Pipeline
             }
         }
 
-        
         /// <summary>
         /// 完成生成任务。多图时 savePaths 与 imageUrls 数量一致，会拆成多条历史（一图一格）。
         /// </summary>
-        private void CompleteGeneration(ModelGeneratorBase generator, string modelPath, string[] imageUrls = null, List<string> savePaths = null)
+        private void CompleteGeneration(
+            ModelGeneratorBase generator,
+            string modelPath,
+            string[] imageUrls = null,
+            List<string> savePaths = null
+        )
         {
             if (!string.IsNullOrEmpty(generator.CurrentBackendTaskId))
             {
@@ -1596,14 +1888,14 @@ namespace TJGenerators.Pipeline
                 if (string.IsNullOrEmpty(effectivePreviewUrl) && !string.IsNullOrEmpty(modelPath))
                 {
                     bool isPreviewable =
-                        modelPath.EndsWith(".png",  StringComparison.OrdinalIgnoreCase) ||
-                        modelPath.EndsWith(".jpg",  StringComparison.OrdinalIgnoreCase) ||
-                        modelPath.EndsWith(".jpeg", StringComparison.OrdinalIgnoreCase) ||
-                        modelPath.EndsWith(".webp", StringComparison.OrdinalIgnoreCase) ||
-                        modelPath.EndsWith(".mp3",  StringComparison.OrdinalIgnoreCase) ||
-                        modelPath.EndsWith(".wav",  StringComparison.OrdinalIgnoreCase) ||
-                        modelPath.EndsWith(".ogg",  StringComparison.OrdinalIgnoreCase) ||
-                        modelPath.EndsWith(".mp4",  StringComparison.OrdinalIgnoreCase);
+                        modelPath.EndsWith(".png", StringComparison.OrdinalIgnoreCase)
+                        || modelPath.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase)
+                        || modelPath.EndsWith(".jpeg", StringComparison.OrdinalIgnoreCase)
+                        || modelPath.EndsWith(".webp", StringComparison.OrdinalIgnoreCase)
+                        || modelPath.EndsWith(".mp3", StringComparison.OrdinalIgnoreCase)
+                        || modelPath.EndsWith(".wav", StringComparison.OrdinalIgnoreCase)
+                        || modelPath.EndsWith(".ogg", StringComparison.OrdinalIgnoreCase)
+                        || modelPath.EndsWith(".mp4", StringComparison.OrdinalIgnoreCase);
                     if (isPreviewable)
                     {
                         string fullPath = PathUtils.ToAbsoluteAssetPath(modelPath);
@@ -1622,7 +1914,12 @@ namespace TJGenerators.Pipeline
                 if (generator is DynamicGenerator dgPrompt)
                     promptTemplateId = dgPrompt.GetSelectedPromptTemplateId();
 
-                if (savePaths != null && savePaths.Count > 1 && imageUrls != null && imageUrls.Length == savePaths.Count)
+                if (
+                    savePaths != null
+                    && savePaths.Count > 1
+                    && imageUrls != null
+                    && imageUrls.Length == savePaths.Count
+                )
                 {
                     TJGeneratorsHistoryManager.CompletePlaceholderMultiImage(
                         generator.CurrentGeneratingTaskId,
@@ -1651,44 +1948,54 @@ namespace TJGenerators.Pipeline
                 _activeTaskHandle.MarkCompleted(modelPath, effectivePreviewUrl);
                 _activeTaskHandle = null;
             }
-            
+
             _host.RefreshHistory();
             _host.OnGenerationCompleted(modelPath);
             _host.Repaint();
-            
+
             _host.RefreshUserInfo();
-            
+
             TJLog.Log($"[GenerationPipeline] 生成完成: {modelPath}");
         }
-        
+
         private string EnhanceErrorMessage(string originalError, ModelGeneratorBase generator)
         {
-            if (string.IsNullOrEmpty(originalError)) return null;
-            
+            if (string.IsNullOrEmpty(originalError))
+                return null;
+
             if (generator != null && generator.GetModelVersion().Contains("animation"))
             {
-                if (originalError.Contains("step 3 rig failed") || 
-                    (originalError.Contains("422") && originalError.Contains("Pose estimation failed")))
+                if (
+                    originalError.Contains("step 3 rig failed")
+                    || (
+                        originalError.Contains("422")
+                        && originalError.Contains("Pose estimation failed")
+                    )
+                )
                 {
-                    return TJGeneratorsL10n.L("动画绑定失败：您的提示词描述的可能不是一个角色。请确保描述的是有身体结构的角色（如人类、动物、机器人），而不是物品（如食物、车辆、建筑）。");
+                    return TJGeneratorsL10n.L(
+                        "动画绑定失败：您的提示词描述的可能不是一个角色。请确保描述的是有身体结构的角色（如人类、动物、机器人），而不是物品（如食物、车辆、建筑）。"
+                    );
                 }
             }
-            
+
             if (originalError.Contains("422"))
             {
-                return TJGeneratorsL10n.L("请求参数错误：请检查您的输入是否符合要求，特别是提示词内容和格式。");
+                return TJGeneratorsL10n.L(
+                    "请求参数错误：请检查您的输入是否符合要求，特别是提示词内容和格式。"
+                );
             }
-            
+
             if (originalError.Contains("429"))
             {
                 return TJGeneratorsL10n.L("请求频率过高：API调用次数超出限制，请稍后重试。");
             }
-            
+
             if (originalError.Contains("401"))
             {
                 return TJGeneratorsL10n.L("认证失败：API密钥可能无效或账户配额不足，请检查配置。");
             }
-            
+
             if (originalError.Contains("500") || originalError.Contains("503"))
             {
                 return TJGeneratorsL10n.L("模型生成失败，请稍后重试。");
@@ -1711,17 +2018,17 @@ namespace TJGenerators.Pipeline
                 _activeTaskHandle.MarkFailed(status, message);
                 _activeTaskHandle = null;
             }
-            
+
             if (!string.IsNullOrEmpty(generator.CurrentBackendTaskId))
             {
                 TJGeneratorsTaskRecovery.RemoveInterruptedTask(generator.CurrentBackendTaskId);
             }
-            
+
             if (!string.IsNullOrEmpty(generator.CurrentGeneratingTaskId))
             {
                 TJGeneratorsHistoryManager.RemovePlaceholder(generator.CurrentGeneratingTaskId);
             }
-            
+
             EndGenerationState(generator);
             _host.RefreshHistory();
             _host.Repaint();
@@ -1752,7 +2059,6 @@ namespace TJGenerators.Pipeline
             _host.Repaint();
         }
 #endif
-        
         /// <summary>
         /// 处理轮询超时（不移除任务记录，允许重连）
         /// </summary>
@@ -1760,25 +2066,33 @@ namespace TJGenerators.Pipeline
         {
             TJLog.LogError($"[GenerationPipeline] {message}");
             _host.ShowDialog(TJGeneratorsL10n.L("超时"), message);
-            
+
             if (_activeTaskHandle != null)
             {
                 _activeTaskHandle.MarkFailed("polling_timeout", message);
                 _activeTaskHandle = null;
             }
-            
+
             if (!string.IsNullOrEmpty(generator.CurrentBackendTaskId))
             {
-                TJGeneratorsTaskRecovery.UpdateTaskStatus(generator.CurrentBackendTaskId, "polling_timeout");
+                TJGeneratorsTaskRecovery.UpdateTaskStatus(
+                    generator.CurrentBackendTaskId,
+                    "polling_timeout"
+                );
             }
-            
+
             EndGenerationState(generator);
             _host.Repaint();
-        }        private void UpdateHistoryProgress(ModelGeneratorBase generator, int progress)
+        }
+
+        private void UpdateHistoryProgress(ModelGeneratorBase generator, int progress)
         {
             if (progress > 0 && !string.IsNullOrEmpty(generator.CurrentGeneratingTaskId))
             {
-                TJGeneratorsHistoryManager.UpdatePlaceholderProgress(generator.CurrentGeneratingTaskId, progress);
+                TJGeneratorsHistoryManager.UpdatePlaceholderProgress(
+                    generator.CurrentGeneratingTaskId,
+                    progress
+                );
                 _host.RefreshHistory();
             }
         }
@@ -1794,7 +2108,9 @@ namespace TJGenerators.Pipeline
             if (string.IsNullOrEmpty(ext))
                 ext = ".fbx";
 
-            string source = string.IsNullOrEmpty(modelUrl) ? Guid.NewGuid().ToString("N") : modelUrl;
+            string source = string.IsNullOrEmpty(modelUrl)
+                ? Guid.NewGuid().ToString("N")
+                : modelUrl;
             using (var md5 = MD5.Create())
             {
                 byte[] hash = md5.ComputeHash(Encoding.UTF8.GetBytes(source));
@@ -1833,13 +2149,15 @@ namespace TJGenerators.Pipeline
             }
 
             return assetPath;
-        }        private string GetModelSavePath(string fileName)
+        }
+
+        private string GetModelSavePath(string fileName)
         {
             if (!AssetDatabase.IsValidFolder("Assets/TJGenerators"))
             {
                 AssetDatabase.CreateFolder("Assets", "TJGenerators");
             }
-            
+
             var targetAsset = _host.GetTargetAsset();
             if (targetAsset != null && targetAsset.IsValid())
             {
@@ -1915,7 +2233,9 @@ namespace TJGenerators.Pipeline
             string fallbackSlot = $"{DateTime.Now:yyyyMMdd_HHmmss}_{Guid.NewGuid():N}";
             AssetDatabase.CreateFolder(groupPath, fallbackSlot);
             string fallbackPath = $"{groupPath}/{fallbackSlot}/{fileName}".Replace("\\", "/");
-            TJLog.LogWarning($"[GenerationPipeline] History 序号子目录已满，改用时间戳: {fallbackPath}");
+            TJLog.LogWarning(
+                $"[GenerationPipeline] History 序号子目录已满，改用时间戳: {fallbackPath}"
+            );
             return AssetDatabase.GenerateUniqueAssetPath(fallbackPath);
         }
 
@@ -1923,7 +2243,10 @@ namespace TJGenerators.Pipeline
         /// 将 Tripo rendered_image 等贴图应用到已导入模型资源下所有 Renderer 材质（主贴图 / URP _BaseMap / _MainTex）。
         /// 用于主 FBX 后处理；绑骨后仅在无法从源模型复用材质时作为回退。
         /// </summary>
-        private void ApplyRenderedTextureToImportedModel(string assetPath, string renderedTexturePath)
+        private void ApplyRenderedTextureToImportedModel(
+            string assetPath,
+            string renderedTexturePath
+        )
         {
             if (string.IsNullOrEmpty(renderedTexturePath))
                 return;
@@ -1931,7 +2254,9 @@ namespace TJGenerators.Pipeline
             Texture2D renderedTex = AssetDatabase.LoadAssetAtPath<Texture2D>(renderedTexturePath);
             if (renderedTex == null)
             {
-                TJLog.LogWarning($"[GenerationPipeline] 无法加载 rendered 贴图: {renderedTexturePath}");
+                TJLog.LogWarning(
+                    $"[GenerationPipeline] 无法加载 rendered 贴图: {renderedTexturePath}"
+                );
                 return;
             }
 
@@ -1943,10 +2268,12 @@ namespace TJGenerators.Pipeline
             int appliedCount = 0;
             foreach (var rend in renderers)
             {
-                if (rend.sharedMaterials == null) continue;
+                if (rend.sharedMaterials == null)
+                    continue;
                 foreach (var mat in rend.sharedMaterials)
                 {
-                    if (mat == null) continue;
+                    if (mat == null)
+                        continue;
                     mat.mainTexture = renderedTex;
                     if (mat.HasProperty("_BaseMap"))
                         mat.SetTexture("_BaseMap", renderedTex);
@@ -1958,20 +2285,28 @@ namespace TJGenerators.Pipeline
             }
 
             AssetDatabase.SaveAssets();
-            TJLog.Log($"[GenerationPipeline] 已将 rendered_image 贴图应用到 {appliedCount} 个材质: {renderedTexturePath} -> {assetPath}");
+            TJLog.Log(
+                $"[GenerationPipeline] 已将 rendered_image 贴图应用到 {appliedCount} 个材质: {renderedTexturePath} -> {assetPath}"
+            );
         }
-        
+
         /// <summary>
         /// 模型后处理（提取纹理、设置法线贴图等）。renderedTexturePath 为 Tripo rendered_image (webp) 的 Unity 相对路径时，会将其设为所有材质的主贴图。
         /// </summary>
         /// <param name="hasSeparateAnimations">是否有单独的动画文件（如果有，主模型不导入动画）</param>
-        private void ModelPostProcessing(string assetPath, string renderedTexturePath = null, bool hasSeparateAnimations = false)
+        private void ModelPostProcessing(
+            string assetPath,
+            string renderedTexturePath = null,
+            bool hasSeparateAnimations = false
+        )
         {
             ModelImporter modelImporter = AssetImporter.GetAtPath(assetPath) as ModelImporter;
             if (modelImporter != null)
             {
                 string parentDir = Path.GetDirectoryName(assetPath)?.Replace("\\", "/") ?? "";
-                string safeBase = PathUtils.SanitizeAssetFolderName(Path.GetFileNameWithoutExtension(assetPath));
+                string safeBase = PathUtils.SanitizeAssetFolderName(
+                    Path.GetFileNameWithoutExtension(assetPath)
+                );
                 // 每个 FBX 单独子目录，避免 Tripo 等固定贴图名（如 tripo_model_basecolor）在同一父目录下互相覆盖。
                 string extractDirRelative = string.IsNullOrEmpty(parentDir)
                     ? $"{safeBase}.fbm"
@@ -1994,8 +2329,12 @@ namespace TJGenerators.Pipeline
 
                         string fileName = Path.GetFileName(filePath);
                         string nameWithoutExt = Path.GetFileNameWithoutExtension(fileName);
-                        bool treatAsNormalMap = fileName.StartsWith("Normal", StringComparison.OrdinalIgnoreCase)
-                            || nameWithoutExt.EndsWith("_normal", StringComparison.OrdinalIgnoreCase);
+                        bool treatAsNormalMap =
+                            fileName.StartsWith("Normal", StringComparison.OrdinalIgnoreCase)
+                            || nameWithoutExt.EndsWith(
+                                "_normal",
+                                StringComparison.OrdinalIgnoreCase
+                            );
                         if (!treatAsNormalMap)
                             continue;
 
@@ -2016,15 +2355,20 @@ namespace TJGenerators.Pipeline
                 {
                     modelImporter.animationType = ModelImporterAnimationType.Human;
                     modelImporter.importAnimation = false;
-                    TJLog.Log($"[GenerationPipeline] 主模型设置为 Humanoid，禁用动画导入（动画在单独文件中）");
+                    TJLog.Log(
+                        $"[GenerationPipeline] 主模型设置为 Humanoid，禁用动画导入（动画在单独文件中）"
+                    );
                 }
 
-                modelImporter.SearchAndRemapMaterials(ModelImporterMaterialName.BasedOnTextureName, ModelImporterMaterialSearch.Local);
+                modelImporter.isReadable = true;
+                modelImporter.SearchAndRemapMaterials(
+                    ModelImporterMaterialName.BasedOnTextureName,
+                    ModelImporterMaterialSearch.Local
+                );
                 modelImporter.SaveAndReimport();
                 AssetDatabase.Refresh();
 
                 ApplyRenderedTextureToImportedModel(assetPath, renderedTexturePath);
-
             }
         }
 
@@ -2032,7 +2376,7 @@ namespace TJGenerators.Pipeline
 #if TJGENERATORS_DEBUG
             , int abortEpoch = -1
 #endif
-            )
+        )
         {
             double startTime = EditorApplication.timeSinceStartup;
             while (EditorApplication.timeSinceStartup - startTime < seconds)

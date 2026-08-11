@@ -324,6 +324,9 @@ namespace UnityTcp.Editor.Tools
 
         public override void OnGenerationCompleted(string modelPath)
         {
+            if (!string.IsNullOrEmpty(modelPath))
+                PathUtils.EnsureModelImporterReadable(modelPath);
+
             string prefabPath = _targetAsset?.GetPath();
 
             var tasksToUpdate = new List<StaticModelTaskTracker.StaticModelTaskInfo>();

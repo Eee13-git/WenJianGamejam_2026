@@ -14,7 +14,12 @@ public class IdleState : EnemyStateBase
 
     public override void Tick()
     {
-        if (Core.PlayerTarget == null) return;
+        // 懒加载玩家（EnemyCore 可能还没找到）
+        if (Core.PlayerTarget == null)
+        {
+            TryFindPlayer();
+            return;
+        }
         if (Core.config == null) return;
 
         // 检测玩家
@@ -34,5 +39,11 @@ public class IdleState : EnemyStateBase
             Core.StateMachine.ChangeState(new PatrolState(Core));
             return;
         }
+    }
+
+    private void TryFindPlayer()
+    {
+        if (UnityEngine.GameObject.FindGameObjectWithTag("Player") is GameObject p)
+            Core.PlayerTarget = p.transform;
     }
 }

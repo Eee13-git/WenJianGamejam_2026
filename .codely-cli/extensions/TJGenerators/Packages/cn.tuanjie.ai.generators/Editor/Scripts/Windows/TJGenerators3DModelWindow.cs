@@ -305,12 +305,6 @@ namespace TJGenerators
             if (userInfo == null)
                 return;
 
-            if (userInfo.credits != null)
-            {
-                currentCredits = userInfo.credits.currentCredits;
-                hasLoadedUserInfo = true;
-            }
-
             _userEmail = string.IsNullOrEmpty(userInfo.email) ? "--" : userInfo.email;
             Repaint();
         }

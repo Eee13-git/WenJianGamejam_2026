@@ -21,7 +21,6 @@ namespace TJGenerators.UI
         private const string GreenBtnNormal4xPath = "Button/green_btn_normal_4x.png";
         private const string GreenBtnHover4xPath = "Button/green_btn_hover_4x.png";
         private const string GreenBtnPressed4xPath = "Button/green_btn_pressed_4x.png";
-        private const string CostIconPath = "Icons/cost_icon.png";
         private const string BlackBtnNormal4xPath = "Button/black_btn_normal_4x.png";
         private const string GreyBtnDisablePath = "Button/grey_btn_disable.png";
         private const string GreenButtonPath = "GreenButton.png";
@@ -264,7 +263,6 @@ namespace TJGenerators.UI
         private static GUIStyle _searchTextFieldStyle;
         private static GUIStyle _placeholderStyle;
         private static GUIStyle _imageUploadAreaStyle;
-        private static GUIStyle _bottomStatusBarCreditsStyle;
         private static GUIStyle _separatorStyle;
         private static GUIStyle _gapLineStyle;
         private static GUIStyle _statusStyle;
@@ -315,7 +313,6 @@ namespace TJGenerators.UI
         private static Texture2D _greenBtnPressed4xTexture;
         private static Texture2D _greenBtnNormal4xTexture;
         private static Texture2D _greenBtnHover4xTexture;
-        private static Texture2D _costIconTexture;
         private static Texture2D _blackBtnNormal4xTexture;
         private static Texture2D _greyBtnDisableTexture;
         private static Texture2D _greenButtonTexture;
@@ -348,7 +345,6 @@ namespace TJGenerators.UI
             _greenBtnNormal4xTexture = LoadEditorTexture(GreenBtnNormal4xPath);
             _greenBtnHover4xTexture = LoadEditorTexture(GreenBtnHover4xPath);
             _greenBtnPressed4xTexture = LoadEditorTexture(GreenBtnPressed4xPath);
-            _costIconTexture = LoadEditorTexture(CostIconPath);
             _blackBtnNormal4xTexture = LoadEditorTexture(BlackBtnNormal4xPath);
             _greyBtnDisableTexture = LoadEditorTexture(GreyBtnDisablePath);
             _greenButtonTexture = LoadEditorTexture(GreenButtonPath);
@@ -548,16 +544,6 @@ namespace TJGenerators.UI
                 alignment = TextAnchor.MiddleLeft,
                 padding = new RectOffset(Mathf.Max(0, Mathf.RoundToInt(10f)), Mathf.Max(0, Mathf.RoundToInt(10f)), 0, 0),
                 normal = { textColor = ThemeGreenColor, background = _greenButtonTexture },
-            };
-
-            _bottomStatusBarCreditsStyle = new GUIStyle(_textStyle)
-            {
-                font = _sourceHanSansMediumFont != null ? _sourceHanSansMediumFont : _sourceHanSansRegularFont,
-                fontSize = 12,
-                fontStyle = FontStyle.Normal,
-                alignment = TextAnchor.MiddleRight,
-                clipping = TextClipping.Clip,
-                normal = { textColor = new Color(1f, 1f, 1f, 0.45f) },
             };
 
             _separatorStyle = new GUIStyle
@@ -1057,12 +1043,6 @@ namespace TJGenerators.UI
             get { EnsureTextures(); return _previewImageDefaultTexture; }
         }
 
-        /// <summary>主窗口底部状态栏右侧「点数」文案样式（与邮箱同色、右对齐）</summary>
-        public static GUIStyle BottomStatusBarCreditsStyle
-        {
-            get { EnsureStyles(); return _bottomStatusBarCreditsStyle; }
-        }
-
         public static GUIStyle SeparatorStyle
         {
             get { EnsureStyles(); return _separatorStyle; }
@@ -1282,11 +1262,6 @@ namespace TJGenerators.UI
         public static GUIStyle DropDownPanelStyle
         {
             get { EnsureStyles(); return _dropDownPanelStyle; }
-        }
-
-        public static Texture2D CostIconTexture
-        {
-            get { EnsureTextures(); return _costIconTexture; }
         }
 
         public static Texture2D BlackBtnNormal4xTexture

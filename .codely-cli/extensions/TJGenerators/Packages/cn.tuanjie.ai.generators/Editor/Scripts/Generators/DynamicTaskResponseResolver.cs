@@ -46,10 +46,10 @@ namespace TJGenerators.Generators
         {
             if (container == null)
                 return null;
-            string primary = PathUtils.GetString(container, primaryKey);
+            string primary = PathUtils.GetUrlString(container, primaryKey);
             if (!string.IsNullOrEmpty(primary))
                 return primary;
-            string fallback = PathUtils.GetString(container, fallbackKey);
+            string fallback = PathUtils.GetUrlString(container, fallbackKey);
             return string.IsNullOrEmpty(fallback) ? null : fallback;
         }
 
@@ -86,7 +86,7 @@ namespace TJGenerators.Generators
             )
                 return null;
 
-            string url = PathUtils.GetString(result, "base_basic_shaded");
+            string url = PathUtils.GetUrlString(result, "base_basic_shaded");
             if (!string.IsNullOrEmpty(url))
             {
                 TJLog.Log(
@@ -95,7 +95,7 @@ namespace TJGenerators.Generators
                 return url;
             }
 
-            url = PathUtils.GetString(result, "base");
+            url = PathUtils.GetUrlString(result, "base");
             if (!string.IsNullOrEmpty(url))
                 TJLog.Log("[DynamicGenerator] GetDownloadUrl: Rodin 使用 'base' 作为兜底");
             return string.IsNullOrEmpty(url) ? null : url;
@@ -176,23 +176,23 @@ namespace TJGenerators.Generators
                 defaultPath == "audio_url"
                 && !string.IsNullOrEmpty(response.output.data.audio_url)
             )
-                return response.output.data.audio_url;
+                return PathUtils.NormalizeRemoteUrl(response.output.data.audio_url);
             if (
                 defaultPath == "audioUrl"
                 && !string.IsNullOrEmpty(response.output.data.audioUrl)
             )
-                return response.output.data.audioUrl;
+                return PathUtils.NormalizeRemoteUrl(response.output.data.audioUrl);
 
             if (defaultPath.StartsWith("resultFiles", StringComparison.Ordinal))
             {
-                string urlFromData = PathUtils.GetString(response.output.data, defaultPath);
+                string urlFromData = PathUtils.GetUrlString(response.output.data, defaultPath);
                 if (!string.IsNullOrEmpty(urlFromData))
                     return urlFromData;
             }
 
             if (response.output.data.result == null)
             {
-                string flatUrl = PathUtils.GetString(response.output.data, defaultPath);
+                string flatUrl = PathUtils.GetUrlString(response.output.data, defaultPath);
                 if (!string.IsNullOrEmpty(flatUrl))
                     return flatUrl;
 
@@ -202,7 +202,7 @@ namespace TJGenerators.Generators
                 return null;
             }
 
-            string url = PathUtils.GetString(response.output.data.result, defaultPath);
+            string url = PathUtils.GetUrlString(response.output.data.result, defaultPath);
 
             object result = response.output.data.result;
 
@@ -261,16 +261,12 @@ namespace TJGenerators.Generators
             {
                 var urls = new string[arr.Length];
                 for (int i = 0; i < arr.Length; i++)
-                {
                     urls[i] = arr.GetValue(i)?.ToString();
-                }
-                return urls;
+                return PathUtils.NormalizeUrlArray(urls);
             }
 
             if (raw is string singleStr && !string.IsNullOrEmpty(singleStr))
-            {
-                return new[] { singleStr };
-            }
+                return PathUtils.NormalizeUrlArray(new[] { singleStr });
             return null;
         }
 
@@ -286,14 +282,14 @@ namespace TJGenerators.Generators
 
             if (path != null && path.StartsWith("resultFiles", StringComparison.Ordinal))
             {
-                string urlFromData = PathUtils.GetString(response.output.data, path);
+                string urlFromData = PathUtils.GetUrlString(response.output.data, path);
                 if (!string.IsNullOrEmpty(urlFromData))
                     return urlFromData;
             }
 
             if (path != null && path.StartsWith("assets.", StringComparison.Ordinal))
             {
-                string urlFromAssets = PathUtils.GetString(response.output.data, path);
+                string urlFromAssets = PathUtils.GetUrlString(response.output.data, path);
                 if (!string.IsNullOrEmpty(urlFromAssets))
                     return urlFromAssets;
             }
@@ -301,7 +297,7 @@ namespace TJGenerators.Generators
             if (response.output.data.result == null)
                 return null;
 
-            return PathUtils.GetString(response.output.data.result, path);
+            return PathUtils.GetUrlString(response.output.data.result, path);
         }
 
         public static string GetRenderedImageUrl(
@@ -316,7 +312,7 @@ namespace TJGenerators.Generators
             if (string.IsNullOrEmpty(path))
                 return null;
 
-            return PathUtils.GetString(response.output.data.result, path);
+            return PathUtils.GetUrlString(response.output.data.result, path);
         }
 
         public static string GetAnimationUrl(
@@ -330,7 +326,7 @@ namespace TJGenerators.Generators
             string path = ctx.Config.responseMapping?.animationUrlPath;
             if (!string.IsNullOrEmpty(path))
             {
-                string configUrl = PathUtils.GetString(response.output.data.result, path);
+                string configUrl = PathUtils.GetUrlString(response.output.data.result, path);
                 if (!string.IsNullOrEmpty(configUrl))
                     return configUrl;
             }
@@ -362,7 +358,7 @@ namespace TJGenerators.Generators
             string path = ctx.Config.responseMapping?.walkingAnimationUrlPath;
             if (!string.IsNullOrEmpty(path))
             {
-                string configUrl = PathUtils.GetString(response.output.data.result, path);
+                string configUrl = PathUtils.GetUrlString(response.output.data.result, path);
                 if (!string.IsNullOrEmpty(configUrl))
                     return configUrl;
             }
@@ -385,7 +381,7 @@ namespace TJGenerators.Generators
             string path = ctx.Config.responseMapping?.runningAnimationUrlPath;
             if (!string.IsNullOrEmpty(path))
             {
-                string configUrl = PathUtils.GetString(response.output.data.result, path);
+                string configUrl = PathUtils.GetUrlString(response.output.data.result, path);
                 if (!string.IsNullOrEmpty(configUrl))
                     return configUrl;
             }

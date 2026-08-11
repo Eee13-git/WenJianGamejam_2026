@@ -406,7 +406,7 @@ namespace UnityTcp.Editor.Tools
                     }
 
                     var json = JObject.Parse(body);
-                    return json["url"]?.ToString();
+                    return PathUtils.NormalizeRemoteUrl(json["url"]?.ToString());
                 }
             }
             catch (Exception e)

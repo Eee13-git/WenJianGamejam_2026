@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using Codely.Newtonsoft.Json;
 using Codely.Newtonsoft.Json.Linq;
 using UnityEngine;
 using UnityEditor;
@@ -188,12 +189,16 @@ namespace UnityTcp.Editor.Tools
             "Output is an MP4 (VideoClip) saved to Assets/TJGenerators/History/. " +
             "Key parameters: generator_id (default 'huoshan_seedance'), " +
             "prompt (text description), image_path (optional reference image — omit for text-to-video), " +
-            "mode (optional: 'text_to_video' or 'reference_image', auto-detected from image_path), " +
+            "video_path (optional: local MP4 file path for motion/camera reference — auto-switches to multimodal mode), " +
+            "reference_images (optional: array of image paths for style/character/material references in multimodal mode), " +
+            "audio_paths (optional: array of audio file paths for mood/rhythm reference in multimodal mode, requires video_path), " +
+            "mode (optional: 'text_to_video', 'reference_image', 'first_frame', 'first_last_frame', or 'multimodal', auto-detected from inputs), " +
             "model (optional: 'doubao-seedance-2-0-mini-260615' (default), 'doubao-seedance-2-0-260128', 'doubao-seedance-2-0-fast-260128'), " +
-            "resolution (optional: '720p' or '1080p', default '720p'), " +
-            "ratio (optional: '16:9', '9:16', or '1:1', default '16:9'), " +
-            "duration (optional: 3-15 seconds, default 12), " +
+            "resolution (optional: '720p' or '480p', default '720p'), " +
+            "ratio (optional: '16:9', '9:16', '1:1', '4:3', '3:4', '21:9', 'adaptive', default '16:9'), " +
+            "duration (optional: 4-15 seconds, default 12), " +
             "return_last_frame (optional: bool, default true), " +
+            "generate_audio (optional: bool, default true), " +
             "output_path (optional save path). " +
             "IMPORTANT: Generation takes 30-120 seconds. Wait at least 5 seconds before the first " +
             "query_video_status call, then poll every 5-10 seconds. " +
@@ -210,13 +215,24 @@ namespace UnityTcp.Editor.Tools
                 string imagePath   = parameters["image_path"]?.ToString();
                 string outputPath  = parameters["output_path"]?.ToString();
                 string sessionId   = parameters["session_id"]?.ToString() ?? "";
+                string videoPath   = parameters["video_path"]?.ToString();
 
-                if (string.IsNullOrEmpty(prompt) && string.IsNullOrEmpty(imagePath))
+                List<string> referenceImagePaths = null;
+                var refImagesToken = parameters["reference_images"];
+                if (refImagesToken != null && refImagesToken.Type == JTokenType.Array)
+                    referenceImagePaths = refImagesToken.ToObject<List<string>>();
+
+                List<string> audioPaths = null;
+                var audioPathsToken = parameters["audio_paths"];
+                if (audioPathsToken != null && audioPathsToken.Type == JTokenType.Array)
+                    audioPaths = audioPathsToken.ToObject<List<string>>();
+
+                if (string.IsNullOrEmpty(prompt) && string.IsNullOrEmpty(imagePath) && string.IsNullOrEmpty(videoPath))
                 {
                     return new Dictionary<string, object>
                     {
                         { "success", false },
-                        { "message", "Either 'prompt' or 'image_path' must be provided" }
+                        { "message", "Either 'prompt', 'image_path', or 'video_path' must be provided" }
                     };
                 }
 
@@ -237,10 +253,137 @@ namespace UnityTcp.Editor.Tools
                 if (!string.IsNullOrEmpty(prompt))
                     generator.SetTextPrompt(prompt);
 
-                if (!string.IsNullOrEmpty(imagePath))
-                    generator.SetImagePath(imagePath);
+                // Upload reference video (if provided) and get TOS URL
+                string videoTosUrl = null;
+                if (!string.IsNullOrEmpty(videoPath))
+                {
+                    string absVideoPath = ResolveLocalPath(videoPath);
+                    if (string.IsNullOrEmpty(absVideoPath) || !File.Exists(absVideoPath))
+                    {
+                        return new Dictionary<string, object>
+                        {
+                            { "success", false },
+                            { "message", "video_path not found: " + videoPath }
+                        };
+                    }
 
-                // Apply optional parameters
+                    // Backend only accepts .mp4
+                    string ext = Path.GetExtension(absVideoPath).ToLower();
+                    if (ext != ".mp4")
+                    {
+                        return new Dictionary<string, object>
+                        {
+                            { "success", false },
+                            { "message", "video_path must be an MP4 file, got: " + ext + ". Use FFmpeg or similar to convert." }
+                        };
+                    }
+
+                    var multipart = new MultipartRequestData
+                    {
+                        FilePath = absVideoPath,
+                        FileName = Path.GetFileName(absVideoPath),
+                        FileFieldName = "video"
+                    };
+                    string uploadUrl = ConfigManager.GetApiBaseUrl() + "upload/video";
+                    TJLog.Log("[GenerateVideoTool] Uploading reference video: " + absVideoPath + " → " + uploadUrl);
+
+                    var httpResult = GenerationBackendSyncSubmit.PostMultipart(
+                        uploadUrl, multipart, GenerationRequestOrigin.Agent, sessionId, 120f);
+
+                    if (!httpResult.IsSuccess)
+                    {
+                        return new Dictionary<string, object>
+                        {
+                            { "success", false },
+                            { "message", "Video upload failed: " + httpResult.Error }
+                        };
+                    }
+
+                    var uploadResp = JObject.Parse(httpResult.Body);
+                    videoTosUrl = uploadResp["url"]?.ToString();
+                    if (string.IsNullOrEmpty(videoTosUrl))
+                    {
+                        return new Dictionary<string, object>
+                        {
+                            { "success", false },
+                            { "message", "Video upload returned empty URL" }
+                        };
+                    }
+
+                    TJLog.Log("[GenerateVideoTool] Reference video uploaded: " + videoTosUrl);
+                }
+
+                // Set reference images: multimodal uses reference_images array; otherwise single image_path
+                if (referenceImagePaths != null && referenceImagePaths.Count > 0)
+                {
+                    generator.SetImagePaths(referenceImagePaths);
+                }
+                else if (!string.IsNullOrEmpty(imagePath))
+                {
+                    generator.SetImagePath(imagePath);
+                }
+
+                // Inject videos array via SetExtraRawJsonField (after upload)
+                if (!string.IsNullOrEmpty(videoTosUrl))
+                {
+                    generator.SetExtraRawJsonField("videos", "[" + JsonConvert.SerializeObject(videoTosUrl) + "]");
+                }
+
+                // Upload audio files (if provided) and inject audios array
+                if (audioPaths != null && audioPaths.Count > 0)
+                {
+                    // Audio requires multimodal mode (needs video_path); backend rejects audio without video
+                    if (string.IsNullOrEmpty(videoTosUrl))
+                    {
+                        return new Dictionary<string, object>
+                        {
+                            { "success", false },
+                            { "message", "audio_paths requires video_path (multimodal mode). Audio-only reference is not supported." }
+                        };
+                    }
+
+                    var audioTosUrls = new List<string>();
+                    foreach (string audioPath in audioPaths)
+                    {
+                        if (string.IsNullOrEmpty(audioPath)) continue;
+                        string absAudioPath = ResolveLocalPath(audioPath);
+                        if (string.IsNullOrEmpty(absAudioPath) || !File.Exists(absAudioPath))
+                        {
+                            return new Dictionary<string, object>
+                            {
+                                { "success", false },
+                                { "message", "audio_path not found: " + audioPath }
+                            };
+                        }
+                        var audioMultipart = new MultipartRequestData
+                        {
+                            FilePath = absAudioPath,
+                            FileName = Path.GetFileName(absAudioPath),
+                            FileFieldName = "audio"
+                        };
+                        string audioUploadUrl = ConfigManager.GetApiBaseUrl() + "upload/audio";
+                        var audioHttpResult = GenerationBackendSyncSubmit.PostMultipart(
+                            audioUploadUrl, audioMultipart, GenerationRequestOrigin.Agent, sessionId, 60f);
+                        if (!audioHttpResult.IsSuccess)
+                        {
+                            return new Dictionary<string, object>
+                            {
+                                { "success", false },
+                                { "message", "Audio upload failed: " + audioHttpResult.Error }
+                            };
+                        }
+                        var audioUploadResp = JObject.Parse(audioHttpResult.Body);
+                        string audioTosUrl = audioUploadResp["url"]?.ToString();
+                        if (!string.IsNullOrEmpty(audioTosUrl))
+                            audioTosUrls.Add(audioTosUrl);
+                    }
+                    if (audioTosUrls.Count > 0)
+                    {
+                        generator.SetExtraRawJsonField("audios", JsonConvert.SerializeObject(audioTosUrls));
+                    }
+                }
+
+                // Apply optional parameters (includes mode auto-detection with multimodal support)
                 ApplyVideoParameters(generator, generatorId, parameters);
 
                 // 阶段 1：同步提交任务到后端
@@ -304,7 +447,23 @@ namespace UnityTcp.Editor.Tools
 
                 TJLog.Log($"[GenerateVideoTool] 轮询已启动，task_id={taskId}, backend_task_id={submitResult.BackendTaskId}, placeholder: {placeholderPath}");
 
-                string mode = string.IsNullOrEmpty(imagePath) ? "text_to_video" : "reference_image";
+                string mode;
+                if (parameters["mode"] != null)
+                {
+                    mode = parameters["mode"].ToString();
+                }
+                else if (!string.IsNullOrEmpty(videoPath))
+                    mode = "multimodal";
+                else if (referenceImagePaths != null && referenceImagePaths.Count == 2)
+                    mode = "first_last_frame";
+                else if (referenceImagePaths != null && referenceImagePaths.Count == 1)
+                    mode = "first_frame";
+                else if (referenceImagePaths != null && referenceImagePaths.Count > 0)
+                    mode = "reference_image";
+                else if (string.IsNullOrEmpty(imagePath))
+                    mode = "text_to_video";
+                else
+                    mode = "reference_image";
 
                 return new Dictionary<string, object>
                 {
@@ -486,6 +645,17 @@ namespace UnityTcp.Editor.Tools
         }
 
 #if UNITY_EDITOR
+        /// <summary>
+        /// Resolve a Unity-relative path (Assets/... / Packages/... / Editor/...) to an absolute OS path.
+        /// Already-absolute paths are returned as-is. Matches VideoWindow / other tools via PathUtils.
+        /// </summary>
+        private static string ResolveLocalPath(string path)
+        {
+            if (string.IsNullOrEmpty(path))
+                return null;
+            return PathUtils.ToAbsoluteAssetPath(path);
+        }
+
         private static void EnsureAssetDatabaseFolder(string folderPath)
         {
             folderPath = folderPath.Replace('\\', '/').TrimEnd('/');
@@ -568,8 +738,25 @@ namespace UnityTcp.Editor.Tools
                 }
                 else
                 {
+                    bool hasVideo = !string.IsNullOrEmpty(parameters["video_path"]?.ToString());
                     bool hasImage = !string.IsNullOrEmpty(parameters["image_path"]?.ToString());
-                    generator.SetParameter("mode", hasImage ? "reference_image" : "text_to_video");
+                    int refImageCount = 0;
+                    if (parameters["reference_images"] != null && parameters["reference_images"].Type == JTokenType.Array)
+                    {
+                        var list = parameters["reference_images"].ToObject<List<string>>();
+                        refImageCount = list != null ? list.Count : 0;
+                    }
+                    bool hasRefImages = refImageCount > 0;
+                    if (hasVideo)
+                        generator.SetParameter("mode", "multimodal");
+                    else if (hasRefImages && refImageCount == 2)
+                        generator.SetParameter("mode", "first_last_frame");
+                    else if (hasRefImages && refImageCount == 1)
+                        generator.SetParameter("mode", "first_frame");
+                    else if (hasImage || hasRefImages)
+                        generator.SetParameter("mode", "reference_image");
+                    else
+                        generator.SetParameter("mode", "text_to_video");
                 }
 
                 if (parameters["resolution"] != null)
@@ -583,6 +770,9 @@ namespace UnityTcp.Editor.Tools
 
                 if (parameters["return_last_frame"] != null)
                     generator.SetParameter("return_last_frame", parameters["return_last_frame"].ToObject<bool>());
+
+                if (parameters["generate_audio"] != null)
+                    generator.SetParameter("generate_audio", parameters["generate_audio"].ToObject<bool>());
             }
 
             // Effect Video Workflow parameters (生图+生视频)

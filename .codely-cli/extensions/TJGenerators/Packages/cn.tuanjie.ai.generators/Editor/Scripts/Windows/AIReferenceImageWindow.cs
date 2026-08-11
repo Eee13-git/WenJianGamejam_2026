@@ -117,9 +117,8 @@ namespace TJGenerators
 
             bool playBlocked = TJGeneratorsPlayModeGuard.IsActive;
             bool canGenerate = !_isGenerating && !string.IsNullOrEmpty(_prompt) && SelectedConfig != null && !playBlocked;
-            if (UIComponents.DrawGenerateButtonWithCost(
+            if (UIComponents.DrawGenerateButton(
                     _isGenerating ? TJGeneratorsL10n.L("生成中...") : TJGeneratorsL10n.L("生成图片"),
-                    0,
                     canGenerate,
                     _isGenerating,
                     GUILayout.Height(LeftPanelBottomDock.ActionButtonHeight)))

@@ -25,6 +25,14 @@ public class SlideRuntime : MonoBehaviour
     private bool _carriedInvincible;
     private Projectile.OwnerType _ownerType;
 
+    // ── 爆发冲击配置（由 EnableBurst 设置）──
+    private bool _autoAimNearest;      // 自动朝最近敌人突进
+    private bool _burstOnHit;          // 命中敌人后释放气浪推开周边
+    private float _burstRadius;
+    private float _burstPushForce;
+    private Material _burstWaveMaterial;
+    private bool _burstTriggered;      // 本次冲刺是否已触发过爆发
+
     // ── 运行时状态 ──
     private Vector2 _direction;
     private Vector3 _startPos;
@@ -37,6 +45,8 @@ public class SlideRuntime : MonoBehaviour
     private Rigidbody2D _casterRb;
     private PlayerController _playerController;
     private SpriteRenderer _casterSprite;
+    private RigidbodyType2D _originalBodyType;   // 冲刺前刚体类型（结束恢复）
+    private Collider2D[] _casterColliders;        // 冲刺期间禁用的施法者 collider
 
     // ── 卷起的敌人 ──
     private readonly List<CarriedEnemy> _carried = new List<CarriedEnemy>();
@@ -76,7 +86,12 @@ public class SlideRuntime : MonoBehaviour
         _casterSprite = _casterGO.GetComponentInChildren<SpriteRenderer>();
 
         // 方向：玩家朝移动方向（无输入则朝鼠标），敌人随机
-        if (_playerController != null)
+        // 若启用自动锁敌，则优先朝最近敌人方向突进
+        if (_autoAimNearest)
+        {
+            _direction = FindNearestTargetDirection();
+        }
+        else if (_playerController != null)
         {
             Vector2 moveDir = _playerController.MoveDirection;
             if (moveDir.sqrMagnitude > 0.01f)
@@ -103,6 +118,22 @@ public class SlideRuntime : MonoBehaviour
         _traveled = 0f;
         _isActive = true;
         _trailTimer = 0f;
+        _burstTriggered = false;
+
+        // ── 关键：冲刺期间把施法者刚体改为 Kinematic 并禁用自身 collider ──
+        // Dynamic 刚体 MovePosition 撞到其他 collider 会被物理反弹推开（乱窜）；
+        // Kinematic 不会被 Dynamic 弹开、撞墙会停在原地，实现"碰撞后停留在原地"。
+        // 但 Kinematic + 玩家 collider 与场景静态 collider 重叠会阻塞 MovePosition，
+        // 因此同时禁用自身 collider（命中敌人靠 CheckCarry 检测、撞墙靠位置变化检测）。
+        if (_casterRb != null)
+        {
+            _originalBodyType = _casterRb.bodyType;
+            _casterRb.bodyType = RigidbodyType2D.Kinematic;
+            _casterRb.velocity = Vector2.zero;
+        }
+        _casterColliders = _casterGO.GetComponentsInChildren<Collider2D>(true);
+        foreach (var c in _casterColliders)
+            if (c != null) c.enabled = false;
 
         // 冲刺期间无敌
         if (_immuneDuration > 0f)
@@ -124,6 +155,60 @@ public class SlideRuntime : MonoBehaviour
         _wallDamage = wallDamage;
         _carriedInvincible = carriedInvincible;
         _ownerType = ownerType;
+    }
+
+    /// <summary>启用爆发冲击能力（包膜爆发冲击等）：自动锁敌 + 命中释放气浪</summary>
+    public void EnableBurst(bool autoAimNearest, bool burstOnHit, float burstRadius,
+        float burstPushForce, Material burstWaveMaterial, Projectile.OwnerType ownerType)
+    {
+        _autoAimNearest = autoAimNearest;
+        _burstOnHit = burstOnHit;
+        _burstRadius = burstRadius;
+        _burstPushForce = burstPushForce;
+        _burstWaveMaterial = burstWaveMaterial;
+        _ownerType = ownerType;
+    }
+
+    /// <summary>朝最近的敌方单位方向（自动锁敌突进）</summary>
+    private Vector2 FindNearestTargetDirection()
+    {
+        string targetTag = _ownerType == Projectile.OwnerType.Player ? "Enemy" : "Player";
+        float searchRadius = Mathf.Max(_distance * 2f, 10f);
+
+        Collider2D[] hits = Physics2D.OverlapCircleAll(_casterGO.transform.position, searchRadius, ~0);
+        Transform nearest = null;
+        float bestSqr = float.MaxValue;
+
+        foreach (var hit in hits)
+        {
+            if (hit == null || !hit.CompareTag(targetTag)) continue;
+
+            // 跳过死亡/已同化的敌人
+            var enemy = hit.GetComponent<EnemyCore>();
+            if (enemy != null && (enemy.IsDead || enemy.IsAssimilated)) continue;
+
+            float sqr = (hit.transform.position - _casterGO.transform.position).sqrMagnitude;
+            if (sqr < bestSqr)
+            {
+                bestSqr = sqr;
+                nearest = hit.transform;
+            }
+        }
+
+        if (nearest == null)
+        {
+            // 无目标：退回默认方向
+            if (_playerController != null && Camera.main != null)
+            {
+                Vector3 mouseWorld = Camera.main.ScreenToWorldPoint(Input.mousePosition);
+                mouseWorld.z = 0f;
+                Vector2 dir = ((Vector2)(mouseWorld - _casterGO.transform.position)).normalized;
+                return dir.sqrMagnitude > 0.01f ? dir : Vector2.right;
+            }
+            return Random.insideUnitCircle.normalized;
+        }
+
+        return ((Vector2)(nearest.position - _casterGO.transform.position)).normalized;
     }
 
     private void Update()
@@ -152,23 +237,41 @@ public class SlideRuntime : MonoBehaviour
     {
         if (!_isActive) return;
 
-        // 卷起检测（与位移同步每物理帧检测，确保起点就检测）
+        // 卷起/爆发检测（与位移同步每物理帧检测，确保起点就检测）
         if (_carryEnabled)
+        {
             CheckCarry();
+            if (!_isActive) return;   // 爆发命中已 EndSlide
+        }
 
-        // 按帧移动
+        // 按帧移动（transform 直接位移，避开 Kinematic MovePosition 被场景 collider 阻塞的问题）
         float step = _speed * Time.fixedDeltaTime;
         float remaining = _distance - _traveled;
         step = Mathf.Min(step, remaining);
 
+        // 前方碰撞检测：冲刺方向探测墙/障碍 → 撞墙停止（停留在原地）
+        Vector2 dir = _direction;
+        Collider2D[] frontHits = Physics2D.OverlapCircleAll(
+            (Vector2)_casterGO.transform.position + dir * 0.3f, 0.15f, ~0);
+        foreach (var fh in frontHits)
+        {
+            if (fh == null) continue;
+            // 跳过自身 collider（冲刺期间已禁用）和敌人（命中由 CheckCarry 处理）
+            if (fh.CompareTag("Obstacles") || fh.CompareTag("Wall"))
+            {
+                EndSlide();
+                return;
+            }
+        }
+
         if (_casterRb != null)
         {
             _casterRb.velocity = Vector2.zero;
-            _casterRb.MovePosition(_casterRb.position + _direction * step);
+            _casterRb.transform.position += (Vector3)(dir * step);
         }
         else
         {
-            _casterGO.transform.position += (Vector3)(_direction * step);
+            _casterGO.transform.position += (Vector3)(dir * step);
         }
 
         _traveled += step;
@@ -199,6 +302,24 @@ public class SlideRuntime : MonoBehaviour
             var enemy = hit.GetComponent<EnemyCore>();
             if (enemy == null || enemy.IsDead || enemy.IsAssimilated) continue;
             if (enemy.GetComponent<BossCore>() != null) continue;
+
+            // ── 爆发冲击模式：冲撞目标造成伤害 + 周身释放气浪推开周边，不卷走 ──
+            if (_burstOnHit)
+            {
+                if (_burstTriggered) continue;   // 一次冲刺只爆发一次
+                _burstTriggered = true;
+
+                // 冲撞伤害
+                enemy.Health?.TakeDamage(_carryDamage);
+
+                // 周身释放气浪推开周边敌方单位
+                TriggerBurst();
+
+                // 命中即停止冲刺，玩家停留在碰撞处（不继续往前顶/被弹开）
+                EndSlide();
+
+                return;
+            }
 
             // 卷起：造成命中伤害 + 吸附
             enemy.Health?.TakeDamage(_carryDamage);
@@ -294,6 +415,122 @@ public class SlideRuntime : MonoBehaviour
             c.rb.simulated = true;
     }
 
+    // ──────────────────────────────────────────────
+    //  爆发冲击（包膜爆发冲击等）
+    // ──────────────────────────────────────────────
+
+    /// <summary>命中后周身释放气浪：视觉扩散环 + 推开周边敌方单位</summary>
+    private void TriggerBurst()
+    {
+        Vector2 center = _casterGO.transform.position;
+
+        // 1. 气浪视觉（复用扩散波/气浪 shader 材质）
+        if (_burstWaveMaterial != null)
+            SpawnBurstWave(center);
+
+        // 2. 推开半径内的敌方单位（径向击退）
+        string targetTag = _ownerType == Projectile.OwnerType.Player ? "Enemy" : "Player";
+        Collider2D[] hits = Physics2D.OverlapCircleAll(center, _burstRadius, ~0);
+        foreach (var hit in hits)
+        {
+            if (hit == null || !hit.CompareTag(targetTag)) continue;
+
+            // 跳过死亡/已同化
+            var enemy = hit.GetComponent<EnemyCore>();
+            if (enemy != null && (enemy.IsDead || enemy.IsAssimilated)) continue;
+
+            // 径向击退：用击退组件持续位移 + 期间禁 AI 移动（velocity 单次赋值会被敌人 AI 覆盖）
+            Vector2 dir = ((Vector2)hit.transform.position - center);
+            if (dir.sqrMagnitude < 0.01f)
+                dir = _direction;
+            else
+                dir.Normalize();
+
+            var enemyComp = enemy;
+            var rb = hit.GetComponent<Rigidbody2D>();
+            if (enemyComp != null)
+            {
+                // 已有的击退组件则刷新（不叠加多个）
+                var push = hit.GetComponent<BurstPushComponent>();
+                if (push == null)
+                    push = hit.gameObject.AddComponent<BurstPushComponent>();
+                push.StartPush(dir, _burstPushForce, enemyComp);
+            }
+            else if (rb != null)
+            {
+                rb.velocity = dir * _burstPushForce;
+            }
+        }
+    }
+
+    /// <summary>生成扩散气浪视觉（0→burstRadius 扩散，淡出销毁）</summary>
+    private void SpawnBurstWave(Vector2 center)
+    {
+        var go = new GameObject("BurstWave");
+        go.transform.position = center;
+
+        var sr = go.AddComponent<SpriteRenderer>();
+        sr.material = new Material(_burstWaveMaterial);
+        sr.sprite = CreateWhiteSprite();
+        sr.sortingOrder = 60;
+
+        // 气浪动画：sprite 固定为 burstRadius*2，shader _CurrentRadius 驱动扩散
+        float scale = _burstRadius * 2f;
+        go.transform.localScale = new Vector3(scale, scale, 1f);
+
+        var anim = go.AddComponent<BurstWaveAnimator>();
+        anim.Init(sr.material, _burstRadius, 0.4f);
+    }
+
+    /// <summary>气浪扩散动画组件</summary>
+    private class BurstWaveAnimator : MonoBehaviour
+    {
+        private Material _mat;
+        private float _maxRadius;
+        private float _duration;
+        private float _timer;
+        private SpriteRenderer _sr;
+
+        public void Init(Material mat, float maxRadius, float duration)
+        {
+            _mat = mat;
+            _maxRadius = maxRadius;
+            _duration = duration;
+            _sr = GetComponent<SpriteRenderer>();
+
+            if (_mat != null)
+            {
+                _mat.SetFloat("_MaxRadius", maxRadius);
+                _mat.SetFloat("_CurrentRadius", 0f);
+                _mat.SetFloat("_Fade", 1f);
+            }
+        }
+
+        private void Update()
+        {
+            _timer += Time.deltaTime;
+            float t = Mathf.Clamp01(_timer / _duration);
+
+            if (_mat != null)
+            {
+                _mat.SetFloat("_CurrentRadius", Mathf.Lerp(0f, _maxRadius, t));
+                _mat.SetFloat("_Fade", 1f - t);
+            }
+
+            if (t >= 1f)
+                Destroy(gameObject);
+        }
+    }
+
+    /// <summary>生成纯白 1x1 sprite（PPU=1）</summary>
+    private static Sprite CreateWhiteSprite()
+    {
+        var tex = new Texture2D(1, 1, TextureFormat.RGBA32, false);
+        tex.SetPixel(0, 0, Color.white);
+        tex.Apply();
+        return Sprite.Create(tex, new Rect(0, 0, 1, 1), new Vector2(0.5f, 0.5f), 1f);
+    }
+
     /// <summary>生成拖影（残影精灵，快速淡出）</summary>
     private void SpawnTrail()
     {
@@ -317,13 +554,38 @@ public class SlideRuntime : MonoBehaviour
         if (!_isActive) return;
         _isActive = false;
 
+        // 恢复施法者刚体类型 + collider（冲刺期间改成了 Kinematic + 禁用 collider）
+        if (_casterRb != null)
+        {
+            _casterRb.bodyType = _originalBodyType;
+            _casterRb.velocity = Vector2.zero;
+        }
+        RestoreColliders();
+
         // 终点：抛出所有卷起的敌人（沿冲刺方向飞行，撞墙触发二次伤害）
         ThrowAllCarried();
 
-        if (_casterRb != null)
-            _casterRb.velocity = Vector2.zero;
-
         Destroy(this);
+    }
+
+    /// <summary>恢复施法者 collider（冲刺期间禁用）</summary>
+    private void RestoreColliders()
+    {
+        if (_casterColliders == null) return;
+        foreach (var c in _casterColliders)
+            if (c != null) c.enabled = true;
+        _casterColliders = null;
+    }
+
+    /// <summary>兜底：组件销毁时确保刚体类型 + collider 恢复（防止卡在 Kinematic/禁用）</summary>
+    private void OnDestroy()
+    {
+        if (_casterRb != null && _casterRb.bodyType == RigidbodyType2D.Kinematic)
+        {
+            _casterRb.bodyType = _originalBodyType;
+            _casterRb.velocity = Vector2.zero;
+        }
+        RestoreColliders();
     }
 
     /// <summary>抛出所有卷起的敌人（沿冲刺方向飞行 + 撞墙二次伤害）</summary>
@@ -381,6 +643,87 @@ public class SlideRuntime : MonoBehaviour
 
             if (t >= 1f)
                 Destroy(gameObject);
+        }
+    }
+}
+
+/// <summary>
+/// 气浪击退组件 — 沿径向持续位移敌人（速度衰减），期间禁用敌人 AI 移动，
+/// 避免 velocity 单次赋值被敌人 AI 下一帧覆盖。位移结束后恢复 AI。
+/// </summary>
+public class BurstPushComponent : MonoBehaviour
+{
+    private Vector2 _dir;
+    private float _speed;
+    private float _elapsed;
+    private const float Duration = 0.25f;      // 击退持续时间
+    private const float SpeedDecay = 0.6f;     // 每帧速度衰减
+    private EnemyCore _enemy;
+    private bool _aiDisabled;
+    private bool _running;
+
+    /// <summary>开始击退</summary>
+    public void StartPush(Vector2 dir, float speed, EnemyCore enemy)
+    {
+        _dir = dir;
+        _speed = speed;
+        _enemy = enemy;
+        _elapsed = 0f;
+        _running = true;
+
+        // 禁用敌人 AI 移动（防止覆盖击退位移）
+        if (_enemy != null)
+        {
+            if (_enemy.Movement != null)
+                _enemy.Movement.enabled = false;
+            if (_enemy.StateMachine != null)
+                _enemy.StateMachine.enabled = false;
+            _aiDisabled = true;
+        }
+    }
+
+    private void FixedUpdate()
+    {
+        if (!_running) return;
+
+        _elapsed += Time.fixedDeltaTime;
+
+        // 沿径向位移（transform 直接移动，避免物理干扰）
+        float step = _speed * Time.fixedDeltaTime;
+        transform.position += (Vector3)(_dir * step);
+
+        // 速度衰减
+        _speed *= (1f - SpeedDecay * Time.fixedDeltaTime * 4f);
+
+        // 结束
+        if (_elapsed >= Duration || _speed < 0.5f)
+            Stop();
+    }
+
+    private void Stop()
+    {
+        _running = false;
+
+        // 恢复敌人 AI
+        if (_enemy != null && _aiDisabled)
+        {
+            if (_enemy.Movement != null)
+                _enemy.Movement.enabled = true;
+            if (_enemy.StateMachine != null)
+                _enemy.StateMachine.enabled = true;
+        }
+
+        Destroy(this);
+    }
+
+    private void OnDestroy()
+    {
+        if (_running && _enemy != null && _aiDisabled)
+        {
+            if (_enemy.Movement != null)
+                _enemy.Movement.enabled = true;
+            if (_enemy.StateMachine != null)
+                _enemy.StateMachine.enabled = true;
         }
     }
 }

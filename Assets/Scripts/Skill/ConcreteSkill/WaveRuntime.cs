@@ -22,6 +22,8 @@ public class WaveRuntime : MonoBehaviour
     private float _cancelGracePeriod;
     private Material _waveMaterial;
     private Material _overlayMaterial;
+    private float _knockbackForce;
+    private float _knockbackDuration;
     private Projectile.OwnerType _ownerType;
 
     // ── 运行时状态 ──
@@ -38,6 +40,10 @@ public class WaveRuntime : MonoBehaviour
     private readonly HashSet<EnemyCore> _frozenEnemies = new();
     private readonly HashSet<PlayerController> _frozenPlayers = new();
     private readonly HashSet<Projectile> _frozenProjectiles = new();
+
+    // 击退实体（用于结束时统一恢复）
+    private readonly HashSet<EnemyCore> _knockbackedEnemies = new();
+    private readonly HashSet<PlayerController> _knockbackedPlayers = new();
 
     // 冻结视觉：记录实体原色，冻结时染成冰蓝
     private readonly Dictionary<EnemyCore, Color> _enemyOriginalTints = new();
@@ -70,6 +76,7 @@ public class WaveRuntime : MonoBehaviour
         float damage, float freezeDuration, bool freezeProjectiles,
         bool cancelOnAttack, bool cancelOnSkillCast, float cancelGracePeriod,
         Material waveMaterial, Material overlayMaterial,
+        float knockbackForce, float knockbackDuration,
         Projectile.OwnerType ownerType)
     {
         _origin = origin;
@@ -85,6 +92,8 @@ public class WaveRuntime : MonoBehaviour
         _cancelGracePeriod = cancelGracePeriod;
         _waveMaterial = waveMaterial;
         _overlayMaterial = overlayMaterial;
+        _knockbackForce = knockbackForce;
+        _knockbackDuration = Mathf.Max(knockbackDuration, 0.05f);
         _ownerType = ownerType;
 
         // 效果总持续时间：有冻结则等于冻结时长，否则等于波纹扩散时间+0.5s缓冲
@@ -208,9 +217,13 @@ public class WaveRuntime : MonoBehaviour
 
             bool processed = false;
 
-            // 目标阵营实体（伤害+冻结）：敌人施放时目标=玩家，玩家施放时目标=敌人
+            // 目标阵营实体（伤害+冻结+击退）：敌人施放时目标=玩家，玩家施放时目标=敌人
             if (hit.CompareTag(targetTag))
             {
+                // 击退（径向推开，先于伤害执行，保证目标存活时位置已被推动）
+                if (_knockbackForce > 0f)
+                    Knockback(hit.transform, hit.transform.position - (Vector3)_origin);
+
                 // 伤害（通过 IDamageable 接口，适用于敌人和玩家）
                 if (_damage > 0f && hit.TryGetComponent<IDamageable>(out var damageable))
                     damageable.TakeDamage(_damage);
@@ -360,6 +373,88 @@ public class WaveRuntime : MonoBehaviour
     }
 
     // ──────────────────────────────────────────────
+    //  击退 / 恢复
+    // ──────────────────────────────────────────────
+
+    private void Knockback(Transform target, Vector2 direction)
+    {
+        Vector2 dir = direction.sqrMagnitude > 0.0001f ? direction.normalized : Vector2.right;
+        if (dir.sqrMagnitude < 0.0001f) dir = Vector2.right;
+
+        var rb = target.GetComponent<Rigidbody2D>();
+        if (rb == null) return;
+
+        var pc = target.GetComponent<PlayerController>();
+        if (pc != null)
+        {
+            if (_knockbackedPlayers.Contains(pc)) return;
+            pc.InputLocked = true;
+            _knockbackedPlayers.Add(pc);
+        }
+        else
+        {
+            var enemy = target.GetComponent<EnemyCore>();
+            if (enemy == null || enemy.IsDead) return;
+            // 已被冻结则跳过击退，避免与冻结逻辑冲突
+            if (_frozenEnemies.Contains(enemy)) return;
+            if (_knockbackedEnemies.Contains(enemy)) return;
+
+            if (enemy.Movement != null) enemy.Movement.enabled = false;
+            if (enemy.StateMachine != null) enemy.StateMachine.enabled = false;
+            _knockbackedEnemies.Add(enemy);
+        }
+
+        // 径向推开
+        rb.velocity = dir * _knockbackForce;
+        StartCoroutine(RestoreKnockback(target, pc != null));
+    }
+
+    private IEnumerator RestoreKnockback(Transform target, bool isPlayer)
+    {
+        yield return new WaitForSeconds(_knockbackDuration);
+        if (target == null) yield break;
+
+        if (isPlayer)
+        {
+            var pc = target.GetComponent<PlayerController>();
+            if (pc != null)
+            {
+                pc.InputLocked = false;
+                _knockbackedPlayers.Remove(pc);
+            }
+        }
+        else
+        {
+            var enemy = target.GetComponent<EnemyCore>();
+            if (enemy != null && !enemy.IsDead)
+            {
+                if (enemy.StateMachine != null) enemy.StateMachine.enabled = true;
+                if (enemy.Movement != null) enemy.Movement.enabled = true;
+            }
+            if (enemy != null) _knockbackedEnemies.Remove(enemy);
+        }
+    }
+
+    /// <summary>统一恢复所有被击退的实体（效果结束时调用，防止对象销毁中断协程导致永久禁用）</summary>
+    private void RestoreAllKnockback()
+    {
+        foreach (var enemy in _knockbackedEnemies)
+        {
+            if (enemy == null) continue;
+            if (enemy.StateMachine != null) enemy.StateMachine.enabled = true;
+            if (enemy.Movement != null) enemy.Movement.enabled = true;
+        }
+        _knockbackedEnemies.Clear();
+
+        foreach (var pc in _knockbackedPlayers)
+        {
+            if (pc == null) continue;
+            pc.InputLocked = false;
+        }
+        _knockbackedPlayers.Clear();
+    }
+
+    // ──────────────────────────────────────────────
     //  取消机制
     // ──────────────────────────────────────────────
 
@@ -402,6 +497,7 @@ public class WaveRuntime : MonoBehaviour
         _listeningForCancel = false;
 
         UnfreezeAll();
+        RestoreAllKnockback();
         StartCoroutine(FadeOutAndDestroy());
     }
 
@@ -513,5 +609,6 @@ public class WaveRuntime : MonoBehaviour
                 _playerSkillManager.OnSkillCast -= OnPlayerSkillCast;
             UnfreezeAll();
         }
+        RestoreAllKnockback();
     }
 }

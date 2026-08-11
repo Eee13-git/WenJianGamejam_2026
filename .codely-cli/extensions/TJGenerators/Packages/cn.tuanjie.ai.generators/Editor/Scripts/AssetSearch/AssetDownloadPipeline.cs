@@ -42,6 +42,7 @@ namespace TJGenerators.AssetSearch
 
         /// <summary>
         /// 核心下载协程：UnityWebRequest 下载 → 解析包文件列表 → 加入导入队列。
+        /// 入口对 URL 做反斜杠规范化（<see cref="PathUtils.NormalizeRemoteUrl"/>），不做 Uri 完整规范化。
         /// </summary>
         public static IEnumerator Run(
             string taskId,
@@ -55,8 +56,10 @@ namespace TJGenerators.AssetSearch
             // 清理上次中断可能遗留的临时文件（DownloadHandlerFile 虽会覆盖写入，但显式清理保证幂等）
             try { if (File.Exists(tempPath)) File.Delete(tempPath); } catch { /* ignore */ }
 
-            // 直接使用原始 URL，不做任何规范化——Uri.AbsoluteUri 会对已编码字符二次处理，
-            // 可能导致 %2F 变为 %252F 或路径段被重新解析，引起签名校验失败。
+            url = PathUtils.NormalizeRemoteUrl(url);
+
+            // 仅将 URL 中的反斜杠替换为正斜杠（见 NormalizeRemoteUrl）；不做 Uri.AbsoluteUri 等完整规范化，
+            // 否则会对已编码字符二次处理（如 %2F → %252F）或重解析路径段，导致签名校验失败。
             bool   downloadOk = false;
             string finalError = null;
 

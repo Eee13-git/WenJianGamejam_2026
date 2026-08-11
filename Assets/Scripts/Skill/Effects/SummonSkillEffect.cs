@@ -26,6 +26,12 @@ public class SummonSkillEffect : SkillEffectBase
     [Tooltip("生成间隔 (秒)")]
     public float spawnInterval = 0.3f;
 
+    [Header("敌方优先生成（可选）")]
+    [Tooltip("生成位置极高概率落在敌方单位坐标（如光子光柱）")]
+    public bool preferEnemySpawn = false;
+    [Tooltip("落在敌方坐标的概率（0~1，默认 0.9）")]
+    [Range(0f, 1f)] public float enemySpawnChance = 0.9f;
+
     public override void Execute(ISkillCaster caster, Vector2 direction,
                                   float damageMultiplier, Projectile.OwnerType ownerType)
     {
@@ -54,8 +60,19 @@ public class SummonSkillEffect : SkillEffectBase
 
         for (int i = 0; i < count; i++)
         {
-            Vector2 offset = Random.insideUnitCircle * spawnRadius;
-            Vector2 spawnPos = center + offset;
+            // 生成位置：高优先级判定 → 极高概率在敌方单位坐标
+            Vector2 spawnPos;
+            if (preferEnemySpawn && Random.value < enemySpawnChance)
+            {
+                var enemyPos = PickRandomEnemyPosition(targetTag);
+                spawnPos = enemyPos.HasValue
+                    ? enemyPos.Value
+                    : center + Random.insideUnitCircle * spawnRadius;   // 无敌方 → 随机
+            }
+            else
+            {
+                spawnPos = center + Random.insideUnitCircle * spawnRadius;
+            }
 
             GameObject prefab = pool[Random.Range(0, pool.Length)];
             if (prefab == null) continue;
@@ -65,6 +82,11 @@ public class SummonSkillEffect : SkillEffectBase
 
             // 阵营标记
             go.tag = selfTag;
+
+            // 光子光柱：初始化伤害参数
+            var beam = go.GetComponent<PhotonBeam>();
+            if (beam != null)
+                beam.Initialize(ownerType, caster.GetAttackStrength());
 
             // 设置敌人 Core 的初始目标
             var core = go.GetComponent<EnemyCore>();
@@ -77,6 +99,17 @@ public class SummonSkillEffect : SkillEffectBase
 
             yield return new WaitForSeconds(spawnInterval);
         }
+    }
+
+    /// <summary>随机选一个敌方单位坐标（高优先级生成点），无敌方返回 null</summary>
+    private static Vector2? PickRandomEnemyPosition(string targetTag)
+    {
+        var gos = GameObject.FindGameObjectsWithTag(targetTag);
+        if (gos == null || gos.Length == 0)
+            return null;
+
+        var go = gos[Random.Range(0, gos.Length)];
+        return (Vector2)go.transform.position;
     }
 
     private static Transform FindNearestTarget(Vector2 origin, string targetTag)

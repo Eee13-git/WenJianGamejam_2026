@@ -30,6 +30,12 @@ public class WaveSkillEffect : SkillEffectBase
     [Tooltip("是否冻结子弹")]
     [SerializeField] private bool _freezeProjectiles = true;
 
+    [Header("击退（可选）")]
+    [Tooltip("击退初速度（单位/秒），0=不击退。命中的目标沿径向从中心推开")]
+    [SerializeField] private float _knockbackForce = 0f;
+    [Tooltip("击退硬直时长（秒），期间目标被推开且暂停移动/AI")]
+    [SerializeField] private float _knockbackDuration = 0.3f;
+
     [Header("取消机制（可选）")]
     [Tooltip("普攻时取消效果")]
     [SerializeField] private bool _cancelOnAttack = true;
@@ -62,6 +68,7 @@ public class WaveSkillEffect : SkillEffectBase
             _freezeDuration, _freezeProjectiles,
             _cancelOnAttack, _cancelOnSkillCast, _cancelGracePeriod,
             _waveMaterial, _overlayMaterial,
+            _knockbackForce, _knockbackDuration,
             ownerType
         );
     }

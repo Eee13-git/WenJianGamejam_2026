@@ -260,7 +260,6 @@ namespace TJGenerators
                 showAdvancedSettings,
                 provider,
                 parameters);
-            SyncGenerationCostWithCurrentGeneratorState();
         }
 
         private void DrawGenerationSection(LeftPanelBottomDock.Layout layout)
@@ -281,8 +280,7 @@ namespace TJGenerators
                         _lastProgressRepaintTime = t;
                         Repaint();
                     }
-                },
-                currentGenerationCost);
+                });
         }
 
         private bool HasValidHistorySelection()

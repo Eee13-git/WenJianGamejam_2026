@@ -29,7 +29,7 @@ namespace TJGenerators.Pipeline
     /// CustomTool 同步提交：与 <see cref="ProductionBackendTransport"/> 相同的 UnityWebRequest + 无 BOM UTF-8 body，
     /// 避免 Unity Mono 下 <c>System.Net.Http.HttpClient</c> 的 Illegal byte sequence 缺陷。
     /// </summary>
-    internal static class GenerationBackendSyncSubmit
+    public static class GenerationBackendSyncSubmit
     {
         public const float DefaultTimeoutSeconds = 30f;
 
@@ -125,6 +125,7 @@ namespace TJGenerators.Pipeline
         IEnumerator CreateTask(string url, byte[] postData, Action<TJTaskResponse> onSuccess, Action<string> onError);
         IEnumerator CreateTaskMultipart(string url, MultipartRequestData multipartData, Action<TJTaskResponse> onSuccess, Action<string> onError);
         IEnumerator PollStatus(string taskId, string url, Action<TJTaskStatusResponse> onSuccess, Action<string> onError);
+        /// <summary>下载远程 URL 字节；入口对 URL 做反斜杠规范化（<see cref="PathUtils.NormalizeRemoteUrl"/>）。</summary>
         IEnumerator DownloadBytes(string url, Action<byte[]> onSuccess, Action<string> onError);
     }
 
@@ -369,6 +370,7 @@ namespace TJGenerators.Pipeline
 
         public IEnumerator DownloadBytes(string url, Action<byte[]> onSuccess, Action<string> onError)
         {
+            url = PathUtils.NormalizeRemoteUrl(url);
             using (UnityWebRequest uwr = UnityWebRequest.Get(url))
             {
                 uwr.downloadHandler = new DownloadHandlerBuffer();

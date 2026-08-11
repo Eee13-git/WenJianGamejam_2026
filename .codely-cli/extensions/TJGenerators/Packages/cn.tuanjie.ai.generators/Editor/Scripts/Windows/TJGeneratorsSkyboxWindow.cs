@@ -304,7 +304,6 @@ namespace TJGenerators
                 showAdvancedSettings,
                 provider,
                 GetCurrentGeneratorParameters());
-            SyncGenerationCostWithCurrentGeneratorState();
         }
         
         private void DrawGenerationSection(LeftPanelBottomDock.Layout layout)
@@ -317,8 +316,7 @@ namespace TJGenerators
                 !string.IsNullOrWhiteSpace(textPrompt),
                 StartGeneration,
                 null,
-                Repaint,
-                currentGenerationCost);
+                Repaint);
         }
         
         private void DrawSkyboxPreview()

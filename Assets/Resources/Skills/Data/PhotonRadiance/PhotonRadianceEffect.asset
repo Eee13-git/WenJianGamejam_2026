@@ -1,0 +1,23 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5223916dedf03ca4184b9508498e318e, type: 3}
+  m_Name: PhotonRadianceEffect
+  m_EditorClassIdentifier: 
+  enemyMinionPrefabs:
+  - {fileID: 3898372940626183309, guid: ce14f276df243ac48ad76e9a08712c8b, type: 3}
+  playerMinionPrefabs:
+  - {fileID: 3898372940626183309, guid: ce14f276df243ac48ad76e9a08712c8b, type: 3}
+  count: 5
+  spawnRadius: 6
+  spawnInterval: 0.08
+  preferEnemySpawn: 1
+  enemySpawnChance: 0.9

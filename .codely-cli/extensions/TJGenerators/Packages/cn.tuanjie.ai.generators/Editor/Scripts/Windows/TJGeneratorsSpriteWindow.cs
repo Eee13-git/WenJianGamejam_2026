@@ -922,15 +922,6 @@ namespace TJGenerators
                 showAdvancedSettings,
                 provider,
                 GetCurrentGeneratorParameters());
-
-            if (provider is DynamicGenerator dyn)
-            {
-                bool hasRef = _currentMode == WindowMode.Material
-                    ? !string.IsNullOrEmpty(materialReferenceImagePath)
-                    : referenceImagePaths != null && referenceImagePaths.Count > 0;
-                dyn.SyncReferenceImagesForCostPreview(hasRef);
-            }
-            SyncGenerationCostWithCurrentGeneratorState();
         }
 
         private void DrawGenerationSection(LeftPanelBottomDock.Layout layout)
@@ -946,8 +937,7 @@ namespace TJGenerators
                 canGenerate,
                 StartGeneration,
                 null,
-                Repaint,
-                currentGenerationCost);
+                Repaint);
         }
 
         private void DrawSpritePreview()

@@ -67,13 +67,6 @@ namespace TJGenerators.Generators
         // UI状态
         private bool _advancedFoldout = false;
         private bool _postProcessingFoldout = false;
-        // 生成按钮点数（由宿主窗口根据接口查询后注入）
-        private int _generateCost = 0;
-
-        /// <summary>
-        /// 宿主窗口在生成前才写入参考图时，用于积分预览（文生/图生端点切换）。
-        /// </summary>
-        private bool _costPreviewHasReferenceImage;
 
         private bool _addMotionEnabled = false;
 
@@ -153,7 +146,14 @@ namespace TJGenerators.Generators
                 _uploadedImage = null;
                 return;
             }
-            _imagePaths = new List<string>(paths);
+            _imagePaths = new List<string>(paths.Count);
+            for (int i = 0; i < paths.Count; i++)
+            {
+                string p = paths[i];
+                if (!string.IsNullOrEmpty(p))
+                    p = p.Replace('\\', '/');
+                _imagePaths.Add(p ?? "");
+            }
             _imagePath = _imagePaths[0] ?? "";
             _currentInputMode = "image";
             UpdateEndpointForInputMode();
@@ -259,109 +259,6 @@ namespace TJGenerators.Generators
                     }
                 }
             }
-        }
-
-        /// <summary>
-        /// 由宿主在绘制参考图区域时同步，以便未写入 <see cref="_imagePaths"/> 前也能按图生端点预估积分。
-        /// </summary>
-        public void SyncReferenceImagesForCostPreview(bool hasReferenceImage)
-        {
-            _costPreviewHasReferenceImage = hasReferenceImage;
-        }
-
-        /// <summary>
-        /// 与即将提交生成时一致的 API 端点，用于查询积分消耗。
-        /// </summary>
-        public string GetEffectiveApiEndpointForCredit()
-        {
-            var uiLayout = _config.uiLayout ?? new UILayoutConfig();
-
-            if (uiLayout.showFileUpload)
-            {
-                string convertEp = _config.GetEndpoint("default");
-                if (!string.IsNullOrEmpty(convertEp))
-                    return convertEp;
-            }
-
-            var (isMultiViewOnly, isDualMode) = ResolveUILayoutModes(uiLayout);
-            string modeKey;
-            if (isMultiViewOnly || (isDualMode && _primaryInputMode == "multiview"))
-                modeKey = "multiview";
-            else if (HasReferenceImageInputForCredit())
-                modeKey = "image";
-            else
-                modeKey = "text";
-
-            string endpoint = _config.GetEndpoint(modeKey);
-            if (!string.IsNullOrEmpty(endpoint))
-                return endpoint;
-
-            endpoint = _config.GetEndpoint(_currentEndpointKey);
-            if (!string.IsNullOrEmpty(endpoint))
-                return endpoint;
-
-            return _config.GetEndpoint("text");
-        }
-
-        /// <summary>
-        /// 影响因素哈希；变化时应重新查询积分。
-        /// </summary>
-        public int ComputeCostFactorsHash()
-        {
-            unchecked
-            {
-                int hash = 17;
-                hash = hash * 31 + (_primaryInputMode?.GetHashCode() ?? 0);
-                hash = hash * 31 + (_currentInputMode?.GetHashCode() ?? 0);
-                hash = hash * 31 + (HasReferenceImageInputForCredit() ? 1 : 0);
-                hash = hash * 31 + (_addMotionEnabled ? 1 : 0);
-                hash = hash * 31 + (string.IsNullOrWhiteSpace(_motionDescription) ? 0 : _motionDescription.Trim().GetHashCode());
-                hash = hash * 31 + (GeneratorId?.GetHashCode() ?? 0);
-                if (_parameterValues != null)
-                {
-                    foreach (var kv in _parameterValues)
-                        hash = hash * 31 + ((kv.Key ?? "") + ":" + (kv.Value?.ToString() ?? "")).GetHashCode();
-                }
-                return hash;
-            }
-        }
-
-        private bool HasReferenceImageInputForCredit() =>
-            HasReferenceImageInput() || _costPreviewHasReferenceImage;
-
-        /// <summary>
-        /// 设置生成按钮展示的预计总积分（主任务 + 已选后处理子任务之和）。
-        /// </summary>
-        public void SetGenerateCost(int cost)
-        {
-            _generateCost = Mathf.Max(0, cost);
-        }
-
-        /// <summary>
-        /// 收集当前选项下预计会触发的全部扣费任务（用于按钮积分预览）。
-        /// </summary>
-        public void BuildEstimatedCostComponents(List<GenerationCreditHelper.CostComponent> components)
-        {
-            components.Clear();
-            components.Add(
-                new GenerationCreditHelper.CostComponent(GeneratorId, GetEffectiveApiEndpointForCredit())
-            );
-
-            if (!GetAddMotionEnabled())
-                return;
-
-            var unirigCfg = ConfigManager.GetGeneratorConfig(ConfigType.Generator, "unirig");
-            string unirigEndpoint = unirigCfg?.GetEndpoint("default");
-            if (!string.IsNullOrEmpty(unirigEndpoint))
-                components.Add(new GenerationCreditHelper.CostComponent("unirig", unirigEndpoint));
-
-            if (string.IsNullOrWhiteSpace(_motionDescription))
-                return;
-
-            var motionCfg = ConfigManager.GetGeneratorConfig(ConfigType.Generator, "hunyuan-motion");
-            string motionEndpoint = motionCfg?.GetEndpoint("default");
-            if (!string.IsNullOrEmpty(motionEndpoint))
-                components.Add(new GenerationCreditHelper.CostComponent("hunyuan-motion", motionEndpoint));
         }
 
         /// <summary>
@@ -619,9 +516,6 @@ namespace TJGenerators.Generators
                     uppercaseLabel: false
                 );
             }
-
-            if (context is GenerationWindowBase costHost)
-                costHost.TryRefreshGenerationCostFromGenerator(this);
         }
 
         public override void DrawActionButton(IGenerationPipelineHost context, LeftPanelBottomDock.Layout layout)
@@ -878,9 +772,7 @@ namespace TJGenerators.Generators
                 canGenerate,
                 () => HandleTopGenerateClicked(context, uiLayout),
                 null,
-                busy ? (Action)context.Repaint : null,
-                _generateCost,
-                null);
+                busy ? (Action)context.Repaint : null);
         }
 
         private void HandleTopGenerateClicked(IGenerationPipelineHost context, UILayoutConfig uiLayout)

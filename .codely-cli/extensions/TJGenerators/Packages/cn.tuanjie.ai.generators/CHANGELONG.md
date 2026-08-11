@@ -5,6 +5,36 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.21] - 2026-08-07
+
+### Added
+
+- Game UI Kit 工作流新增第三步 `slice_image`：CV 连通域检测自动切割 cutout sheet 为独立 Sprite PNG，支持背景模式、容差、最小区域等参数
+- 视频生成新增多模态模式（`multimodal`）：支持参考视频（运镜/动作）、多参考图、音频参考；新增 `first_frame` / `first_last_frame` 模式与 `generate_audio` 参数
+- 视频生成 UI 新增多模态参考视频上传入口（拖拽 + 文件选择）
+- CustomTool 程序集诊断：Domain Reload 后检测 `UnityTcp.CustomTool` 是否加载，缺失时输出修复指引并尝试触发重编译
+- Play Mode 保护提示可点击直接退出 Play Mode
+
+### Fixed
+
+- 生成精灵纹理导入时设置 `spritePixelsPerUnit = 100`，避免场景中缩放不一致
+- 生成资产文件夹名跨平台 sanitize，避免 Linux 允许而 Windows 非法的字符导致工程无法打开
+- 复用 DynamicGenerator 时清除残留多模态 JSON 字段，修复视频生成脏数据泄漏；路径解析统一委托 `PathUtils`
+- 远程下载 URL 中的反斜杠统一规范为正斜杠，修复 UnityWebRequest 下载失败
+- audio-generator 工具 schema 补充 `duration_seconds` / `output_format` / `play_on_awake`，修复 SFX 时长等参数被 agent 丢弃的问题
+- 模型导入强制 `isReadable = true`，修复运行时模型不可见；补充 `.jpeg` 纹理支持与 `.webp` 兼容提示
+- 参考图压缩前校验 PNG/JPEG 头并拒绝 8×8 占位纹理，避免无效图片被当作参考图上传
+- 参考图超过 10MB 时自动压缩到 2048px + JPG 85% 质量后再上传
+- Walk/Run 等动作动画导入默认启用 `loopTime`；一次性动作可通过 `loop` 参数控制
+- TTS 省略或空白 `voice_id` 时使用内置默认预设音色，不再发送空值到后端
+- 内容策略拦截时在错误信息中显示具体拦截原因
+
+### Changed
+
+- 视频生成 `duration` 范围从 1-10 改为 4-15 秒（对齐 Seedance 2.0 API）；`ratio` 新增 4:3 / 3:4 / 21:9 / adaptive 选项；分辨率描述修正为 480p / 720p
+- 移除生成积分/消耗点数 UI 展示，`UserInfoBar` 仅显示邮箱
+- Play Mode 提示文案统一精简为「请先退出 Play Mode」，并在生成失败信息中附带重试指引
+
 ## [1.0.20] - 2026-08-04
 
 ### Added

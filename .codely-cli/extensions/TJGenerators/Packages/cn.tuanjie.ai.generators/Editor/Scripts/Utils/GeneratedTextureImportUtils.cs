@@ -53,7 +53,10 @@ namespace TJGenerators.Utils
 
             importer.textureType = textureType;
             if (textureType == TextureImporterType.Sprite)
+            {
                 importer.spriteImportMode = SpriteImportMode.Single;
+                importer.spritePixelsPerUnit = 100f;
+            }
 
             importer.alphaIsTransparency = alphaIsTransparency;
             importer.textureCompression = TextureImporterCompression.Uncompressed;

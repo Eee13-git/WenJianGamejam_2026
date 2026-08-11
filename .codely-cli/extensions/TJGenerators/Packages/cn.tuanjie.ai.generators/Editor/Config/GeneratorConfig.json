@@ -1021,10 +1021,6 @@
             {
               "value": "fbx",
               "label": "FBX"
-            },
-            {
-              "value": "glb",
-              "label": "GLB"
             }
           ],
           "defaultValue": "fbx"
@@ -3881,10 +3877,22 @@
             {
               "value": "text_to_video",
               "label": "文生视频"
+            },
+            {
+              "value": "multimodal",
+              "label": "多模态参考"
+            },
+            {
+              "value": "first_frame",
+              "label": "首帧生视频"
+            },
+            {
+              "value": "first_last_frame",
+              "label": "首尾帧生视频"
             }
           ],
           "defaultValue": "reference_image",
-          "tooltip": "图生视频：基于参考图片生成视频；文生视频：基于文本描述生成视频。上传参考图片时自动切换为图生视频。"
+          "tooltip": "图生视频：基于参考图片生成视频；文生视频：基于文本描述生成视频。上传参考图片时自动切换为图生视频。首帧/首尾帧：用 1-2 张图定义视频起止画面。多模态参考：上传参考视频作为运镜/动作参考，可同时上传风格参考图和音频。"
         },
         {
           "id": "resolution",
@@ -3921,6 +3929,22 @@
             {
               "value": "1:1",
               "label": "1:1"
+            },
+            {
+              "value": "4:3",
+              "label": "4:3"
+            },
+            {
+              "value": "3:4",
+              "label": "3:4"
+            },
+            {
+              "value": "21:9",
+              "label": "21:9"
+            },
+            {
+              "value": "adaptive",
+              "label": "自适应"
             }
           ],
           "defaultValue": "16:9",
@@ -3931,9 +3955,9 @@
           "type": "int",
           "label": "时长(秒)",
           "apiFieldName": "duration",
-          "defaultValue": "5",
-          "min": 1,
-          "max": 10,
+          "defaultValue": "12",
+          "min": 4,
+          "max": 15,
           "tooltip": "视频时长（秒）"
         },
         {
@@ -3943,6 +3967,14 @@
           "apiFieldName": "return_last_frame",
           "defaultValue": "true",
           "tooltip": "是否返回视频最后一帧作为预览"
+        },
+        {
+          "id": "generate_audio",
+          "type": "bool",
+          "label": "生成音频",
+          "apiFieldName": "generate_audio",
+          "defaultValue": "true",
+          "tooltip": "是否为视频生成音频"
         }
       ],
       "responseMapping": {

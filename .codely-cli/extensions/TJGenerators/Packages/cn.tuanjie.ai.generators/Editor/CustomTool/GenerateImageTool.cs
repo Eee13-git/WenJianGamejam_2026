@@ -1577,7 +1577,7 @@ namespace UnityTcp.Editor.Tools
                     ["index"] = i,
                     ["source"] = "user_upload",
                     ["role"] = "identity_primary",
-                    ["path"] = p,
+                    ["path"] = p.Replace('\\', '/'),
                     ["name"] = Path.GetFileName(p)
                 });
             }

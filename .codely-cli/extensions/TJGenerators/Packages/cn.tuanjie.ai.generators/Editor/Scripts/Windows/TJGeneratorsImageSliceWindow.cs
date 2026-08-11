@@ -276,12 +276,10 @@ namespace TJGenerators
             UIComponents.DrawSectionTitle(TJGeneratorsL10n.L("预览"), uppercase: false);
             GUILayout.Space(CommonStyles.Space2);
 
-            if (UIComponents.DrawGenerateButtonWithCost(
+            if (UIComponents.DrawGenerateButton(
                     _isProcessing ? TJGeneratorsL10n.L("正在分析...") : TJGeneratorsL10n.L("检测区域"),
-                    0,
                     _sourceTexture != null && !_isProcessing,
                     _isProcessing,
-                    showCost: false,
                     GUILayout.ExpandWidth(true),
                     GUILayout.Height(LeftPanelBottomDock.ActionButtonHeight)))
             {
@@ -322,12 +320,10 @@ namespace TJGenerators
             string btnText = _detectedRegions.Count > 0
                 ? string.Format(TJGeneratorsL10n.L("切割并导出 ({0} 张)"), _detectedRegions.Count)
                 : TJGeneratorsL10n.L("切割并导出");
-            if (UIComponents.DrawGenerateButtonWithCost(
+            if (UIComponents.DrawGenerateButton(
                     _isProcessing ? TJGeneratorsL10n.L("正在导出...") : btnText,
-                    0,
                     _detectedRegions.Count > 0 && !_isProcessing,
                     _isProcessing,
-                    showCost: false,
                     GUILayout.ExpandWidth(true),
                     GUILayout.Height(LeftPanelBottomDock.ActionButtonHeight)))
             {

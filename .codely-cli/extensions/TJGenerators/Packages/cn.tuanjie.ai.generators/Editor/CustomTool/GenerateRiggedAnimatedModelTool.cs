@@ -49,6 +49,7 @@ namespace UnityTcp.Editor.Tools
             public float  actionDuration;
             public float  cfgStrength;
             public string randomSeedList;
+            public bool   loopTime;
 
             public string errorMessage;
             public long   startTimeTicks;
@@ -78,6 +79,7 @@ namespace UnityTcp.Editor.Tools
             public float     ActionDuration      { get; set; }
             public float     CfgStrength         { get; set; }
             public string    RandomSeedList      { get; set; }
+            public bool      LoopTime            { get; set; } = true;
 
             public string    ErrorMessage        { get; set; }
             public DateTime  StartTime           { get; set; }
@@ -126,6 +128,7 @@ namespace UnityTcp.Editor.Tools
             actionDuration      = info.ActionDuration,
             cfgStrength         = info.CfgStrength,
             randomSeedList      = info.RandomSeedList      ?? "0",
+            loopTime            = info.LoopTime,
             errorMessage        = info.ErrorMessage        ?? "",
             startTimeTicks      = info.StartTime.Ticks,
             endTimeTicks        = info.EndTime?.Ticks ?? 0
@@ -150,6 +153,7 @@ namespace UnityTcp.Editor.Tools
             ActionDuration      = p.actionDuration,
             CfgStrength         = p.cfgStrength,
             RandomSeedList      = p.randomSeedList,
+            LoopTime            = p.loopTime,
             ErrorMessage        = p.errorMessage,
             StartTime           = new DateTime(p.startTimeTicks),
             EndTime             = p.endTimeTicks > 0 ? (DateTime?)new DateTime(p.endTimeTicks) : null
@@ -596,7 +600,7 @@ namespace UnityTcp.Editor.Tools
             if (_task == null) return;
 
             // 1. Configure as Humanoid animation import
-            RiggedModelPostProcess.SetupAnimationImport(motionFbxPath);
+            RiggedModelPostProcess.SetupAnimationImport(motionFbxPath, _task?.LoopTime ?? true);
 
             // 2. Reimport so animation clips are extractable
             AssetDatabase.Refresh();
@@ -871,7 +875,8 @@ namespace UnityTcp.Editor.Tools
             "target_prefab_path (optional, prefab to assign controller+avatar to), " +
             "action_duration (float, seconds, default 5), " +
             "cfg_strength (float, default 5), " +
-            "random_seed (int, 0=server random, default 0). " +
+            "random_seed (int, 0=server random, default 0), " +
+            "loop (optional bool, default true; set false for one-shot non-looping motions). " +
             "Takes ~1-2 minutes. Poll with query_model_motion_status after 5 seconds.")]
         public static object GenerateModelMotion(JObject parameters)
         {
@@ -884,6 +889,7 @@ namespace UnityTcp.Editor.Tools
                 float  actionDuration    = parameters["action_duration"]?.ToObject<float>() ?? 5f;
                 float  cfgStrength       = parameters["cfg_strength"]?.ToObject<float>()    ?? 5f;
                 int    seed              = parameters["random_seed"]?.ToObject<int>()        ?? 0;
+                bool   loopTime          = parameters["loop"]?.ToObject<bool>()             ?? true;
                 string sessionId         = parameters["session_id"]?.ToString() ?? "";
 
                 if (string.IsNullOrEmpty(riggedModelPath))
@@ -928,6 +934,7 @@ namespace UnityTcp.Editor.Tools
                     ActionDuration      = actionDuration,
                     CfgStrength         = cfgStrength,
                     RandomSeedList      = randomSeedList,
+                    LoopTime            = loopTime,
                     StartTime           = DateTime.Now
                 };
                 RiggedAnimationTaskTracker.AddTask(task);
@@ -1050,7 +1057,8 @@ namespace UnityTcp.Editor.Tools
             "Parameters: source_model_path (required), motion_description (required, e.g. 'a running cycle'), " +
             "prefab_output_path (optional), force_overwrite (bool, default false), " +
             "action_duration (float, seconds, default 5), cfg_strength (float, default 5), " +
-            "random_seed (int, 0=server random, default 0). " +
+            "random_seed (int, 0=server random, default 0), " +
+            "loop (optional bool, default true; set false for one-shot non-looping motions). " +
             "Takes ~2-5 minutes total. Poll with query_rigged_animated_model_status every 15-20 seconds.")]
         public static object GenerateRiggedAnimatedModel(JObject parameters)
         {
@@ -1064,6 +1072,7 @@ namespace UnityTcp.Editor.Tools
                 float  actionDuration    = parameters["action_duration"]?.ToObject<float>() ?? 5f;
                 float  cfgStrength       = parameters["cfg_strength"]?.ToObject<float>()    ?? 5f;
                 int    seed              = parameters["random_seed"]?.ToObject<int>()        ?? 0;
+                bool   loopTime          = parameters["loop"]?.ToObject<bool>()             ?? true;
                 string sessionId         = parameters["session_id"]?.ToString() ?? "";
 
                 if (string.IsNullOrEmpty(sourceModelPath))
@@ -1122,6 +1131,7 @@ namespace UnityTcp.Editor.Tools
                     ActionDuration    = actionDuration,
                     CfgStrength       = cfgStrength,
                     RandomSeedList    = randomSeedList,
+                    LoopTime          = loopTime,
                     StartTime         = DateTime.Now
                 };
                 RiggedAnimationTaskTracker.AddTask(task);
