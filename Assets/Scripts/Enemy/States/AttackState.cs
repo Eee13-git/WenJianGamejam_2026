@@ -1,7 +1,8 @@
 using UnityEngine;
 
 /// <summary>
-/// 攻击状态：停止移动，尝试用 IAttackBehavior 和技能攻击玩家。
+/// 攻击状态：停止移动，尝试释放技能攻击玩家。
+/// 碰撞伤害由 EnemyCore 处理（不依赖状态）。
 /// 玩家离开攻击范围 → Chase。
 /// </summary>
 public class AttackState : EnemyStateBase
@@ -31,9 +32,6 @@ public class AttackState : EnemyStateBase
             Core.StateMachine.ChangeState(new ChaseState(Core));
             return;
         }
-
-        // 尝试使用攻击行为
-        Core.AttackBehavior?.TryAttack(Core.PlayerTarget);
 
         // 尝试释放技能
         if (Core.SkillManager != null && Core.SkillManager.SkillInstances.Count > 0)

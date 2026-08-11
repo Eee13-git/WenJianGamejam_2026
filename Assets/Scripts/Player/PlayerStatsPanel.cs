@@ -86,7 +86,13 @@ public class PlayerStatsPanel : MonoBehaviour
         if (_speedText != null)
             _speedText.text = _stats.MoveSpeed.ToString("F1");
         if (_attackText != null)
-            _attackText.text = _stats.AttackStrength.ToString("F1");
+        {
+            float mult = _stats.AttackStrengthMultiplier;
+            if (mult != 1f)
+                _attackText.text = $"{_stats.AttackStrength:F1}（{_stats.BaseAttackStrength:F0}×{mult:F1}）";
+            else
+                _attackText.text = _stats.AttackStrength.ToString("F1");
+        }
         if (_fireRateText != null)
             _fireRateText.text = _stats.ShotsPerMinute.ToString("F0") + "/分";
     }
