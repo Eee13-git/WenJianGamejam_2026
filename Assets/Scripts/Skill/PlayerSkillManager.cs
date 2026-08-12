@@ -26,6 +26,13 @@ public class PlayerSkillManager : MonoBehaviour, ISkillCaster
     [SerializeField] private string _initialSkillId2;
     [SerializeField] private string _initialSkillId3;
 
+    [Header("伤害修正")]
+    [Tooltip("技能伤害修正乘区（道具/buff 可修改），1.0=无修正")]
+    [SerializeField] private float _skillDamageMultiplier = 1f;
+
+    /// <summary>技能伤害修正乘区，外部可读</summary>
+    public float SkillDamageMultiplier => _skillDamageMultiplier;
+
     // ---------- ISkillCaster ----------
     public Transform CasterTransform => transform;
     private PlayerStats _stats;
@@ -40,6 +47,14 @@ public class PlayerSkillManager : MonoBehaviour, ISkillCaster
     public float GetAttackStrength() => _stats != null ? _stats.AttackStrength : 10f;
 
     public Projectile.OwnerType GetOwnerType() => Projectile.OwnerType.Player;
+
+    public float GetSkillDamageModifier()
+    {
+        float evolveBonus = _stats != null
+            ? _stats.EvolutionTendency * _stats.EvolveSkillDamageFactor
+            : 0f;
+        return _skillDamageMultiplier * (1f + evolveBonus);
+    }
 
     // ---------- 委托 ----------
     /// <summary>技能释放事件：参数为 (槽位索引, 技能数据)</summary>

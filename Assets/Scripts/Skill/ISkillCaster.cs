@@ -16,4 +16,7 @@ public interface ISkillCaster
 
     /// <summary>施法者阵营：Player=玩家方（打Enemy） / Enemy=敌方（打Player）</summary>
     Projectile.OwnerType GetOwnerType();
+
+    /// <summary>技能伤害修正乘区（道具/buff 可修改），默认 1.0</summary>
+    float GetSkillDamageModifier();
 }

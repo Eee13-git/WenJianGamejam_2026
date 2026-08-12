@@ -40,8 +40,9 @@ public class SkillLibrary : ScriptableObject
             if (data.skillEffect == null) return;
 
             Projectile.OwnerType ownerType = caster.GetOwnerType();
+            float finalMultiplier = instance.CurrentDamageMultiplier * caster.GetSkillDamageModifier();
             data.skillEffect.Execute(caster, direction,
-                instance.CurrentDamageMultiplier, ownerType);
+                finalMultiplier, ownerType);
         };
 
         return instance;

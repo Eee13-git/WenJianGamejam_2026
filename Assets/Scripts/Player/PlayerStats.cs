@@ -34,6 +34,12 @@ public class PlayerStats : MonoBehaviour, IDamageable, IHealable
     [Tooltip("进化倾向：正值=朝向宿主，负值=朝向独特。范围 -100 ~ 100")]
     [SerializeField] private float evolutionTendency = 0f;
 
+    [Header("进化倾向倍率")]
+    [Tooltip("玩家技能伤害修正 = 倾向值 × 此值（叠加在技能伤害修正乘区上）")]
+    [SerializeField] private float _evolveSkillDamageFactor = 0.025f;
+    [Tooltip("随从全属性增幅 = 随从自身属性 × (-倾向值) × 此值")]
+    [SerializeField] private float _evolveFollowerBuffFactor = 0.01f;
+
     private bool _isDead = false;
 
     /// <summary>是否免疫碰撞伤害（道具效果）</summary>
@@ -58,6 +64,8 @@ public class PlayerStats : MonoBehaviour, IDamageable, IHealable
 
     /// <summary>进化倾向：正值=朝向宿主（金色），负值=朝向独特（紫色）。范围 -100 ~ 100</summary>
     public float EvolutionTendency => evolutionTendency;
+    public float EvolveSkillDamageFactor => _evolveSkillDamageFactor;
+    public float EvolveFollowerBuffFactor => _evolveFollowerBuffFactor;
 
     // ---------- 委托 ----------
     /// <summary>生命变化委托：参数为 (当前生命, 最大生命)</summary>
@@ -187,6 +195,7 @@ public class PlayerStats : MonoBehaviour, IDamageable, IHealable
                 break;
             case "EvolutionTendency":
                 evolutionTendency = Mathf.Clamp(value, -100f, 100f);
+                EnemyFollower.RefreshAllFollowers(evolutionTendency, _evolveFollowerBuffFactor);
                 break;
             default:
                 throw new System.ArgumentException($"PlayerStats: 未知属性名 '{statName}'");

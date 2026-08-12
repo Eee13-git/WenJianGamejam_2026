@@ -22,6 +22,10 @@ public class EnemyFollower : MonoBehaviour
     private EnemySkillManager _skillManager;
     private bool _isActive;
 
+    // 进化倾向 buff：记录原始属性，动态刷新时从原始值重算
+    private float _origMaxHealth, _origPatrolSpeed, _origChaseSpeed;
+    private float _origDetectionRange, _origAttackRange, _origContactDamage, _origContactDamageCooldown;
+
     /// <summary>所有活跃随从列表（供 MapManager 查询，避免 FindObjectsByType）</summary>
     public static readonly System.Collections.Generic.List<EnemyFollower> ActiveFollowers = new();
 
@@ -58,9 +62,50 @@ public class EnemyFollower : MonoBehaviour
         _movement = _core.Movement;
         _skillManager = _core.SkillManager;
 
-        // 接管死亡事件
+        // 记录原始属性，用于进化倾向 buff 重算
         if (_core.Health != null)
+        {
+            _origMaxHealth = _core.Health.MaxHealth;
+            _origPatrolSpeed = _core.Health.PatrolSpeed;
+            _origChaseSpeed = _core.Health.ChaseSpeed;
+            _origDetectionRange = _core.Health.DetectionRange;
+            _origAttackRange = _core.Health.AttackRange;
+            _origContactDamage = _core.Health.ContactDamage;
+            _origContactDamageCooldown = _core.Health.ContactDamageCooldown;
+
+            // 应用当前进化倾向 buff
+            ApplyEvolutionBuff();
+
             _core.Health.OnDied += HandleDeath;
+        }
+    }
+
+    /// <summary>根据玩家进化倾向刷新随从全属性增幅</summary>
+    public void ApplyEvolutionBuff()
+    {
+        if (_core?.Health == null || !_isActive) return;
+
+        var playerStats = _player?.GetComponent<PlayerStats>();
+        if (playerStats == null) return;
+
+        float tendency = playerStats.EvolutionTendency;
+        float factor = playerStats.EvolveFollowerBuffFactor;
+        float mult = Mathf.Max(0f, 1f + (-tendency) * factor);
+
+        _core.Health.MaxHealth = Mathf.Max(_origMaxHealth * mult, 1f);
+        _core.Health.PatrolSpeed = _origPatrolSpeed * mult;
+        _core.Health.ChaseSpeed = _origChaseSpeed * mult;
+        _core.Health.DetectionRange = _origDetectionRange * mult;
+        _core.Health.AttackRange = _origAttackRange * mult;
+        _core.Health.ContactDamage = _origContactDamage * mult;
+        _core.Health.ContactDamageCooldown = _origContactDamageCooldown * mult;
+    }
+
+    /// <summary>刷新所有活跃随从的进化倾向 buff（由 PlayerStats 在倾向值变化时调用）</summary>
+    public static void RefreshAllFollowers(float tendency, float factor)
+    {
+        foreach (var f in ActiveFollowers)
+            f.ApplyEvolutionBuff();
     }
 
     private void Update()

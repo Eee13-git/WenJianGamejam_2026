@@ -178,6 +178,8 @@ public class EnemyCore : MonoBehaviour, IEnemy
     public Projectile.OwnerType GetOwnerType() =>
         IsAssimilated ? Projectile.OwnerType.Player : Projectile.OwnerType.Enemy;
 
+    public float GetSkillDamageModifier() => 1f;
+
     // ---------- 同化 ----------
     public void Assimilate(Transform playerTarget)
     {
