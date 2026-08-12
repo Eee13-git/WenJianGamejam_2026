@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
@@ -25,18 +26,21 @@ public class ItemSpawner : MonoBehaviour
         if (_hasSpawned) return;
         _hasSpawned = true;
 
-        var pool = roomConfig != null ? roomConfig.itemPool : 
-            (manualItemPool != null ? new System.Collections.Generic.List<GameObject>(manualItemPool) : null);
-
-        if (pool == null || pool.Count == 0) return;
-
-        // 过滤：玩家已达拾取上限的道具不再刷新
-        pool = ItemPoolFilter.GetAvailablePool(pool, ItemPoolFilter.GetPlayerItemManager());
-        if (pool == null || pool.Count == 0)
+        var library = ItemsLibrary.Instance;
+        if (library == null)
         {
-            Debug.Log("[ItemSpawner] 道具池中所有道具均已达上限，跳过生成");
+            Debug.LogWarning("[ItemSpawner] ItemsLibrary 未找到，跳过生成");
             return;
         }
+
+        // 确定池和权重
+        var pool = (roomConfig != null && roomConfig.itemPool != null && roomConfig.itemPool.Count > 0)
+            ? roomConfig.itemPool
+            : (manualItemPool != null && manualItemPool.Length > 0 ? new List<GameObject>(manualItemPool) : null);
+        var weights = (roomConfig != null && roomConfig.qualityWeights != null && roomConfig.qualityWeights.Length > 0)
+            ? roomConfig.qualityWeights
+            : null;
+        var filter = ItemPoolFilter.GetPlayerItemManager();
 
         int min = roomConfig != null ? roomConfig.minItems : manualMinItems;
         int max = roomConfig != null ? roomConfig.maxItems : manualMaxItems;
@@ -47,7 +51,7 @@ public class ItemSpawner : MonoBehaviour
 
         int count = Mathf.Min(total, available);
 
-        // 随机洗牌但不重复点
+        // 随机洗牌生成点
         var indices = new int[available];
         for (int i = 0; i < available; i++) indices[i] = i;
         for (int i = indices.Length - 1; i > 0; i--)
@@ -56,13 +60,11 @@ public class ItemSpawner : MonoBehaviour
             (indices[i], indices[j]) = (indices[j], indices[i]);
         }
 
-        for (int i = 0; i < count; i++)
+        var picked = library.GetRandomItemPrefabs(count, pool, weights, filter);
+        for (int i = 0; i < picked.Count; i++)
         {
-            int idx = Random.Range(0, pool.Count);
-            var itemPrefab = pool[idx];
-            if (itemPrefab == null) continue;
-
-            Instantiate(itemPrefab, spawnPoints[indices[i]].position, Quaternion.identity, transform);
+            if (picked[i] == null) continue;
+            Instantiate(picked[i], spawnPoints[indices[i]].position, Quaternion.identity, transform);
         }
     }
 }

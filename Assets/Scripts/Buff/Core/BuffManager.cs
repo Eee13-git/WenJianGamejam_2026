@@ -38,6 +38,10 @@ public class BuffManager : MonoBehaviour
     {
         if (data == null) return null;
 
+        // 免疫检查：被免疫的 buffId 直接拒绝施加
+        if (_immuneBuffIds.Contains(data.buffId))
+            return null;
+
         // 检查是否已有同 ID 的 Buff
         if (_buffDict.TryGetValue(data.buffId, out var existingList) && existingList.Count > 0)
         {
@@ -150,6 +154,22 @@ public class BuffManager : MonoBehaviour
                 total += b.CurrentStacks;
         }
         return total;
+    }
+
+    // ========== Buff 免疫 ==========
+
+    private readonly HashSet<string> _immuneBuffIds = new HashSet<string>();
+
+    /// <summary>添加对指定 buffId 的免疫（阻止该 Buff 被施加）</summary>
+    public void AddBuffImmunity(string buffId)
+    {
+        _immuneBuffIds.Add(buffId);
+    }
+
+    /// <summary>移除对指定 buffId 的免疫</summary>
+    public void RemoveBuffImmunity(string buffId)
+    {
+        _immuneBuffIds.Remove(buffId);
     }
 
     // ========== Unity 生命周期 ==========

@@ -65,11 +65,13 @@ public class OnDamagedBuff : BuffEffectBase
             ApplyReflectDamage(reflectDamage);
         }
 
-        // 无敌 — 暂时设置玩家无敌（通过 Buff 系统再挂一个临时无敌 Buff）
+        // 无敌 — 通过 DamageImmunity 组件授予临时无敌
         if (invincibleDuration > 0f && _owner != null)
         {
-            // 通过给自身挂一个短暂的无敌标记来实现
-            // 这里使用简单的实现: 通过 Tag 检查无敌状态
+            var immunity = _owner.GetComponent<DamageImmunity>();
+            if (immunity == null)
+                immunity = _owner.AddComponent<DamageImmunity>();
+            immunity.GrantImmunity(invincibleDuration);
         }
     }
 

@@ -13,6 +13,9 @@ public class CurrencyManager : MonoBehaviour
     /// <summary>当前 ATP 数量</summary>
     public int ATP => _atp;
 
+    /// <summary>ATP 获取效率倍率（道具效果），1=正常</summary>
+    public static float GainMultiplier = 1f;
+
     /// <summary>累计获得</summary>
     public int TotalEarned { get; private set; }
 
@@ -31,6 +34,7 @@ public class CurrencyManager : MonoBehaviour
     /// <summary>添加货币</summary>
     public void Add(int amount)
     {
+        amount = Mathf.Max(Mathf.FloorToInt(amount * GainMultiplier), 0);
         _atp += amount;
         TotalEarned += amount;
         OnATPChanged?.Invoke(_atp);

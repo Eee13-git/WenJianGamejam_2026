@@ -291,7 +291,6 @@ public class RoomManager : MonoBehaviour
     {
         if (roomRoot == null || roomRoot.config == null) return;
         var cfg = roomRoot.config;
-        if (cfg.itemPool == null || cfg.itemPool.Count == 0) return;
 
         int totalItems = Random.Range(cfg.minItems, cfg.maxItems + 1);
         int spawnPointCount = roomRoot.itemSpawnPoints != null ? roomRoot.itemSpawnPoints.Length : 0;
@@ -299,13 +298,23 @@ public class RoomManager : MonoBehaviour
 
         int spawnCount = Mathf.Min(totalItems, spawnPointCount);
 
-        for (int i = 0; i < spawnCount; i++)
+        var library = ItemsLibrary.Instance;
+        if (library == null)
         {
-            int idx = Random.Range(0, cfg.itemPool.Count);
-            var itemPrefab = cfg.itemPool[idx];
-            if (itemPrefab == null) continue;
+            Debug.LogWarning("[RoomManager] ItemsLibrary 未找到，跳过道具生成");
+            return;
+        }
 
-            Instantiate(itemPrefab, roomRoot.itemSpawnPoints[i].position, Quaternion.identity, transform);
+        // 确定池和权重：RoomConfig 覆盖优先
+        var pool = (cfg.itemPool != null && cfg.itemPool.Count > 0) ? cfg.itemPool : null;
+        var weights = (cfg.qualityWeights != null && cfg.qualityWeights.Length > 0) ? cfg.qualityWeights : null;
+        var filter = ItemPoolFilter.GetPlayerItemManager();
+
+        var picked = library.GetRandomItemPrefabs(spawnCount, pool, weights, filter);
+        for (int i = 0; i < picked.Count && i < spawnPointCount; i++)
+        {
+            if (picked[i] == null) continue;
+            Instantiate(picked[i], roomRoot.itemSpawnPoints[i].position, Quaternion.identity, transform);
         }
     }
 
