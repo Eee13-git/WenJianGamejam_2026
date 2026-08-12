@@ -62,11 +62,12 @@ public class ItemPickup : MonoBehaviour
 
     private void Update()
     {
-        if (!_enableFloatAnimation) return;
-
         float t = Time.time * _floatFrequency;
-        Vector3 floatOffset = Vector3.up * (Mathf.Sin(t) * _floatAmplitude);
+        Vector3 floatOffset = _enableFloatAnimation
+            ? Vector3.up * (Mathf.Sin(t) * _floatAmplitude)
+            : Vector3.zero;
 
+        // 高亮（始终运行）
         if (IsInRange)
         {
             transform.localScale = _baseScale * _highlightScale;
@@ -80,7 +81,10 @@ public class ItemPickup : MonoBehaviour
                 _spriteRenderer.color = Color.Lerp(_spriteRenderer.color, _baseColor, Time.deltaTime * 8f);
         }
 
+        // 漂浮位移（仅 _enableFloatAnimation 时生效）
         transform.position = _startPosition + floatOffset;
+
+        // 旋转（仅 _enableRotation 时生效）
         if (_enableRotation)
             transform.Rotate(Vector3.forward, _rotationSpeed * Time.deltaTime);
     }

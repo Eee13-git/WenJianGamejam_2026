@@ -43,7 +43,7 @@ public class RoomConfig : ScriptableObject
     public int maxEnemies = 3;
 
     [Header("道具生成")]
-    [Tooltip("可选道具池")]
+    [Tooltip("道具池覆盖（留空则使用 ItemsLibrary 全局道具池）。非空时仅从该子池抽取")]
     public List<GameObject> itemPool = new();
 
     [Tooltip("最少道具数")]
@@ -51,6 +51,9 @@ public class RoomConfig : ScriptableObject
 
     [Tooltip("最多道具数")]
     public int maxItems = 2;
+
+    [Tooltip("品质权重覆盖（留空则使用 ItemsLibrary 默认权重）")]
+    public QualityWeight[] qualityWeights;
 
     [Header("隐藏墙")]
     [Tooltip("隐藏墙血量 (需要攻击次数)，0=普通门")]

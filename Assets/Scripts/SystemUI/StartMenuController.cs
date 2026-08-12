@@ -33,6 +33,10 @@ namespace WenJian.UI
 
         private void OnPlayClicked()
         {
+            // 重置道具池（新一局开始）
+            if (ItemsLibrary.Instance != null)
+                ItemsLibrary.Instance.ResetPool();
+
             SceneManager.LoadScene(playSceneName);
         }
 

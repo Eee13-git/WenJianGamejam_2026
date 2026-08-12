@@ -68,9 +68,16 @@ MonoBehaviour:
     weight: 0.4
   minEnemies: 2
   maxEnemies: 4
-  itemPool:
-  - {fileID: 748691748735402197, guid: d937fb4b4964f72438fc52dc9c0f4c68, type: 3}
-  - {fileID: 748691748735402197, guid: 49ad1f1c6e8ffe0418db2736128f8bb9, type: 3}
+  itemPool: []
   minItems: 1
   maxItems: 3
+  qualityWeights:
+  - quality: 0
+    weight: 60
+  - quality: 1
+    weight: 30
+  - quality: 2
+    weight: 10
+  - quality: 3
+    weight: 0
   hiddenWallHP: 0

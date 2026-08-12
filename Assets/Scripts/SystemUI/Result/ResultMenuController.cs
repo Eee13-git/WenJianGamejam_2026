@@ -5,15 +5,15 @@ using UnityEngine.UI;
 namespace WenJian.UI
 {
     /// <summary>
-    /// Start ³¡¾°Ö÷²Ëµ¥¿ØÖÆÆ÷ ¡ª ´¦Àí Play / Exit °´Å¥
+    /// Start ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ëµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ Play / Exit ï¿½ï¿½Å¥
     /// </summary>
     public class ResultMenuController : MonoBehaviour
     {
-        [Header("°´Å¥ÒıÓÃ")]
+        [Header("ï¿½ï¿½Å¥ï¿½ï¿½ï¿½ï¿½")]
         [SerializeField] private Button replayButton;
         [SerializeField] private Button resultExitButton;
 
-        [Header("³¡¾°Ãû³Æ")]
+        [Header("ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½")]
         [SerializeField] private string replaySceneName = "Start";
 
         private void Start()
@@ -27,6 +27,10 @@ namespace WenJian.UI
 
         private void OnReplayClicked()
         {
+            // é‡ç½®é“å…·æ± ï¼ˆæ–°ä¸€å±€å¼€å§‹ï¼‰
+            if (ItemsLibrary.Instance != null)
+                ItemsLibrary.Instance.ResetPool();
+
             SceneManager.LoadScene(replaySceneName);
         }
 

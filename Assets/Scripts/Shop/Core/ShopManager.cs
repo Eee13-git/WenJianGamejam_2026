@@ -62,38 +62,37 @@ public class ShopManager : MonoBehaviour
         }
 
         var cfg = roomRoot.config;
-        if (cfg.itemPool == null || cfg.itemPool.Count == 0)
+
+        var library = ItemsLibrary.Instance;
+        if (library == null)
         {
-            Debug.LogWarning("[ShopManager] RoomConfig 道具池为空，无法开张！", this);
+            Debug.LogWarning("[ShopManager] ItemsLibrary 未找到，无法开张");
             return;
         }
 
-        CloseShop(); // 清除残留
+        CloseShop();
 
-        // 过滤：玩家已达拾取上限的道具不再上架
-        var available = ItemPoolFilter.GetAvailablePool(cfg.itemPool, ItemPoolFilter.GetPlayerItemManager());
-        if (available.Count == 0)
+        // 确定池和权重
+        var pool = (cfg.itemPool != null && cfg.itemPool.Count > 0) ? cfg.itemPool : null;
+        var weights = (cfg.qualityWeights != null && cfg.qualityWeights.Length > 0) ? cfg.qualityWeights : null;
+        var filter = ItemPoolFilter.GetPlayerItemManager();
+
+        var picked = library.GetRandomItemPrefabs(slotCount, pool, weights, filter);
+        if (picked.Count == 0)
         {
-            Debug.Log("[ShopManager] 道具池中所有道具均已达上限，商店无法开张");
+            Debug.Log("[ShopManager] 道具池为空或全部已达上限，商店无法开张");
             IsOpen = false;
             return;
         }
-        Shuffle(available);
-
-        int count = Mathf.Min(slotCount, available.Count);
 
         var spawnPoints = roomRoot.itemSpawnPoints;
         int spawnPointCount = spawnPoints != null ? spawnPoints.Length : 0;
 
-        if (spawnPointCount == 0)
-            Debug.LogWarning("[ShopManager] 房间没有物品生成点，将在房间中心散开生成", this);
-
-        for (int i = 0; i < count; i++)
+        for (int i = 0; i < picked.Count; i++)
         {
-            var prefab = available[i];
+            var prefab = picked[i];
             if (prefab == null) continue;
 
-            // 确定生成位置（和 RoomManager.SpawnItems 一样用 itemSpawnPoints）
             Vector3 spawnPos;
             if (i < spawnPointCount && spawnPoints[i] != null)
                 spawnPos = spawnPoints[i].position;
@@ -103,18 +102,16 @@ public class ShopManager : MonoBehaviour
             var go = Instantiate(prefab, spawnPos, Quaternion.identity, transform);
             go.name = $"ShopItem_{prefab.name}";
 
-            // 打上商店标记
             var pickup = go.GetComponent<ItemPickup>();
             if (pickup == null)
                 pickup = go.AddComponent<ItemPickup>();
-
             pickup.IsShopItem = true;
 
             _spawnedPickups.Add(pickup);
         }
 
         IsOpen = true;
-        Debug.Log($"[ShopManager] 商店开张，生成了 {_spawnedPickups.Count} 件商品 (从 RoomConfig.itemPool)");
+        Debug.Log($"[ShopManager] 商店开张，生成了 {_spawnedPickups.Count} 件商品");
     }
 
     /// <summary>打烊 — 清理所有未购买的拾取物</summary>
@@ -143,15 +140,6 @@ public class ShopManager : MonoBehaviour
         {
             IsOpen = false;
             OnAllItemsSold?.Invoke();
-        }
-    }
-
-    private static void Shuffle<T>(List<T> list)
-    {
-        for (int i = list.Count - 1; i > 0; i--)
-        {
-            int j = Random.Range(0, i + 1);
-            (list[i], list[j]) = (list[j], list[i]);
         }
     }
 }
