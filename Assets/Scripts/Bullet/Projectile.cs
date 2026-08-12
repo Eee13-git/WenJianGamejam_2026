@@ -11,8 +11,23 @@ public class Projectile : MonoBehaviour
     /// <summary>灵体子弹模式：玩家方投射物穿透障碍物</summary>
     public static bool SpiritBulletMode;
 
+    /// <summary>跟踪模式：玩家方投射物追踪最近敌人</summary>
+    public static bool HomingMode;
+
     /// <summary>全局弹幕速度倍率（道具效果），1=正常，0.5=半速</summary>
     public static float GlobalSpeedMultiplier = 1f;
+
+    /// <summary>玩家方子弹大小倍率（道具效果），1=正常</summary>
+    public static float BulletScaleMultiplier = 1f;
+
+    // === 距离衰减模式（甲亢道具） ===
+    /// <summary>距离衰减模式：玩家方子弹伤害和大小随飞行距离衰减</summary>
+    public static bool DistanceDamageMode;
+    public static float DistanceDamageMaxMult = 3f;
+    public static float DistanceDamageMinMult = 0.1f;
+    public static float DistanceScaleMaxMult = 1.5f;
+    public static float DistanceScaleMinMult = 0.3f;
+    public static float DistanceMaxRange = 8f;
 
     [Header("子弹参数")]
     [SerializeField] private float speed = 8f;
@@ -28,6 +43,7 @@ public class Projectile : MonoBehaviour
     private Vector2 _direction;
     private OwnerType _owner;
     private bool _isInitialized;
+    private Vector3 _spawnPos;
 
     /// <summary>是否被时停冻结</summary>
     public bool IsFrozen { get; private set; }
@@ -43,6 +59,7 @@ public class Projectile : MonoBehaviour
         Caster = caster ?? gameObject;
         _isInitialized = true;
         IsFrozen = false;
+        _spawnPos = transform.position;
 
         // 用 Invoke 延时回收（替代 Destroy(gameObject, lifeTime)）
         CancelInvoke(nameof(ReturnToPool));
@@ -74,15 +91,58 @@ public class Projectile : MonoBehaviour
         _isInitialized = false;
         _direction = Vector2.zero;
         Caster = null;
+        transform.localScale = Vector3.one;
         CancelInvoke(nameof(ReturnToPool));
     }
 
     void Update()
     {
         if (!_isInitialized || IsFrozen) return;
+
+        // 跟踪模式：玩家方子弹追踪最近敌人
+        if (HomingMode && _owner == OwnerType.Player)
+        {
+            Transform nearest = FindNearestEnemy(transform.position);
+            if (nearest != null)
+            {
+                Vector2 toTarget = (nearest.position - transform.position).normalized;
+                _direction = Vector2.Lerp(_direction, toTarget, 8f * Time.deltaTime).normalized;
+            }
+        }
+
         // 玩家方子弹不受全局减速影响
         float mult = _owner == OwnerType.Player ? 1f : GlobalSpeedMultiplier;
         transform.Translate(_direction * speed * mult * Time.deltaTime, Space.World);
+
+        // 玩家方子弹大小：距离衰减或固定倍率
+        if (_owner == OwnerType.Player)
+        {
+            if (DistanceDamageMode)
+            {
+                float dist = Vector3.Distance(transform.position, _spawnPos);
+                float t = Mathf.Clamp01(dist / DistanceMaxRange);
+                float scaleMult = Mathf.Lerp(DistanceScaleMaxMult, DistanceScaleMinMult, t);
+                transform.localScale = Vector3.one * scaleMult * BulletScaleMultiplier;
+            }
+            else if (BulletScaleMultiplier != 1f)
+            {
+                transform.localScale = Vector3.one * BulletScaleMultiplier;
+            }
+        }
+    }
+
+    private Transform FindNearestEnemy(Vector2 center)
+    {
+        Collider2D[] hits = Physics2D.OverlapCircleAll(center, 4f, ~0);
+        Transform nearest = null;
+        float minDist = float.MaxValue;
+        foreach (var hit in hits)
+        {
+            if (!hit.CompareTag("Enemy")) continue;
+            float d = (hit.transform.position - (Vector3)center).sqrMagnitude;
+            if (d < minDist) { minDist = d; nearest = hit.transform; }
+        }
+        return nearest;
     }
 
     private void OnTriggerEnter2D(Collider2D other)
@@ -126,7 +186,18 @@ public class Projectile : MonoBehaviour
         IDamageable damageable = other.GetComponent<IDamageable>();
         if (damageable != null)
         {
-            damageable.TakeDamage(damage);
+            float finalDamage = damage;
+
+            // 距离衰减模式：根据飞行距离计算实际伤害
+            if (DistanceDamageMode && _owner == OwnerType.Player)
+            {
+                float dist = Vector3.Distance(transform.position, _spawnPos);
+                float t = Mathf.Clamp01(dist / DistanceMaxRange);
+                float mult = Mathf.Lerp(DistanceDamageMaxMult, DistanceDamageMinMult, t);
+                finalDamage = damage * mult;
+            }
+
+            damageable.TakeDamage(finalDamage);
             OnAnyProjectileHit?.Invoke(this, other.gameObject);
         }
 

@@ -64,6 +64,8 @@ public class PlayerStats : MonoBehaviour, IDamageable, IHealable
     public event System.Action<float, float> OnHealthChanged;
     /// <summary>死亡委托</summary>
     public event System.Action OnDied;
+    /// <summary>受击委托（只在 TakeDamage 中触发，治疗不触发），参数为伤害值</summary>
+    public event System.Action<float> OnDamaged;
     /// <summary>属性变化委托：参数为 (属性名)</summary>
     public event System.Action<string> OnStatChanged;
 
@@ -105,6 +107,7 @@ public class PlayerStats : MonoBehaviour, IDamageable, IHealable
 
         OnHealthChanged?.Invoke(health, maxHealth);
         OnStatChanged?.Invoke("Health");
+        OnDamaged?.Invoke(damage);
 
         if (health <= 0f)
         {

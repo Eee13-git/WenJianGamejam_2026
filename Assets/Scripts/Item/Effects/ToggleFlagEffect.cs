@@ -13,10 +13,17 @@ public class ToggleFlagEffect : ItemEffectBase
         /// <summary>灵体子弹：玩家方子弹穿透障碍物</summary>
         SpiritBullet,
         /// <summary>碰撞免疫：免疫敌人碰撞伤害</summary>
-        ContactDamageImmunity
+        ContactDamageImmunity,
+        /// <summary>跟踪子弹：玩家方子弹追踪最近敌人</summary>
+        HomingBullet,
+        /// <summary>ATP获取效率提升</summary>
+        AtpGainBoost,
+        /// <summary>子弹大小倍率</summary>
+        BulletScale
     }
 
     [SerializeField] private FlagType _flag;
+    [SerializeField] private float _floatValue = 1.5f;
 
     public override void OnAcquire(GameObject owner)
     {
@@ -29,6 +36,15 @@ public class ToggleFlagEffect : ItemEffectBase
                 var stats = owner.GetComponent<PlayerStats>();
                 if (stats != null)
                     stats.ImmuneToContactDamage = true;
+                break;
+            case FlagType.HomingBullet:
+                Projectile.HomingMode = true;
+                break;
+            case FlagType.AtpGainBoost:
+                CurrencyManager.GainMultiplier = _floatValue;
+                break;
+            case FlagType.BulletScale:
+                Projectile.BulletScaleMultiplier = _floatValue;
                 break;
         }
     }
@@ -44,6 +60,15 @@ public class ToggleFlagEffect : ItemEffectBase
                 var stats = owner.GetComponent<PlayerStats>();
                 if (stats != null)
                     stats.ImmuneToContactDamage = false;
+                break;
+            case FlagType.HomingBullet:
+                Projectile.HomingMode = false;
+                break;
+            case FlagType.AtpGainBoost:
+                CurrencyManager.GainMultiplier = 1f;
+                break;
+            case FlagType.BulletScale:
+                Projectile.BulletScaleMultiplier = 1f;
                 break;
         }
     }
