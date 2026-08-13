@@ -55,16 +55,26 @@ public class SkillInstance
         }
     }
 
-    /// <summary>尝试释放技能，返回是否成功</summary>
+    /// <summary>尝试释放技能，返回是否成功（立即执行效果）</summary>
     public bool TryCast(ISkillCaster caster, Vector2 targetDirection)
     {
         if (IsCoolingDown) return false;
+        StartCooldown();
+        ExecuteEffect(caster, targetDirection);
+        return true;
+    }
 
+    /// <summary>开始冷却（不执行效果）</summary>
+    public void StartCooldown()
+    {
         IsCoolingDown = true;
         _cooldownRemaining = CurrentCooldown;
+    }
 
+    /// <summary>执行技能效果（调用 OnExecute 委托）</summary>
+    public void ExecuteEffect(ISkillCaster caster, Vector2 targetDirection)
+    {
         OnExecute?.Invoke(caster, targetDirection);
-        return true;
     }
 
     /// <summary>升级技能，返回是否成功</summary>

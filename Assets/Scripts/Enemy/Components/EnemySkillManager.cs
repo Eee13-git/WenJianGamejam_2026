@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -10,9 +11,16 @@ public class EnemySkillManager : MonoBehaviour
     [Tooltip("设为 true 则不会自动 Tick 冷却（供 BossCore 手动控制）")]
     [SerializeField] private bool _manualTick;
 
+    [Header("释放动画延迟")]
+    [Tooltip("技能效果延迟执行时间（秒），与 cast 动画中效果帧的时间对应。0=立即执行")]
+    [SerializeField] private float _castDelay = 0f;
+
     private List<SkillInstance> _skillInstances = new List<SkillInstance>();
 
     public IReadOnlyList<SkillInstance> SkillInstances => _skillInstances;
+
+    /// <summary>技能释放事件：参数为 (槽位索引, 技能数据)</summary>
+    public event System.Action<int, SkillData> OnSkillCast;
 
     public void InitializeFromLibrary(SkillLibrary library, int randomMin = 1, int randomMax = 2)
     {
@@ -117,6 +125,25 @@ public class EnemySkillManager : MonoBehaviour
     public bool TryCastSkill(int index, ISkillCaster caster, Vector2 dir)
     {
         if (index < 0 || index >= _skillInstances.Count) return false;
-        return _skillInstances[index].TryCast(caster, dir);
+        var skill = _skillInstances[index];
+        if (skill.IsCoolingDown) return false;
+
+        // 开始冷却 + 触发动画事件
+        skill.StartCooldown();
+        OnSkillCast?.Invoke(index, skill.Data);
+
+        // 延迟执行技能效果（等待 cast 动画到达效果帧）
+        if (_castDelay > 0f)
+            StartCoroutine(DelayedExecute(skill, caster, dir));
+        else
+            skill.ExecuteEffect(caster, dir);
+
+        return true;
+    }
+
+    private IEnumerator DelayedExecute(SkillInstance skill, ISkillCaster caster, Vector2 dir)
+    {
+        yield return new WaitForSeconds(_castDelay);
+        skill.ExecuteEffect(caster, dir);
     }
 }

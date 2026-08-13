@@ -13,6 +13,10 @@ public class EnemyCore : MonoBehaviour, IEnemy
     [Header("配置")]
     public EnemyConfig config;
 
+    [Header("动画（可选，留空则从 config displayName 自动查找）")]
+    [Tooltip("AnimatorController 资产路径（Assets/ 开始），留空则按敌人名自动查找")]
+    [SerializeField] private string _animatorControllerPath = "";
+
     // 子组件
     public EnemyStats Health { get; private set; }
     public EnemyMovement Movement { get; private set; }
@@ -36,6 +40,7 @@ public class EnemyCore : MonoBehaviour, IEnemy
 
     // 碰撞伤害冷却
     private float _lastContactDamageTime = -10f;
+    private Animator _animator;
 
     private void Awake()
     {
@@ -48,6 +53,44 @@ public class EnemyCore : MonoBehaviour, IEnemy
         if (Movement     == null) Movement     = gameObject.AddComponent<EnemyMovement>();
         if (SkillManager == null) SkillManager = gameObject.AddComponent<EnemySkillManager>();
         if (StateMachine == null) StateMachine = gameObject.AddComponent<EnemyStateMachine>();
+
+        _animator = GetComponent<Animator>();
+
+        // 运行时 fallback：若 Animator 缺少 controller，按敌人名自动加载
+        if (_animator != null && _animator.runtimeAnimatorController == null && config != null)
+        {
+            string enemyName = config.displayName;
+            string autoPath = "Assets/Animations/Enemy/" + enemyName + "/" + enemyName + "_Controller.controller";
+#if UNITY_EDITOR
+            var ctrl = UnityEditor.AssetDatabase.LoadAssetAtPath<RuntimeAnimatorController>(autoPath);
+            if (ctrl != null)
+            {
+                _animator.runtimeAnimatorController = ctrl;
+            }
+            else
+            {
+                Debug.LogWarning("[EnemyCore] AnimatorController not found at: " + autoPath);
+            }
+#else
+            // 非 Editor 环境需将 controller 放入 Resources 文件夹
+            var ctrl = Resources.Load<RuntimeAnimatorController>(enemyName + "_Controller");
+            if (ctrl != null)
+                _animator.runtimeAnimatorController = ctrl;
+#endif
+        }
+
+        // 技能释放 → 触发释放动画
+        if (SkillManager != null)
+        {
+            SkillManager.OnSkillCast += (_, _) =>
+            {
+                if (_animator != null)
+                {
+                    _animator.SetBool("IsCasting", true);
+                    StartCoroutine(ResetCastBool(1.4f));
+                }
+            };
+        }
 
         // ═══ 单一数据源：EnemyConfig → EnemyStats（全部属性） ═══
         if (config != null)
@@ -110,6 +153,13 @@ public class EnemyCore : MonoBehaviour, IEnemy
 
             yield return new WaitForSeconds(0.3f);
         }
+    }
+
+    private System.Collections.IEnumerator ResetCastBool(float delay)
+    {
+        yield return new WaitForSeconds(delay);
+        if (_animator != null)
+            _animator.SetBool("IsCasting", false);
     }
 
     // ---------- 碰撞伤害 ----------
