@@ -16,6 +16,7 @@ public class PlayerStatsPanel : MonoBehaviour
     [SerializeField] private TMP_Text _speedText;
     [SerializeField] private TMP_Text _attackText;
     [SerializeField] private TMP_Text _fireRateText;
+    [SerializeField] private TMP_Text _bulletSpeedText;
 
     [Header("进化倾向")]
     [Tooltip("进化倾向槽（单槽），fillMethod=Horizontal, fillOrigin=Left，按 |值|/max 填充")]
@@ -95,6 +96,8 @@ public class PlayerStatsPanel : MonoBehaviour
         }
         if (_fireRateText != null)
             _fireRateText.text = _stats.ShotsPerMinute.ToString("F0") + "/分";
+        if (_bulletSpeedText != null)
+            _bulletSpeedText.text = _stats.BulletSpeed.ToString("F1");
     }
 
     private void RefreshHealth()
