@@ -100,6 +100,7 @@ GameObject:
   - component: {fileID: 6643163244548966056}
   - component: {fileID: 3180804836868113494}
   - component: {fileID: 6236207145504007976}
+  - component: {fileID: 5576798836900845798}
   m_Layer: 0
   m_Name: "\u53CC\u7403\u83CC"
   m_TagString: Enemy
@@ -164,12 +165,12 @@ SpriteRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 2
-  m_Sprite: {fileID: 1372442312, guid: 5d318fb8099be1f4cb66a7b30d80cddb, type: 3}
+  m_Sprite: {fileID: -2172349005853923314, guid: c2671fd9bd9c312428967edcc08b33af, type: 3}
   m_Color: {r: 0.9496855, g: 0.5527483, b: 0.1284164, a: 1}
   m_FlipX: 0
   m_FlipY: 0
   m_DrawMode: 0
-  m_Size: {x: 1, y: 1}
+  m_Size: {x: 1.97, y: 1.97}
   m_AdaptiveModeThreshold: 0.5
   m_SpriteTileMode: 0
   m_WasSpriteAssigned: 1
@@ -250,6 +251,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   config: {fileID: 11400000, guid: 365a4bca2bd4b584489446c6f6342eb8, type: 2}
+  _animatorControllerPath: 
 --- !u!114 &8694805169833763948
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -263,6 +265,12 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   MaxHealth: 30
+  PatrolSpeed: 1
+  ChaseSpeed: 2.5
+  DetectionRange: 5
+  AttackRange: 1.2
+  ContactDamage: 10
+  ContactDamageCooldown: 1
 --- !u!114 &6033674336903830412
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -275,7 +283,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3eccd900d9a8d9242b21aeec5605f086, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  MoveSpeed: 2
 --- !u!114 &6643163244548966056
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -289,6 +296,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   _manualTick: 0
+  _castDelay: 0
 --- !u!114 &3180804836868113494
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -313,3 +321,24 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 54981fe574c0a2f4c972934f1d5bcfa4, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+--- !u!95 &5576798836900845798
+Animator:
+  serializedVersion: 5
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5938946019499785119}
+  m_Enabled: 1
+  m_Avatar: {fileID: 0}
+  m_Controller: {fileID: 9100000, guid: 51712e588b2fc444bbef920aca5127ac, type: 2}
+  m_CullingMode: 0
+  m_UpdateMode: 0
+  m_ApplyRootMotion: 0
+  m_LinearVelocityBlending: 0
+  m_StabilizeFeet: 0
+  m_WarningMessage: 
+  m_HasTransformHierarchy: 1
+  m_AllowConstantClipSamplingOptimization: 1
+  m_KeepAnimatorStateOnDisable: 0
+  m_WriteDefaultValuesOnDisable: 0
