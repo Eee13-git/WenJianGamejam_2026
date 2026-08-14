@@ -53,6 +53,20 @@ public class EnemySkillManager : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// 自动执行所有被动技能的效果（不进入冷却、不触发施法动画）。
+    /// 用于出生时自动生效的被动光环类技能。
+    /// </summary>
+    public void AutoCastPassives(ISkillCaster caster)
+    {
+        foreach (var s in _skillInstances)
+        {
+            if (s == null || s.Data == null) continue;
+            if (!s.Data.passive) continue;
+            s.ExecuteEffect(caster, Vector2.down);
+        }
+    }
+
     /// <summary>手动 Tick 冷却（供 Boss 等需要自定义 Update 的场景调用）</summary>
     public void TickCooldowns(float dt)
     {
@@ -126,6 +140,8 @@ public class EnemySkillManager : MonoBehaviour
     {
         if (index < 0 || index >= _skillInstances.Count) return false;
         var skill = _skillInstances[index];
+        // 被动技能已通过 AutoCastPassives 自动执行，不应被主动施放
+        if (skill.Data != null && skill.Data.passive) return false;
         if (skill.IsCoolingDown) return false;
 
         // 开始冷却 + 触发动画事件

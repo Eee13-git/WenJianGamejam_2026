@@ -19,6 +19,10 @@ public class SkillData : ScriptableObject
     public float damageMultiplier = 1.5f; // 伤害系数（乘以施法者攻击力）
     public int maxLevel = 5;              // 最大升级等级
 
+    [Header("被动")]
+    [Tooltip("被动技能：装配后自动执行一次效果（通常为永久 buff 光环），不进入冷却、不触发施法动画")]
+    public bool passive = false;
+
     [Header("效果策略")]
     public SkillEffectBase skillEffect;   // 拖入具体效果资产，如 ProjectileSkillEffect
 }

@@ -41,6 +41,7 @@ public class EnemyCore : MonoBehaviour, IEnemy
     // 碰撞伤害冷却
     private float _lastContactDamageTime = -10f;
     private Animator _animator;
+    private SpriteRenderer _spriteRenderer;
 
     private void Awake()
     {
@@ -55,6 +56,7 @@ public class EnemyCore : MonoBehaviour, IEnemy
         if (StateMachine == null) StateMachine = gameObject.AddComponent<EnemyStateMachine>();
 
         _animator = GetComponent<Animator>();
+        _spriteRenderer = GetComponent<SpriteRenderer>();
 
         // 运行时 fallback：若 Animator 缺少 controller，按敌人名自动加载
         if (_animator != null && _animator.runtimeAnimatorController == null && config != null)
@@ -108,7 +110,11 @@ public class EnemyCore : MonoBehaviour, IEnemy
             }
 
             if (SkillManager != null)
+            {
                 SkillManager.InitializeFromLibrary(config.skillLibrary);
+                // 被动技能（永久光环等）在装配后自动执行一次
+                SkillManager.AutoCastPassives(this);
+            }
         }
         else if (Health != null)
         {
@@ -160,6 +166,17 @@ public class EnemyCore : MonoBehaviour, IEnemy
         yield return new WaitForSeconds(delay);
         if (_animator != null)
             _animator.SetBool("IsCasting", false);
+    }
+
+    // ---------- 朝向 ----------
+    private void LateUpdate()
+    {
+        if (IsDead || _spriteRenderer == null || PlayerTarget == null) return;
+
+        // 施法期间也允许翻转，始终跟随玩家方向
+        float dx = PlayerTarget.position.x - transform.position.x;
+        if (Mathf.Abs(dx) > 0.1f)
+            _spriteRenderer.flipX = dx < 0f;
     }
 
     // ---------- 碰撞伤害 ----------
