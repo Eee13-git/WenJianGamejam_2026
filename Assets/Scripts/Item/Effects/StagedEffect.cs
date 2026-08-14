@@ -19,6 +19,9 @@ public class StagedEffect : ItemEffectBase
 
     [SerializeField] private Stage[] _stages;
 
+    [Tooltip("道具 itemId，用于查询持有数量")]
+    [SerializeField] private string _itemId = "atropine";
+
     public override void OnAcquire(GameObject owner)
     {
         if (_stages == null) return;
@@ -27,7 +30,7 @@ public class StagedEffect : ItemEffectBase
         if (itemManager == null) return;
 
         // 获取前的数量 = 当前阶段索引（0=还没第一个）
-        int count = itemManager.GetItemCount("atropine");
+        int count = itemManager.GetItemCount(_itemId);
 
         // 找到 requiredCount == count+1 的阶段（本次获取后变为 count+1 个）
         foreach (var stage in _stages)
@@ -48,7 +51,7 @@ public class StagedEffect : ItemEffectBase
         if (itemManager == null) return;
 
         // 移除前的数量 = 当前阶段
-        int count = itemManager.GetItemCount("atropine");
+        int count = itemManager.GetItemCount(_itemId);
 
         // 找到 requiredCount == count 的阶段（移除后变为 count-1 个）
         foreach (var stage in _stages)

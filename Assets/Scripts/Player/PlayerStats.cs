@@ -45,17 +45,32 @@ public class PlayerStats : MonoBehaviour, IDamageable, IHealable
     /// <summary>是否免疫碰撞伤害（道具效果）</summary>
     public bool ImmuneToContactDamage { get; set; }
 
+    // ---------- ICU 锁定最小值 ----------
+    /// <summary>属性锁定最小值表 — ICU Buff 使用，读取时取 Max(locked, actual)，不修改实际值</summary>
+    private readonly Dictionary<string, float> _lockedMinimums = new Dictionary<string, float>();
+
+    /// <summary>攻击力锁定最高值 — ICU 追踪 base×multiplier 的历史最高值，读取时取 Max(locked, actual)</summary>
+    private float _lockedMaxAttack = 0f;
+
     // ---------- 只读属性 ----------
     public float CurrentHealth => health;
     public float MaxHealth => maxHealth>=1 ? maxHealth : 1;
     public bool IsDead => _isDead;
-    public float MoveSpeed => moveSpeed;
-    public float AttackStrength => (attackStrength * attackStrengthMultiplier) >= 1 ? attackStrength * attackStrengthMultiplier : 1;
+    public float MoveSpeed => ApplyLockedMinimum("MoveSpeed", moveSpeed);
+    public float AttackStrength
+    {
+        get
+        {
+            float actualComposite = attackStrength * attackStrengthMultiplier;
+            float val = Mathf.Max(_lockedMaxAttack, actualComposite);
+            return val >= 1 ? val : 1;
+        }
+    }
     public float BaseAttackStrength => attackStrength;
     public float AttackStrengthMultiplier => attackStrengthMultiplier;
-    public float BulletSpeed => bulletSpeed;
-    public float ShootCooldown => 60f / shotsPerMinute;
-    public float ShotsPerMinute => shotsPerMinute;
+    public float BulletSpeed => ApplyLockedMinimum("BulletSpeed", bulletSpeed);
+    public float ShootCooldown => 60f / ShotsPerMinute;
+    public float ShotsPerMinute => ApplyLockedMinimum("ShotsPerMinute", shotsPerMinute);
     public float ColliderRadius
     {
         get => colliderRadius;
@@ -148,22 +163,64 @@ public class PlayerStats : MonoBehaviour, IDamageable, IHealable
 
     // ---------- Buff 系统属性读写接口 ----------
 
-    /// <summary>通过属性名字符串获取当前值（供 Buff 系统使用）</summary>
-    public float GetStatValue(string statName)
+    /// <summary>获取属性原始值（不受 ICU 锁定影响）</summary>
+    public float GetRawStatValue(string statName)
     {
         return statName switch
         {
-            "MaxHealth"               => maxHealth,
-            "Health"                  => health,
-            "MoveSpeed"               => moveSpeed,
-            "AttackStrength"          => attackStrength,
+            "MaxHealth"                => maxHealth,
+            "Health"                   => health,
+            "MoveSpeed"                => moveSpeed,
+            "AttackStrength"           => attackStrength,
             "AttackStrengthMultiplier" => attackStrengthMultiplier,
-            "BulletSpeed"             => bulletSpeed,
-            "ShotsPerMinute"          => shotsPerMinute,
-            "ColliderRadius"          => colliderRadius,
-            "EvolutionTendency"       => evolutionTendency,
-            _                         => throw new System.ArgumentException($"PlayerStats: 未知属性名 '{statName}'")
+            "BulletSpeed"              => bulletSpeed,
+            "ShotsPerMinute"           => shotsPerMinute,
+            "ColliderRadius"           => colliderRadius,
+            "EvolutionTendency"        => evolutionTendency,
+            _                          => throw new System.ArgumentException($"PlayerStats: 未知属性名 '{statName}'")
         };
+    }
+
+    /// <summary>应用锁定最小值：返回 Max(locked, actual)，无锁定则返回 actual</summary>
+    private float ApplyLockedMinimum(string statName, float actualValue)
+    {
+        if (_lockedMinimums.TryGetValue(statName, out float locked))
+            return Mathf.Max(locked, actualValue);
+        return actualValue;
+    }
+
+    /// <summary>设置属性的锁定最小值（取 Max(已存在, 新值)）。供 ICU 锁定 Buff 使用</summary>
+    public void SetLockedMinimum(string statName, float value)
+    {
+        if (_lockedMinimums.TryGetValue(statName, out float existing))
+            _lockedMinimums[statName] = Mathf.Max(existing, value);
+        else
+            _lockedMinimums[statName] = value;
+    }
+
+    /// <summary>清除属性的锁定最小值</summary>
+    public void ClearLockedMinimum(string statName)
+    {
+        _lockedMinimums.Remove(statName);
+    }
+
+    /// <summary>设置攻击力锁定最高值（取 Max(已存在, 新值)）。供 ICU 锁定 Buff 使用</summary>
+    public void SetLockedMaxAttack(float value)
+    {
+        _lockedMaxAttack = Mathf.Max(_lockedMaxAttack, value);
+    }
+
+    /// <summary>清除攻击力锁定最高值</summary>
+    public void ClearLockedMaxAttack()
+    {
+        _lockedMaxAttack = 0f;
+    }
+
+    /// <summary>通过属性名字符串获取当前值（供 Buff 系统使用），应用 ICU 锁定最小值</summary>
+    public float GetStatValue(string statName)
+    {
+        float rawValue = GetRawStatValue(statName);
+        return ApplyLockedMinimum(statName, rawValue);
     }
 
     /// <summary>通过属性名字符串设置值，自动触发 OnStatChanged（供 Buff 系统使用）</summary>
