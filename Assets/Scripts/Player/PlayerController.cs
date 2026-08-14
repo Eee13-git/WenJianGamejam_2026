@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.EventSystems;
 
 public class PlayerController : MonoBehaviour
 {
@@ -61,12 +62,6 @@ public class PlayerController : MonoBehaviour
     {
         if (_stats == null) return;
 
-        CircleCollider2D circle = GetComponent<CircleCollider2D>();
-        if (circle != null)
-        {
-            _stats.ColliderRadius = circle.radius * Mathf.Max(transform.localScale.x, transform.localScale.y);
-        }
-
         // Start 时 MapManager.Instance 已经初始化 (Awake 时序保证)
         if (MapManager.Instance != null)
         {
@@ -88,7 +83,7 @@ public class PlayerController : MonoBehaviour
         float vertical = Input.GetAxisRaw("Vertical");
         Vector2 rawInput = new Vector2(horizontal, vertical);
         rawInput = Vector2.ClampMagnitude(rawInput, 1f);
-        bool rawAttack = Input.GetMouseButton(0) && !AttackLocked;
+        bool rawAttack = Input.GetMouseButton(0) && !AttackLocked && !IsPointerOverUI();
 
         if (InputDelay <= 0f)
         {
@@ -130,5 +125,12 @@ public class PlayerController : MonoBehaviour
 
         // 使用 Rigidbody2D 物理驱动，墙壁碰撞由 Collider2D 处理
         _rb.velocity = _moveInput * _stats.MoveSpeed * SpeedMultiplier;
+    }
+
+    /// <summary>鼠标是否悬停在 UI 上（用于阻止穿透 UI 的普攻）</summary>
+    private static bool IsPointerOverUI()
+    {
+        if (EventSystem.current == null) return false;
+        return EventSystem.current.IsPointerOverGameObject();
     }
 }

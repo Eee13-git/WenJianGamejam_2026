@@ -38,6 +38,9 @@ public class MinimapUI : MonoBehaviour
     private int _currentRoomId = -1;
     private System.Collections.Generic.HashSet<int> _visitedRoomIds = new();
 
+    /// <summary>是否隐藏地图（地西泮道具效果）。为 true 时所有房间显示为未探索状态</summary>
+    public static bool HideMap = false;
+
     private void Awake()
     {
         _rawImage = GetComponent<RawImage>();
@@ -168,17 +171,30 @@ public class MinimapUI : MonoBehaviour
             pixels[i] = _bgColor;
 
         // 4. 计算"可探索"房间: 未访问但与已探索房间相邻的房间 (隐藏房除外)
+        // 地西泮效果：HideMap=true 时所有房间都视为未探索
         var explorableIds = new System.Collections.Generic.HashSet<int>();
-        foreach (var node in graph.nodes)
+        if (HideMap)
         {
-            if (_visitedRoomIds.Contains(node.roomId)) continue;
-            if (node.roomType == RoomType.Hidden) continue;
-            foreach (var conn in node.connections)
+            // 隐藏地图模式：所有非隐藏房都显示为可探索灰色
+            foreach (var node in graph.nodes)
             {
-                if (_visitedRoomIds.Contains(conn.Key))
+                if (node.roomType == RoomType.Hidden) continue;
+                explorableIds.Add(node.roomId);
+            }
+        }
+        else
+        {
+            foreach (var node in graph.nodes)
+            {
+                if (_visitedRoomIds.Contains(node.roomId)) continue;
+                if (node.roomType == RoomType.Hidden) continue;
+                foreach (var conn in node.connections)
                 {
-                    explorableIds.Add(node.roomId);
-                    break;
+                    if (_visitedRoomIds.Contains(conn.Key))
+                    {
+                        explorableIds.Add(node.roomId);
+                        break;
+                    }
                 }
             }
         }
@@ -196,8 +212,8 @@ public class MinimapUI : MonoBehaviour
                 if (!_visitedRoomIds.Contains(node.roomId) && node.roomType == RoomType.Hidden) continue;
                 if (!_visitedRoomIds.Contains(neighbor.roomId) && neighbor.roomType == RoomType.Hidden) continue;
 
-                bool aVisited = _visitedRoomIds.Contains(node.roomId);
-                bool bVisited = _visitedRoomIds.Contains(neighbor.roomId);
+                bool aVisited = HideMap ? false : _visitedRoomIds.Contains(node.roomId);
+                bool bVisited = HideMap ? false : _visitedRoomIds.Contains(neighbor.roomId);
                 bool aExplorable = explorableIds.Contains(node.roomId);
                 bool bExplorable = explorableIds.Contains(neighbor.roomId);
 
@@ -242,7 +258,9 @@ public class MinimapUI : MonoBehaviour
             }
         }
 
-        // 7. 画已探索房间
+        // 7. 画已探索房间 (HideMap 时跳过，所有房间在步骤6已画为灰色可探索)
+        if (!HideMap)
+        {
         foreach (var node in graph.nodes)
         {
             if (!_visitedRoomIds.Contains(node.roomId)) continue;
@@ -275,6 +293,31 @@ public class MinimapUI : MonoBehaviour
             // 8. 高亮当前房间边框
             if (node.roomId == _currentRoomId)
             {
+                for (int y = py1; y <= py2; y++)
+                {
+                    for (int x = px1; x <= px2; x++)
+                    {
+                        bool isBorder = (x == px1 || x == px2 || y == py1 || y == py2);
+                        if (isBorder)
+                            pixels[y * _textureSize + x] = _currentBorderColor;
+                    }
+                }
+            }
+        }
+        } // end if (!HideMap)
+
+        // HideMap 模式下仍然高亮当前房间边框，让玩家知道自己在哪
+        if (HideMap)
+        {
+            var currentNode = graph.GetNode(_currentRoomId);
+            if (currentNode != null)
+            {
+                Vector2 half = currentNode.config.roomSize * 0.5f * _roomDisplayScale;
+                int px1 = ClampPixel(WorldToPixelX(currentNode.worldPosition.x - half.x));
+                int py1 = ClampPixel(WorldToPixelY(currentNode.worldPosition.y - half.y));
+                int px2 = ClampPixel(WorldToPixelX(currentNode.worldPosition.x + half.x));
+                int py2 = ClampPixel(WorldToPixelY(currentNode.worldPosition.y + half.y));
+
                 for (int y = py1; y <= py2; y++)
                 {
                     for (int x = px1; x <= px2; x++)

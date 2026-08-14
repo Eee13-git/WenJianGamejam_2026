@@ -3,7 +3,8 @@ using UnityEngine;
 /// <summary>
 /// 阶段道具效果 — 根据持有该道具的数量执行对应阶段的效果。
 /// 每个阶段是一个 ItemEffectBase（可以是 CompositeItemEffect、MultiStatModifierEffect 等）。
-/// OnAcquire 时根据当前数量执行对应阶段效果；OnRemove 时逆序还原对应阶段。
+/// 超过最大阶段数后循环：第4个重新触发第1阶段效果，第5个触发第2阶段，以此类推。
+/// OnAcquire 时按数组索引取模执行对应阶段；OnRemove 时倒序（LIFO）还原。
 /// </summary>
 [CreateAssetMenu(fileName = "StagedEffect", menuName = "Game/Item Effect/Staged")]
 public class StagedEffect : ItemEffectBase
@@ -11,7 +12,7 @@ public class StagedEffect : ItemEffectBase
     [System.Serializable]
     public struct Stage
     {
-        [Tooltip("此阶段需要的道具数量（从1开始）")]
+        [Tooltip("此阶段需要的道具数量（从1开始，仅做标记，实际按数组顺序循环）")]
         public int requiredCount;
         [Tooltip("此阶段的效果（到达时执行，移除时还原）")]
         public ItemEffectBase effect;
@@ -24,43 +25,27 @@ public class StagedEffect : ItemEffectBase
 
     public override void OnAcquire(GameObject owner)
     {
-        if (_stages == null) return;
+        if (_stages == null || _stages.Length == 0) return;
 
         var itemManager = owner.GetComponent<ItemManager>();
         if (itemManager == null) return;
 
-        // 获取前的数量 = 当前阶段索引（0=还没第一个）
+        // 获取前的数量（0-indexed），取模实现循环
         int count = itemManager.GetItemCount(_itemId);
-
-        // 找到 requiredCount == count+1 的阶段（本次获取后变为 count+1 个）
-        foreach (var stage in _stages)
-        {
-            if (stage.requiredCount == count + 1)
-            {
-                stage.effect?.OnAcquire(owner);
-                return;
-            }
-        }
+        int stageIndex = count % _stages.Length;
+        _stages[stageIndex].effect?.OnAcquire(owner);
     }
 
     public override void OnRemove(GameObject owner)
     {
-        if (_stages == null) return;
+        if (_stages == null || _stages.Length == 0) return;
 
         var itemManager = owner.GetComponent<ItemManager>();
         if (itemManager == null) return;
 
-        // 移除前的数量 = 当前阶段
+        // 移除前的数量，倒序移除（LIFO）
         int count = itemManager.GetItemCount(_itemId);
-
-        // 找到 requiredCount == count 的阶段（移除后变为 count-1 个）
-        foreach (var stage in _stages)
-        {
-            if (stage.requiredCount == count)
-            {
-                stage.effect?.OnRemove(owner);
-                return;
-            }
-        }
+        int stageIndex = ((count - 1) % _stages.Length + _stages.Length) % _stages.Length;
+        _stages[stageIndex].effect?.OnRemove(owner);
     }
 }
