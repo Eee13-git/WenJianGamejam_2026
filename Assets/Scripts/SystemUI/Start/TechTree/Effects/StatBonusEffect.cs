@@ -10,7 +10,7 @@ using UnityEngine;
 public class StatBonusEffect : TechTreeEffectBase
 {
     [Header("属性加成")]
-    [Tooltip("加成的属性名: MaxHealth / MoveSpeed / AttackStrength / BulletSpeed / ShotsPerMinute / ColliderRadius")]
+    [Tooltip("加成的属性名: MaxHealth / MoveSpeed / AttackStrength / BulletSpeed / ShotsPerMinute / EvolutionTendency")]
     [SerializeField] private string _statName = "MaxHealth";
 
     [Tooltip("加成值（正数=增加，负数=减少）")]
@@ -36,7 +36,6 @@ public class StatBonusEffect : TechTreeEffectBase
             "AttackStrength" => "攻击力",
             "BulletSpeed"    => "子弹速度",
             "ShotsPerMinute" => "射速",
-            "ColliderRadius" => "碰撞半径",
             _                => _statName
         };
         string sign = _bonus >= 0 ? "+" : "";

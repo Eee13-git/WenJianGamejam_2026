@@ -7,6 +7,18 @@ using UnityEngine;
 /// </summary>
 public class SkillInstance
 {
+    /// <summary>全局技能冷却乘区（道具/buff 效果），1=正常，0.8=减少20%冷却</summary>
+    public static float CooldownMultiplier = 1f;
+
+    /// <summary>技能释放时跳过冷却的概率（钙调蛋白等效果），0=正常</summary>
+    public static float CooldownSkipChance = 0f;
+
+    /// <summary>当前是否处于技能伤害执行中（蛋白激酶等"技能命中附带伤害"使用）</summary>
+    public static bool SkillDamageActive = false;
+
+    /// <summary>实例级冷却乘区（随从技能CD缩减 IL-2 等效果），1=正常</summary>
+    public float CooldownFactor = 1f;
+
     public SkillData Data { get; private set; }
     public int Level { get; private set; } = 1;
     public int MaxLevel => Data.maxLevel;
@@ -28,8 +40,8 @@ public class SkillInstance
         }
     }
 
-    /// <summary>当前等级冷却时间（每级减少10%）</summary>
-    public float CurrentCooldown => Data.cooldown * (1f - (Level - 1) * 0.1f);
+    /// <summary>当前等级冷却时间（每级减少10%，再乘全局CD乘区和实例CD乘区）</summary>
+    public float CurrentCooldown => Data.cooldown * (1f - (Level - 1) * 0.1f) * CooldownMultiplier * CooldownFactor;
 
     /// <summary>当前等级伤害系数</summary>
     public float CurrentDamageMultiplier => Data.damageMultiplier * (1f + (Level - 1) * 0.15f);
@@ -59,7 +71,11 @@ public class SkillInstance
     public bool TryCast(ISkillCaster caster, Vector2 targetDirection)
     {
         if (IsCoolingDown) return false;
-        StartCooldown();
+
+        // 钙调蛋白：概率跳过冷却
+        if (UnityEngine.Random.value >= CooldownSkipChance)
+            StartCooldown();
+
         ExecuteEffect(caster, targetDirection);
         return true;
     }

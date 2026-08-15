@@ -61,6 +61,9 @@ public class EnemyStats : MonoBehaviour, IDamageable, IHealable
     /// <summary>属性变化事件：参数为 (属性名)</summary>
     public event Action<string> OnStatChanged;
 
+    /// <summary>技能命中附带目标当前生命的百分比伤害（蛋白激酶），0=关闭</summary>
+    public static float OnSkillHitPercentDamage = 0f;
+
     // ──────────────────────────────────────────
     //  初始化
     // ──────────────────────────────────────────
@@ -90,6 +93,10 @@ public class EnemyStats : MonoBehaviour, IDamageable, IHealable
         var analgesic = GetComponent<AnalgesicBlockRuntime>();
         if (analgesic != null && analgesic.IsActive)
             damage = analgesic.SplitDamage(damage);
+
+        // 蛋白激酶：技能命中附带目标当前生命百分比伤害
+        if (SkillInstance.SkillDamageActive && OnSkillHitPercentDamage > 0f)
+            damage += _health * OnSkillHitPercentDamage;
 
         _health -= damage;
         _health = Mathf.Max(_health, 0f);

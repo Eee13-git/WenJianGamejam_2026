@@ -27,9 +27,6 @@ public class PlayerStats : MonoBehaviour, IDamageable, IHealable
     [Tooltip("攻击力乘区，真实攻击 = 基础攻击 × 此值")]
     [SerializeField] private float attackStrengthMultiplier = 1f;
 
-    [Header("碰撞属性")]
-    [SerializeField] private float colliderRadius = 0.4f;
-
     [Header("进化倾向")]
     [Tooltip("进化倾向：正值=朝向宿主，负值=朝向独特。范围 -100 ~ 100")]
     [SerializeField] private float evolutionTendency = 0f;
@@ -71,11 +68,6 @@ public class PlayerStats : MonoBehaviour, IDamageable, IHealable
     public float BulletSpeed => ApplyLockedMinimum("BulletSpeed", bulletSpeed);
     public float ShootCooldown => 60f / ShotsPerMinute;
     public float ShotsPerMinute => ApplyLockedMinimum("ShotsPerMinute", shotsPerMinute);
-    public float ColliderRadius
-    {
-        get => colliderRadius;
-        set => colliderRadius = Mathf.Max(value, 0.01f);
-    }
 
     /// <summary>进化倾向：正值=朝向宿主（金色），负值=朝向独特（紫色）。范围 -100 ~ 100</summary>
     public float EvolutionTendency => evolutionTendency;
@@ -110,6 +102,11 @@ public class PlayerStats : MonoBehaviour, IDamageable, IHealable
         var analgesic = GetComponent<AnalgesicBlockRuntime>();
         if (analgesic != null && analgesic.IsActive)
             damage = analgesic.SplitDamage(damage);
+
+        // 细胞膜：受击后减伤窗口
+        var damageReduction = GetComponent<DamageReduction>();
+        if (damageReduction != null)
+            damage = damageReduction.Apply(damage);
 
         health -= damage;
         health = Mathf.Max(health, 0);
@@ -175,7 +172,6 @@ public class PlayerStats : MonoBehaviour, IDamageable, IHealable
             "AttackStrengthMultiplier" => attackStrengthMultiplier,
             "BulletSpeed"              => bulletSpeed,
             "ShotsPerMinute"           => shotsPerMinute,
-            "ColliderRadius"           => colliderRadius,
             "EvolutionTendency"        => evolutionTendency,
             _                          => throw new System.ArgumentException($"PlayerStats: 未知属性名 '{statName}'")
         };
@@ -229,9 +225,15 @@ public class PlayerStats : MonoBehaviour, IDamageable, IHealable
         switch (statName)
         {
             case "MaxHealth":
-                maxHealth = Mathf.Max(value, 1f);
-                health = Mathf.Min(health, maxHealth);
+            {
+                float oldMax = maxHealth;
+                float newMax = Mathf.Max(value, 1f);
+                maxHealth = newMax;
+                // 增加上限时同时增加等量血量；减少上限时不扣血
+                if (newMax > oldMax)
+                    health += (newMax - oldMax);
                 break;
+            }
             case "Health":
                 health = Mathf.Clamp(value, 0f, maxHealth);
                 break;
@@ -249,9 +251,6 @@ public class PlayerStats : MonoBehaviour, IDamageable, IHealable
                 break;
             case "ShotsPerMinute":
                 shotsPerMinute = Mathf.Max(value, 0f);
-                break;
-            case "ColliderRadius":
-                colliderRadius = Mathf.Max(value, 0.01f);
                 break;
             case "EvolutionTendency":
                 evolutionTendency = Mathf.Clamp(value, -100f, 100f);
@@ -275,7 +274,6 @@ public class PlayerStats : MonoBehaviour, IDamageable, IHealable
         attackStrength = config.attackStrength;
         bulletSpeed = config.bulletSpeed;
         shotsPerMinute = config.shotsPerMinute;
-        colliderRadius = config.colliderRadius;
         health = maxHealth; // 重置满血
 
         OnHealthChanged?.Invoke(health, maxHealth);
@@ -310,7 +308,6 @@ public class PlayerStats : MonoBehaviour, IDamageable, IHealable
         attackStrengthMultiplier = Mathf.Max(attackStrengthMultiplier, 0f);
         bulletSpeed = Mathf.Max(bulletSpeed, 0f);
         shotsPerMinute = Mathf.Max(shotsPerMinute, 1f);
-        colliderRadius = Mathf.Max(colliderRadius, 0.01f);
         evolutionTendency = Mathf.Clamp(evolutionTendency, -100f, 100f);
     }
 }

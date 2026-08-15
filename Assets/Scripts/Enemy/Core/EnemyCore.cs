@@ -38,6 +38,9 @@ public class EnemyCore : MonoBehaviour, IEnemy
     /// <summary>全局静态事件 — 任意敌人死亡时触发 (EnemyCore)</summary>
     public static event Action<EnemyCore> OnAnyEnemyDied;
 
+    /// <summary>玩家碰撞伤害减免乘区（细胞骨架），1=正常，0.7=减免30%</summary>
+    public static float PlayerCollisionReductionFactor = 1f;
+
     // 碰撞伤害冷却
     private float _lastContactDamageTime = -10f;
     private Animator _animator;
@@ -227,10 +230,25 @@ public class EnemyCore : MonoBehaviour, IEnemy
         var playerStats = other.GetComponent<PlayerStats>();
         if (playerStats != null && playerStats.ImmuneToContactDamage) return;
 
+        float dmg = Health.ContactDamage;
+
+        // 细胞骨架：非随从（敌人）对玩家的碰撞伤害减免
+        if (!IsAssimilated && PlayerCollisionReductionFactor < 1f)
+            dmg *= PlayerCollisionReductionFactor;
+
+        // 干扰素：随从攻击命中时给目标减速
+        if (IsAssimilated && EnemyFollower.ApplySlow && other.CompareTag("Enemy"))
+        {
+            var slow = other.GetComponent<SlowEffect>();
+            if (slow == null)
+                slow = other.AddComponent<SlowEffect>();
+            slow.Apply(EnemyFollower.SlowFactor, EnemyFollower.SlowDuration);
+        }
+
         var damageable = other.GetComponent<IDamageable>();
         if (damageable != null)
         {
-            damageable.TakeDamage(Health.ContactDamage);
+            damageable.TakeDamage(dmg);
             _lastContactDamageTime = Time.time;
         }
     }

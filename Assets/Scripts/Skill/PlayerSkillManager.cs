@@ -30,6 +30,9 @@ public class PlayerSkillManager : MonoBehaviour, ISkillCaster
     [Tooltip("技能伤害修正乘区（道具/buff 可修改），1.0=无修正")]
     [SerializeField] private float _skillDamageMultiplier = 1f;
 
+    /// <summary>全局技能伤害修正乘区（道具效果，如 cAMP），1=正常</summary>
+    public static float SkillDamageBonusMultiplier = 1f;
+
     /// <summary>技能伤害修正乘区，外部可读</summary>
     public float SkillDamageMultiplier => _skillDamageMultiplier;
 
@@ -53,7 +56,7 @@ public class PlayerSkillManager : MonoBehaviour, ISkillCaster
         float evolveBonus = _stats != null
             ? _stats.EvolutionTendency * _stats.EvolveSkillDamageFactor
             : 0f;
-        return _skillDamageMultiplier * (1f + evolveBonus);
+        return _skillDamageMultiplier * (1f + evolveBonus) * SkillDamageBonusMultiplier;
     }
 
     // ---------- 委托 ----------

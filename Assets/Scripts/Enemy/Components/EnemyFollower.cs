@@ -29,6 +29,22 @@ public class EnemyFollower : MonoBehaviour
     /// <summary>所有活跃随从列表（供 MapManager 查询，避免 FindObjectsByType）</summary>
     public static readonly System.Collections.Generic.List<EnemyFollower> ActiveFollowers = new();
 
+    // ── 道具增强（静态，影响所有随从）──
+    /// <summary>随从生命上限乘区（免疫球蛋白）</summary>
+    public static float MaxHealthMultiplier = 1f;
+    /// <summary>随从伤害乘区（集落刺激因子 CSF）</summary>
+    public static float DamageMultiplier = 1f;
+    /// <summary>随从技能冷却乘区（白细胞介素-2 IL-2）</summary>
+    public static float FollowerCooldownFactor = 1f;
+    /// <summary>随从攻击是否附带减速（干扰素）</summary>
+    public static bool ApplySlow = false;
+    /// <summary>减速比例（干扰素），0.8 = 减速20%</summary>
+    public static float SlowFactor = 0.8f;
+    /// <summary>减速持续时间（秒）</summary>
+    public static float SlowDuration = 2f;
+    /// <summary>随从数量上限（胸腺肽），默认4</summary>
+    public static int MaxFollowerCount = 4;
+
     private void OnEnable()
     {
         ActiveFollowers.Add(this);
@@ -80,7 +96,7 @@ public class EnemyFollower : MonoBehaviour
         }
     }
 
-    /// <summary>根据玩家进化倾向刷新随从全属性增幅</summary>
+    /// <summary>根据玩家进化倾向刷新随从全属性增幅（叠加道具乘区）</summary>
     public void ApplyEvolutionBuff()
     {
         if (_core?.Health == null || !_isActive) return;
@@ -92,17 +108,31 @@ public class EnemyFollower : MonoBehaviour
         float factor = playerStats.EvolveFollowerBuffFactor;
         float mult = Mathf.Max(0f, 1f + (-tendency) * factor);
 
-        _core.Health.MaxHealth = Mathf.Max(_origMaxHealth * mult, 1f);
+        _core.Health.MaxHealth = Mathf.Max(_origMaxHealth * mult * MaxHealthMultiplier, 1f);
         _core.Health.PatrolSpeed = _origPatrolSpeed * mult;
         _core.Health.ChaseSpeed = _origChaseSpeed * mult;
         _core.Health.DetectionRange = _origDetectionRange * mult;
         _core.Health.AttackRange = _origAttackRange * mult;
-        _core.Health.ContactDamage = _origContactDamage * mult;
+        _core.Health.ContactDamage = _origContactDamage * mult * DamageMultiplier;
         _core.Health.ContactDamageCooldown = _origContactDamageCooldown * mult;
+
+        // 应用随从技能冷却乘区
+        if (_skillManager != null)
+        {
+            foreach (var s in _skillManager.SkillInstances)
+                s.CooldownFactor = FollowerCooldownFactor;
+        }
     }
 
     /// <summary>刷新所有活跃随从的进化倾向 buff（由 PlayerStats 在倾向值变化时调用）</summary>
     public static void RefreshAllFollowers(float tendency, float factor)
+    {
+        foreach (var f in ActiveFollowers)
+            f.ApplyEvolutionBuff();
+    }
+
+    /// <summary>刷新所有活跃随从（道具增强变化时调用）</summary>
+    public static void RefreshAllFollowers()
     {
         foreach (var f in ActiveFollowers)
             f.ApplyEvolutionBuff();

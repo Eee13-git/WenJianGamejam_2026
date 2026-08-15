@@ -41,8 +41,17 @@ public class SkillLibrary : ScriptableObject
 
             Projectile.OwnerType ownerType = caster.GetOwnerType();
             float finalMultiplier = instance.CurrentDamageMultiplier * caster.GetSkillDamageModifier();
-            data.skillEffect.Execute(caster, direction,
-                finalMultiplier, ownerType);
+
+            bool prevActive = SkillInstance.SkillDamageActive;
+            SkillInstance.SkillDamageActive = true;
+            try
+            {
+                data.skillEffect.Execute(caster, direction, finalMultiplier, ownerType);
+            }
+            finally
+            {
+                SkillInstance.SkillDamageActive = prevActive;
+            }
         };
 
         return instance;

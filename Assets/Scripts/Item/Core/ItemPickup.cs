@@ -37,8 +37,18 @@ public class ItemPickup : MonoBehaviour
     /// <summary>是否为商店商品（靠近时走购买流程而非拾取）</summary>
     public bool IsShopItem { get; set; }
 
-    /// <summary>商店价格（从 ItemData.price 读取）</summary>
-    public int ShopPrice => itemData != null ? itemData.price : 10;
+    /// <summary>商店价格（从 ItemData.price 读取，应用全局折扣）</summary>
+    public int ShopPrice
+    {
+        get
+        {
+            int basePrice = itemData != null ? itemData.price : 10;
+            float discount = ShopManager.GlobalDiscount;
+            if (discount > 0f)
+                return Mathf.Max(1, Mathf.RoundToInt(basePrice * (1f - discount)));
+            return basePrice;
+        }
+    }
 
     private Vector3 _startPosition;
     private SpriteRenderer _spriteRenderer;

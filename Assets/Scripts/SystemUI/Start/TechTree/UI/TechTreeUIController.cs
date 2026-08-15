@@ -46,6 +46,7 @@ public class TechTreeUIController : MonoBehaviour
     private GameObject _lineLayer;
     private RectTransform _contentTransform;
     private TechTreeNodeView _nodeViewPrefab;
+    private ScrollRect _scrollRect;
 
     // ========== 单例（场景级） ==========
 
@@ -71,6 +72,9 @@ public class TechTreeUIController : MonoBehaviour
         var inst = Instance;
         inst.gameObject.SetActive(true);
         inst.Refresh();
+        // 垂直居中显示
+        if (inst._scrollRect != null)
+            inst._scrollRect.verticalNormalizedPosition = 0.5f;
     }
 
     public static void Hide()
@@ -267,6 +271,7 @@ public class TechTreeUIController : MonoBehaviour
         var scrollRect = scrollGo.AddComponent<ScrollRect>();
         scrollRect.horizontal = true;
         scrollRect.vertical = true;
+        _scrollRect = scrollRect;
 
         var viewportGo = CreateChild("Viewport", scrollGo.transform);
         var viewportRt = viewportGo.GetComponent<RectTransform>();
@@ -350,12 +355,27 @@ public class TechTreeUIController : MonoBehaviour
         _nodePositions = new Dictionary<string, Vector2>();
         float maxX = 0f, maxY = 0f;
 
+        // 先计算节点 Y 范围，用于居中偏移
+        float minNodeY = float.MaxValue, maxNodeY = float.MinValue;
+        foreach (var node in nodes)
+        {
+            if (node == null) continue;
+            float y = -(_layoutConfig.originY + node.Position.y * _layoutConfig.nodeSpacingY);
+            if (y < minNodeY) minNodeY = y;
+            if (y > maxNodeY) maxNodeY = y;
+        }
+        // 节点群高度 = maxY - minY（正值），视口高度约 800
+        float nodeGroupHeight = maxNodeY - minNodeY + _layoutConfig.nodeHeight;
+        float viewportHeight = 800f;
+        // 居中偏移：如果节点群比视口矮，向下偏移让它在中间
+        float centerYOffset = Mathf.Max(0f, (viewportHeight - nodeGroupHeight) * 0.5f);
+
         foreach (var node in nodes)
         {
             if (node == null) continue;
 
             float x = _layoutConfig.originX + node.Position.x * _layoutConfig.layerSpacingX;
-            float y = -(_layoutConfig.originY + node.Position.y * _layoutConfig.nodeSpacingY);
+            float y = -(_layoutConfig.originY + node.Position.y * _layoutConfig.nodeSpacingY) - centerYOffset;
 
             _nodePositions[node.NodeId] = new Vector2(x, y);
 
@@ -366,7 +386,7 @@ public class TechTreeUIController : MonoBehaviour
         if (_contentTransform != null)
         {
             float width = maxX + _layoutConfig.nodeWidth + _layoutConfig.originX;
-            float height = (maxY + 1) * _layoutConfig.nodeSpacingY + _layoutConfig.originY * 2;
+            float height = (maxY + 1) * _layoutConfig.nodeSpacingY + _layoutConfig.originY * 2 + centerYOffset;
             _contentTransform.sizeDelta = new Vector2(
                 Mathf.Max(width, 1000),
                 Mathf.Max(height, 800)

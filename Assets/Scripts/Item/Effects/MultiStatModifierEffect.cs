@@ -18,7 +18,6 @@ public class MultiStatModifierEffect : ItemEffectBase
         AttackStrengthMultiplier,
         BulletSpeed,
         ShotsPerMinute,
-        ColliderRadius,
         EvolutionTendency
     }
 

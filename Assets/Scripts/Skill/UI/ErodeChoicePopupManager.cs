@@ -31,6 +31,9 @@ public class ErodeChoicePopupManager : MonoBehaviour
     [Tooltip("同化成功时进化倾向降低量（负向=朝向独特）")]
     [SerializeField] private float _evolveAssimilateDelta = 5f;
 
+    /// <summary>吞噬体道具：进化倾向变化的绝对值削减量</summary>
+    public static float EvolveDeltaReduction = 0f;
+
     // 状态
     private EnemyCore _targetEnemy;
     private IReadOnlyList<SkillInstance> _enemySkills;
@@ -161,6 +164,15 @@ public class ErodeChoicePopupManager : MonoBehaviour
 
         if (_targetEnemy != null && !_targetEnemy.IsDead && _playerSkillManager != null)
         {
+            // 随从数量上限检查（胸腺肽可提高上限）
+            if (EnemyFollower.ActiveFollowers.Count >= EnemyFollower.MaxFollowerCount)
+            {
+                _onClose?.Invoke();
+                _onClose = null;
+                _isShowing = false;
+                return;
+            }
+
             _targetEnemy.Assimilate(_playerSkillManager.CasterTransform);
 
             // 同化成功 → 进化倾向降低（朝向独特）
@@ -177,6 +189,15 @@ public class ErodeChoicePopupManager : MonoBehaviour
     {
         PlayerStats stats = GetPlayerStats();
         if (stats == null) return;
+
+        // 吞噬体：削减倾向变化的绝对值
+        if (EvolveDeltaReduction > 0f)
+        {
+            if (delta > 0f)
+                delta = Mathf.Max(delta - EvolveDeltaReduction, 0f);
+            else
+                delta = Mathf.Min(delta + EvolveDeltaReduction, 0f);
+        }
 
         float current = stats.GetStatValue("EvolutionTendency");
         stats.SetStatValue("EvolutionTendency", current + delta);

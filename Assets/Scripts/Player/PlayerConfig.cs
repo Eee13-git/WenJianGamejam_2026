@@ -25,8 +25,4 @@ public class PlayerConfig : ScriptableObject
     public float bulletSpeed = 10f;
     [Tooltip("每分钟射击次数")]
     public float shotsPerMinute = 90f;
-
-    [Header("碰撞属性")]
-    [Tooltip("碰撞半径")]
-    public float colliderRadius = 0.4f;
 }

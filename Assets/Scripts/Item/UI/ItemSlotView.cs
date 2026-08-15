@@ -25,9 +25,20 @@ public class ItemSlotView : MonoBehaviour, IPointerEnterHandler, IPointerExitHan
 
     private Image _background;
 
+    /// <summary>外部 hover 处理器，非空时替代默认 ItemPanel.Instance 行为</summary>
+    private System.Action<ItemSlotView> _hoverEnterHandler;
+    private System.Action _hoverExitHandler;
+
     private void Awake()
     {
         _background = GetComponent<Image>();
+    }
+
+    /// <summary>设置自定义 hover 回调（用于 ItemRemoverPanel 等非 ItemPanel 场景）</summary>
+    public void SetHoverHandler(System.Action<ItemSlotView> enterHandler, System.Action exitHandler)
+    {
+        _hoverEnterHandler = enterHandler;
+        _hoverExitHandler = exitHandler;
     }
 
     public void Refresh(in ItemViewData data, ItemData boundItem)
@@ -88,12 +99,18 @@ public class ItemSlotView : MonoBehaviour, IPointerEnterHandler, IPointerExitHan
 
     public void OnPointerEnter(PointerEventData eventData)
     {
-        ItemPanel.Instance?.ShowHoverTooltip(this);
+        if (_hoverEnterHandler != null)
+            _hoverEnterHandler(this);
+        else
+            ItemPanel.Instance?.ShowHoverTooltip(this);
     }
 
     public void OnPointerExit(PointerEventData eventData)
     {
-        ItemPanel.Instance?.HideHoverTooltip();
+        if (_hoverExitHandler != null)
+            _hoverExitHandler();
+        else
+            ItemPanel.Instance?.HideHoverTooltip();
     }
 
     // ==================== 工具 ====================
