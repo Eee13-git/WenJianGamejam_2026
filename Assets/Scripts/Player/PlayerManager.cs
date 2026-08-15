@@ -190,19 +190,30 @@ public class PlayerManager : MonoBehaviour
             Debug.LogWarning("[PlayerManager] 未找到 PlayerConfig，Player 将使用预制体上的默认值。路径: Resources/PlayerConfig");
         }
 
-        // 叠加科技树加成
-        var mgr = TechTreeManager.Instance;
-        if (mgr != null)
-        {
-            var bonuses = mgr.GetAllBonuses();
-            if (bonuses != null && bonuses.Count > 0)
-            {
-                stats.ApplyBonuses(bonuses);
-#if UNITY_EDITOR
-                Debug.Log($"[PlayerManager] 已应用科技树加成: {bonuses.Count} 项");
-#endif
-            }
-        }
+                    // 叠加科技树加成
+                    var mgr = TechTreeManager.Instance;
+                    if (mgr != null)
+                    {
+                        var bonuses = mgr.GetAllBonuses();
+                        if (bonuses != null && bonuses.Count > 0)
+                        {
+                            stats.ApplyBonuses(bonuses);
+        #if UNITY_EDITOR
+                            Debug.Log($"[PlayerManager] 已应用科技树加成: {bonuses.Count} 项");
+        #endif
+                        }
+
+                        // 应用待执行的技能槽扩展
+                        while (TechTreeMechanismEffect.ConsumePendingSkillSlotExpand())
+                        {
+                            var skillMgr = player.GetComponent<PlayerSkillManager>();
+                            if (skillMgr != null)
+                            {
+                                skillMgr.ExpandSlots(1);
+                                Debug.Log("[PlayerManager] 技能槽位 +1（科技树）");
+                            }
+                        }
+                    }
     }
 
     /// <summary>自动查找 Player 预制体引用</summary>

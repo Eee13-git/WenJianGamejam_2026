@@ -145,6 +145,11 @@ public class TechTreeManager : MonoBehaviour
         TechPoints -= node.Cost;
         _unlockedNodeIds.Add(nodeId);
         RecalculateBonuses();
+
+        // 机制门效果：解锁后立即触发
+        if (node.Effect is TechTreeMechanismEffect mechEffect)
+            mechEffect.ApplyMechanism();
+
         Save();
 
         OnTechPointsChanged?.Invoke(TechPoints);

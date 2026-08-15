@@ -23,6 +23,12 @@ public class ShopManager : MonoBehaviour
     [Header("打折（可选）")]
     [Range(0f, 1f)] public float discount = 0f;
 
+    /// <summary>全局额外折扣（科技树等），0=无额外折扣，0.05=额外95折</summary>
+    public static float GlobalDiscount = 0f;
+
+    /// <summary>实际折扣 = 实例折扣 + 全局折扣</summary>
+    public float EffectiveDiscount => Mathf.Clamp01(discount + GlobalDiscount);
+
     /// <summary>商店是否已开张</summary>
     public bool IsOpen { get; private set; }
 
