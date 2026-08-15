@@ -41,6 +41,9 @@ public class MinimapUI : MonoBehaviour
     /// <summary>是否隐藏地图（地西泮道具效果）。为 true 时所有房间显示为未探索状态</summary>
     public static bool HideMap = false;
 
+    /// <summary>是否全图点亮（荧光蛋白 GFP）。为 true 时所有房间显示为已探索</summary>
+    public static bool RevealAllMap = false;
+
     private void Awake()
     {
         _rawImage = GetComponent<RawImage>();
@@ -136,6 +139,13 @@ public class MinimapUI : MonoBehaviour
     {
         if (_texture == null) CreateTexture();
         if (graph == null || graph.nodes.Count == 0) return;
+
+        // 荧光蛋白：全图点亮，把所有房间标记为已探索
+        if (RevealAllMap)
+        {
+            foreach (var node in graph.nodes)
+                _visitedRoomIds.Add(node.roomId);
+        }
 
         // 1. 计算世界边界
         float minX = float.MaxValue, maxX = float.MinValue;

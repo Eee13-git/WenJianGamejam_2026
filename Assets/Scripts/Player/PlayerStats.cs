@@ -103,6 +103,11 @@ public class PlayerStats : MonoBehaviour, IDamageable, IHealable
         if (analgesic != null && analgesic.IsActive)
             damage = analgesic.SplitDamage(damage);
 
+        // 细胞膜：受击后减伤窗口
+        var damageReduction = GetComponent<DamageReduction>();
+        if (damageReduction != null)
+            damage = damageReduction.Apply(damage);
+
         health -= damage;
         health = Mathf.Max(health, 0);
 
@@ -220,9 +225,15 @@ public class PlayerStats : MonoBehaviour, IDamageable, IHealable
         switch (statName)
         {
             case "MaxHealth":
-                maxHealth = Mathf.Max(value, 1f);
-                health = Mathf.Min(health, maxHealth);
+            {
+                float oldMax = maxHealth;
+                float newMax = Mathf.Max(value, 1f);
+                maxHealth = newMax;
+                // 增加上限时同时增加等量血量；减少上限时不扣血
+                if (newMax > oldMax)
+                    health += (newMax - oldMax);
                 break;
+            }
             case "Health":
                 health = Mathf.Clamp(value, 0f, maxHealth);
                 break;
