@@ -14,10 +14,15 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   displayName: "\u7ED3\u6838\u5206\u679D\u6746\u83CC"
   maxHealth: 50
+  contactDamage: 10
+  contactDamageCooldown: 1
   patrolSpeed: 0.5
   chaseSpeed: 1.5
   detectionRange: 7
   attackRange: 1.8
-  attackType: 3
-  skillLibrary: {fileID: 11400000, guid: cc88abea7715f7d4fab56ea5a0594ded, type: 2}
+  skillLibrary: {fileID: 11400000, guid: a9d015d1344f7d5448757bda44ae16f6, type: 2}
+  fixedSkillIds:
+  - tuberculosis_spray
+  useAxialSpray: 1
+  axialAlignThreshold: 0.6
   patrolPoints: []

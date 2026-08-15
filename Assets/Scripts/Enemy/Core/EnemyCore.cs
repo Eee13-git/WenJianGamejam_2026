@@ -86,7 +86,7 @@ public class EnemyCore : MonoBehaviour, IEnemy
         {
             SkillManager.OnSkillCast += (_, _) =>
             {
-                if (_animator != null)
+                if (_animator != null && HasAnimatorParameter("IsCasting"))
                 {
                     _animator.SetBool("IsCasting", true);
                     StartCoroutine(ResetCastBool(1.4f));
@@ -111,7 +111,12 @@ public class EnemyCore : MonoBehaviour, IEnemy
 
             if (SkillManager != null)
             {
-                SkillManager.InitializeFromLibrary(config.skillLibrary);
+                // 固定技能列表优先：按 ID 精确装配；否则从技能库随机抽取
+                if (config.fixedSkillIds != null && config.fixedSkillIds.Count > 0)
+                    SkillManager.LoadSkills(config.skillLibrary, config.fixedSkillIds.ToArray());
+                else
+                    SkillManager.InitializeFromLibrary(config.skillLibrary);
+
                 // 被动技能（永久光环等）在装配后自动执行一次
                 SkillManager.AutoCastPassives(this);
             }
@@ -164,8 +169,17 @@ public class EnemyCore : MonoBehaviour, IEnemy
     private System.Collections.IEnumerator ResetCastBool(float delay)
     {
         yield return new WaitForSeconds(delay);
-        if (_animator != null)
+        if (_animator != null && HasAnimatorParameter("IsCasting"))
             _animator.SetBool("IsCasting", false);
+    }
+
+    /// <summary>检查 Animator 是否包含指定参数（避免 SetBool 报 "Parameter does not exist"）</summary>
+    private bool HasAnimatorParameter(string paramName)
+    {
+        if (_animator == null || _animator.parameters == null) return false;
+        foreach (var p in _animator.parameters)
+            if (p.name == paramName) return true;
+        return false;
     }
 
     // ---------- 朝向 ----------

@@ -40,6 +40,16 @@ public class ChaseState : EnemyStateBase
 
         Core.LastKnownPlayerPosition = playerPos;
 
+        // 轴向喷射型敌人（结核分枝杆菌）：进入攻击范围即进入喷射状态（沿三个固定角发射），而非继续追击
+        if (Core.config != null && Core.config.useAxialSpray)
+        {
+            if (sqrDist <= attackSqr)
+            {
+                Core.StateMachine.ChangeState(new AxialSprayState(Core));
+                return;
+            }
+        }
+
         // 进入攻击范围
         if (sqrDist <= attackSqr)
         {

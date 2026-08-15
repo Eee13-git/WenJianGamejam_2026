@@ -60,24 +60,36 @@ public class EnemySpawner : MonoBehaviour
             var point = spawnPoints[indices[i]];
             var enemy = Instantiate(entry.enemyPrefab, point.position, Quaternion.identity, transform);
 
-            _aliveCount++;
+            RegisterEnemy(enemy);
+        }
+    }
 
-            // 监听死亡和同化（使用 IEnemy 接口以便兼容重构后的敌人）
-            if (enemy.TryGetComponent<IEnemy>(out var ienemy))
+    /// <summary>
+    /// 注册一个敌人到房间计数，并监听其死亡/同化事件。
+    /// 生成器直接生成的敌人与亡语（死亡分裂）爆出的敌人都通过此方法计数，
+    /// 否则亡语怪不计入计数会导致房间门提前开启。
+    /// </summary>
+    public void RegisterEnemy(GameObject enemy)
+    {
+        if (enemy == null) return;
+
+        _aliveCount++;
+
+        // 监听死亡和同化（使用 IEnemy 接口以便兼容重构后的敌人）
+        if (enemy.TryGetComponent<IEnemy>(out var ienemy))
+        {
+            ienemy.OnDied += () =>
             {
-                ienemy.OnDied += () =>
-                {
-                    _aliveCount--;
-                    if (_aliveCount <= 0)
-                        OnAllEnemiesDefeated?.Invoke();
-                };
-                ienemy.OnAssimilated += (_) =>
-                {
-                    _aliveCount--;
-                    if (_aliveCount <= 0)
-                        OnAllEnemiesDefeated?.Invoke();
-                };
-            }
+                _aliveCount--;
+                if (_aliveCount <= 0)
+                    OnAllEnemiesDefeated?.Invoke();
+            };
+            ienemy.OnAssimilated += (_) =>
+            {
+                _aliveCount--;
+                if (_aliveCount <= 0)
+                    OnAllEnemiesDefeated?.Invoke();
+            };
         }
     }
 

@@ -70,14 +70,19 @@ public class DiplococcusDeathBuff : BuffEffectBase
         if (caster == null) return;
         Vector2 pos = caster.transform.position;
 
-        SpawnCocci(pos);
+        SpawnCocci(caster);
         SpawnPoisonGas(pos);
     }
 
-    /// <summary>爆出单球菌（继承敌方阵营，攻击玩家）</summary>
-    private void SpawnCocci(Vector2 center)
+    /// <summary>爆出单球菌（继承敌方阵营，攻击玩家），并计入房间敌人计数</summary>
+    private void SpawnCocci(GameObject caster)
     {
         if (singleCocciPrefabs == null || singleCocciPrefabs.Length == 0) return;
+
+        // 找到原敌人所属的房间生成器（原敌人由 EnemySpawner 生成，parent 即其 transform）
+        var spawner = caster.transform.parent != null
+            ? caster.transform.parent.GetComponentInParent<EnemySpawner>()
+            : null;
 
         for (int i = 0; i < spawnCount; i++)
         {
@@ -85,8 +90,11 @@ public class DiplococcusDeathBuff : BuffEffectBase
             if (prefab == null) continue;
 
             Vector2 offset = Random.insideUnitCircle * spawnRadius;
-            var go = Object.Instantiate(prefab, center + offset, Quaternion.identity);
+            var go = Object.Instantiate(prefab, (Vector2)caster.transform.position + offset, Quaternion.identity, caster.transform.parent);
             go.name = $"Diplococcus_Spawn_{i}_{prefab.name}";
+
+            // 计入房间敌人计数，避免房间门提前开启
+            spawner?.RegisterEnemy(go);
         }
     }
 

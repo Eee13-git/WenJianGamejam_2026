@@ -14,10 +14,13 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   displayName: "\u5927\u80A0\u6746\u83CC"
   maxHealth: 30
+  contactDamage: 10
+  contactDamageCooldown: 1
   patrolSpeed: 0.8
   chaseSpeed: 2
   detectionRange: 5
-  attackRange: 1.2
-  attackType: 2
-  skillLibrary: {fileID: 11400000, guid: cc88abea7715f7d4fab56ea5a0594ded, type: 2}
+  attackRange: 2
+  skillLibrary: {fileID: 11400000, guid: 55a36360e3df1174eb285096437299fc, type: 2}
+  fixedSkillIds:
+  - intestinal_peristalsis
   patrolPoints: []

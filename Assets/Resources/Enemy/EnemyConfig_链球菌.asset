@@ -14,10 +14,14 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   displayName: "\u94FE\u7403\u83CC"
   maxHealth: 25
+  contactDamage: 10
+  contactDamageCooldown: 1
   patrolSpeed: 1.2
   chaseSpeed: 2.8
   detectionRange: 3.5
-  attackRange: 0.8
-  attackType: 1
-  skillLibrary: {fileID: 11400000, guid: cc88abea7715f7d4fab56ea5a0594ded, type: 2}
+  attackRange: 2
+  skillLibrary: {fileID: 11400000, guid: c1dd4a5bdcdbe054ea0a62f2d98e4ca5, type: 2}
+  fixedSkillIds:
+  - electric_nova
+  - streptococcus_death
   patrolPoints: []

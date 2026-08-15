@@ -28,6 +28,16 @@ public class EnemyConfig : ScriptableObject
     [Header("技能")]
     public SkillLibrary skillLibrary;
 
+    [Tooltip("固定技能 ID 列表（非空则按此列表精确装配，否则从 skillLibrary 随机抽取）")]
+    public List<string> fixedSkillIds = new List<string>();
+
+    [Header("轴向喷射（结核分枝杆菌等）")]
+    [Tooltip("为 true 时，敌人检测到玩家在同一行/同一列即沿该轴喷射技能，而非靠近攻击")]
+    public bool useAxialSpray = false;
+
+    [Tooltip("同行/同列判定阈值（世界单位）")]
+    public float axialAlignThreshold = 0.6f;
+
     [Header("巡逻点（世界坐标相对室内/由生成器填充或运行时赋值）")]
     public List<Vector2> patrolPoints = new List<Vector2>();
 }
