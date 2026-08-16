@@ -6,6 +6,8 @@ using UnityEngine;
 /// </summary>
 public struct TechTreeNodeViewData : System.IEquatable<TechTreeNodeViewData>
 {
+    public enum NodeType { Normal, Mechanism, StatMechanism }
+
     public string NodeId;
     public string DisplayName;
     public string Description;
@@ -14,6 +16,7 @@ public struct TechTreeNodeViewData : System.IEquatable<TechTreeNodeViewData>
     public bool IsUnlocked;
     public bool CanUnlock;
     public int CurrentTechPoints;
+    public NodeType Type;
 
     public bool Equals(TechTreeNodeViewData other)
     {
@@ -24,7 +27,8 @@ public struct TechTreeNodeViewData : System.IEquatable<TechTreeNodeViewData>
             && Cost == other.Cost
             && IsUnlocked == other.IsUnlocked
             && CanUnlock == other.CanUnlock
-            && CurrentTechPoints == other.CurrentTechPoints;
+            && CurrentTechPoints == other.CurrentTechPoints
+            && Type == other.Type;
     }
 
     public override bool Equals(object obj) => obj is TechTreeNodeViewData other && Equals(other);

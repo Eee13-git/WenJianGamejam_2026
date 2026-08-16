@@ -150,6 +150,10 @@ public class TechTreeManager : MonoBehaviour
         if (node.Effect is TechTreeMechanismEffect mechEffect)
             mechEffect.ApplyMechanism();
 
+        // 静态字段数值效果（随从/技能微强化）
+        if (node.Effect is TechTreeStatMechanismEffect statMechEffect)
+            statMechEffect.ApplyMechanism();
+
         Save();
 
         OnTechPointsChanged?.Invoke(TechPoints);

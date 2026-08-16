@@ -577,7 +577,10 @@ public class TechTreeUIController : MonoBehaviour
                 Cost = node.Cost,
                 IsUnlocked = mgr.IsUnlocked(node.NodeId),
                 CanUnlock = mgr.CanUnlock(node.NodeId),
-                CurrentTechPoints = mgr.TechPoints
+                CurrentTechPoints = mgr.TechPoints,
+                Type = node.Effect is TechTreeMechanismEffect ? TechTreeNodeViewData.NodeType.Mechanism
+                     : node.Effect is TechTreeStatMechanismEffect ? TechTreeNodeViewData.NodeType.StatMechanism
+                     : TechTreeNodeViewData.NodeType.Normal
             };
             kvp.Value.Configure(data, OnNodeClicked);
             kvp.Value.Refresh(in data);

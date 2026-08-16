@@ -17,22 +17,38 @@ public class TechTreeNodeView : MonoBehaviour
     [SerializeField] private TMP_Text _costText;
     [SerializeField] private Button _button;
 
-    // 状态颜色
-    private static readonly Color UnlockedColor = new(0.2f, 0.6f, 0.2f, 1f);
-    private static readonly Color AvailableColor = new(0.85f, 0.75f, 0.2f, 1f);
-    private static readonly Color LockedColor = new(0.45f, 0.45f, 0.5f, 1f);
-    private static readonly Color UnlockedTextColor = new(0.85f, 1f, 0.85f);
+    // 状态颜色（灰青→暗青）
+    private static readonly Color UnlockedColor = new(0.1f, 0.3f, 0.35f, 1f);
+    private static readonly Color AvailableColor = new(0.2f, 0.35f, 0.4f, 1f);
+    private static readonly Color LockedColor = new(0.3f, 0.4f, 0.42f, 1f);
+    private static readonly Color UnlockedTextColor = new(0.85f, 1f, 1f);
     private static readonly Color AvailableTextColor = Color.white;
-    private static readonly Color LockedTextColor = new(0.75f, 0.75f, 0.8f);
+    private static readonly Color LockedTextColor = new(0.75f, 0.8f, 0.8f);
 
     // 边框颜色
     private static readonly Color UnlockedBorderColor = new(0.3f, 0.9f, 0.3f, 1f);
     private static readonly Color AvailableBorderColor = new(1f, 0.9f, 0.3f, 1f);
     private static readonly Color LockedBorderColor = new(0.5f, 0.5f, 0.55f, 0.5f);
 
-    // 效果文字颜色（正数=绿色，负数=红色）
-    private static readonly Color PositiveEffectColor = new(0.4f, 1f, 0.4f);
-    private static readonly Color NegativeEffectColor = new(1f, 0.4f, 0.4f);
+    // 机制门颜色（紫色系）
+    private static readonly Color MechUnlockedColor = new(0.3f, 0.15f, 0.5f, 1f);
+    private static readonly Color MechAvailableColor = new(0.5f, 0.3f, 0.7f, 1f);
+    private static readonly Color MechLockedColor = new(0.3f, 0.2f, 0.4f, 1f);
+    private static readonly Color MechUnlockedBorder = new(0.6f, 0.3f, 0.9f, 1f);
+    private static readonly Color MechAvailableBorder = new(0.8f, 0.5f, 1f, 1f);
+    private static readonly Color MechLockedBorder = new(0.4f, 0.25f, 0.55f, 0.6f);
+
+    // 随从/技能微强化颜色（灰青→暗青，与普通节点一致）
+    private static readonly Color StatMechUnlockedColor = new(0.1f, 0.3f, 0.35f, 1f);
+    private static readonly Color StatMechAvailableColor = new(0.2f, 0.35f, 0.4f, 1f);
+    private static readonly Color StatMechLockedColor = new(0.3f, 0.4f, 0.42f, 1f);
+    private static readonly Color StatMechUnlockedBorder = new(0.3f, 0.9f, 0.3f, 1f);
+    private static readonly Color StatMechAvailableBorder = new(1f, 0.9f, 0.3f, 1f);
+    private static readonly Color StatMechLockedBorder = new(0.5f, 0.5f, 0.55f, 0.5f);
+
+    // 效果文字颜色：未点亮=黄色，已点亮=绿色
+    private static readonly Color EffectUnlockedColor = new(0.4f, 1f, 0.4f);
+    private static readonly Color EffectLockedColor = new(1f, 0.85f, 0.2f);
 
     private TechTreeNodeViewData _data;
     private System.Action<string> _onClick;
@@ -61,15 +77,18 @@ public class TechTreeNodeView : MonoBehaviour
         {
             _effectText.text = data.EffectSummary;
             _effectText.color = string.IsNullOrEmpty(data.EffectSummary) ? Color.white
-                : (data.EffectSummary.StartsWith("+") ? PositiveEffectColor : NegativeEffectColor);
+                : (data.IsUnlocked ? EffectUnlockedColor : EffectLockedColor);
         }
 
         Color bgColor, textColor, borderColor;
+        bool isMech = data.Type == TechTreeNodeViewData.NodeType.Mechanism;
+        bool isStatMech = data.Type == TechTreeNodeViewData.NodeType.StatMechanism;
+
         if (data.IsUnlocked)
         {
-            bgColor = UnlockedColor;
+            bgColor = isMech ? MechUnlockedColor : isStatMech ? StatMechUnlockedColor : UnlockedColor;
             textColor = UnlockedTextColor;
-            borderColor = UnlockedBorderColor;
+            borderColor = isMech ? MechUnlockedBorder : isStatMech ? StatMechUnlockedBorder : UnlockedBorderColor;
             if (_costText != null)
                 _costText.text = "已解锁";
             if (_button != null)
@@ -77,9 +96,9 @@ public class TechTreeNodeView : MonoBehaviour
         }
         else if (data.CanUnlock)
         {
-            bgColor = AvailableColor;
+            bgColor = isMech ? MechAvailableColor : isStatMech ? StatMechAvailableColor : AvailableColor;
             textColor = AvailableTextColor;
-            borderColor = AvailableBorderColor;
+            borderColor = isMech ? MechAvailableBorder : isStatMech ? StatMechAvailableBorder : AvailableBorderColor;
             if (_costText != null)
                 _costText.text = $"消耗 {data.Cost} 点";
             if (_button != null)
@@ -87,9 +106,9 @@ public class TechTreeNodeView : MonoBehaviour
         }
         else
         {
-            bgColor = LockedColor;
+            bgColor = isMech ? MechLockedColor : isStatMech ? StatMechLockedColor : LockedColor;
             textColor = LockedTextColor;
-            borderColor = LockedBorderColor;
+            borderColor = isMech ? MechLockedBorder : isStatMech ? StatMechLockedBorder : LockedBorderColor;
             if (_costText != null)
             {
                 _costText.text = data.CurrentTechPoints < data.Cost
