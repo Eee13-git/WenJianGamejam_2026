@@ -67,6 +67,7 @@ public class RoomBuilderTool : EditorWindow
 
     // === 输出 ===
     string prefabName = "Room_Normal_1F";
+    string outputFolder = "Assets/Prefabs/Rooms";
 
     // === 预案系统 ===
     [System.Serializable]
@@ -102,6 +103,7 @@ public class RoomBuilderTool : EditorWindow
         public int enemySpawnCount = 8, itemSpawnCount = 5;
         public string materialGUID;
         public string prefabName = "Room_Normal_1F";
+        public string outputFolder = "Assets/Prefabs/Rooms";
     }
 
     [System.Serializable]
@@ -259,6 +261,7 @@ public class RoomBuilderTool : EditorWindow
         if (spriteMaterial == null)
             spriteMaterial = AssetDatabase.LoadAssetAtPath<Material>("Assets/Materials/SpriteLit.mat");
         prefabName = d.prefabName;
+        outputFolder = string.IsNullOrEmpty(d.outputFolder) ? "Assets/Prefabs/Rooms" : d.outputFolder;
     }
 
     ConfigData CollectFieldsToConfig()
@@ -306,7 +309,8 @@ public class RoomBuilderTool : EditorWindow
             enemySpawnCount = enemySpawnCount,
             itemSpawnCount = itemSpawnCount,
             materialGUID = ToGUID(spriteMaterial),
-            prefabName = prefabName
+            prefabName = prefabName,
+            outputFolder = outputFolder
         };
     }
 
@@ -516,6 +520,24 @@ public class RoomBuilderTool : EditorWindow
         GUILayout.Label("输出", EditorStyles.miniBoldLabel);
         prefabName = EditorGUILayout.TextField("预制体名称", prefabName);
 
+        EditorGUILayout.BeginHorizontal();
+        EditorGUILayout.PrefixLabel("输出路径");
+        outputFolder = EditorGUILayout.TextField(outputFolder);
+        if (GUILayout.Button("浏览", GUILayout.Width(50)))
+        {
+            string absStart = Path.GetFullPath(outputFolder);
+            if (!Directory.Exists(absStart)) absStart = Application.dataPath;
+            string picked = EditorUtility.OpenFolderPanel("选择输出文件夹", absStart, "");
+            if (!string.IsNullOrEmpty(picked))
+            {
+                string rel = FileUtil.GetProjectRelativePath(picked);
+                if (!rel.StartsWith("Assets/")) { Warn("路径必须在 Assets/ 目录下"); }
+                else outputFolder = rel.Replace('\\', '/');
+            }
+        }
+        EditorGUILayout.EndHorizontal();
+        EditorGUILayout.LabelField("完整路径", $"{outputFolder}/{prefabName}.prefab", EditorStyles.miniLabel);
+
         EditorGUILayout.Space(10);
         if (GUILayout.Button("生成房间预制体", GUILayout.Height(30)))
         {
@@ -546,7 +568,7 @@ public class RoomBuilderTool : EditorWindow
         if (doorSprite == null) { Warn("请指定门素材"); return; }
         if (!wallTopSprite && !wallBottomSprite && !wallLeftSprite && !wallRightSprite) { Warn("至少指定一面墙的素材"); return; }
 
-        string prefabPath = $"Assets/Prefabs/Rooms/{prefabName}.prefab";
+        string prefabPath = $"{outputFolder}/{prefabName}.prefab";
         EnsureDir(prefabPath);
 
         var root = new GameObject(prefabName);
