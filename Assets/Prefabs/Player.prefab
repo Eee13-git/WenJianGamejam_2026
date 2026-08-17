@@ -201,8 +201,9 @@ MonoBehaviour:
   bulletSpeed: 10
   shotsPerMinute: 90
   attackStrengthMultiplier: 1
-  colliderRadius: 0.4
   evolutionTendency: 0
+  _evolveSkillDamageFactor: 0.025
+  _evolveFollowerBuffFactor: 0.01
 --- !u!114 &6977921527657197634
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -225,10 +226,11 @@ MonoBehaviour:
   - keyBinding: 120
     isUnlocked: 1
   _skillLibrary: {fileID: 11400000, guid: 25b940d240ce07f4dbf92087a21c017a, type: 2}
-  _initialSkillId0: intestinal_peristalsis
+  _initialSkillId0: axon_block
   _initialSkillId1: capsular_burst
   _initialSkillId2: keratin_shield
   _initialSkillId3: photon_radiance
+  _skillDamageMultiplier: 1
 --- !u!114 &5167232238786414711
 MonoBehaviour:
   m_ObjectHideFlags: 0

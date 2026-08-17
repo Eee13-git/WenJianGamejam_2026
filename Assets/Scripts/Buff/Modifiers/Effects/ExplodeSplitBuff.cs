@@ -58,7 +58,10 @@ public class ExplodeSplitBuff : BuffEffectBase
         if (caster == null) return;
         Vector2 pos = caster.transform.position;
 
-        // 找到原敌人所属的房间生成器（原敌人由 EnemySpawner 生成，parent 即其 transform）
+        // 找到原敌人所属的房间（原敌人由 RoomManager 生成，parent 即其 transform）
+        var room = caster.transform.parent != null
+            ? caster.transform.parent.GetComponentInParent<RoomManager>()
+            : null;
         var spawner = caster.transform.parent != null
             ? caster.transform.parent.GetComponentInParent<EnemySpawner>()
             : null;
@@ -73,7 +76,8 @@ public class ExplodeSplitBuff : BuffEffectBase
                 var go = UnityEngine.Object.Instantiate(group.prefab, pos + offset, Quaternion.identity, caster.transform.parent);
                 go.name = $"Split_{group.prefab.name}_{i}";
 
-                // 计入房间敌人计数，避免房间门提前开启
+                // 计入房间敌人计数（门锁由 RoomManager._aliveEnemies 控制），避免房间门提前开启
+                room?.RegisterEnemy(go);
                 spawner?.RegisterEnemy(go);
             }
         }

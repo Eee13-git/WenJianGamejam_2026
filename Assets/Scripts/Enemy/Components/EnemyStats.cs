@@ -90,6 +90,29 @@ public class EnemyStats : MonoBehaviour, IDamageable, IHealable
         var immunity = GetComponent<DamageImmunity>();
         if (immunity != null && immunity.IsImmune) return;
 
+        // 受击闪避（肌纤维应激细胞等）：成功闪避则免疫本次伤害并滑移
+        var dodge = GetComponent<DodgeComponent>();
+        if (dodge != null)
+        {
+            // 闪避方向：远离最近的敌人（通常是玩家/攻击者方向的反向）
+            Vector2 hitDir = Vector2.right;
+            var player = PlayerManager.Instance != null ? PlayerManager.Instance.CurrentPlayer : null;
+            if (player != null)
+                hitDir = ((Vector2)transform.position - (Vector2)player.transform.position).normalized;
+            if (hitDir.sqrMagnitude < 0.01f)
+                hitDir = Vector2.right;
+
+            if (dodge.TryDodge(hitDir))
+                return;  // 闪避成功，免疫本次伤害
+        }
+
+        // 伤害吸收护盾（角质增厚细胞等）：先免伤再吸收
+        var absorbShield = GetComponent<AbsorbShield>();
+        if (absorbShield != null && absorbShield.IsActive)
+            absorbShield.TryAbsorb(ref damage);
+
+        if (damage <= 0f) return;
+
         var analgesic = GetComponent<AnalgesicBlockRuntime>();
         if (analgesic != null && analgesic.IsActive)
             damage = analgesic.SplitDamage(damage);

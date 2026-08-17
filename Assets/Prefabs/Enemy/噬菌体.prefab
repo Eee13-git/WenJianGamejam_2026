@@ -100,6 +100,7 @@ GameObject:
   - component: {fileID: 3078591048213159095}
   - component: {fileID: 5521661132342950801}
   - component: {fileID: 1683576513973489634}
+  - component: {fileID: 1610015717257425600}
   m_Layer: 0
   m_Name: "\u566C\u83CC\u4F53"
   m_TagString: Enemy
@@ -164,7 +165,7 @@ SpriteRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 2
-  m_Sprite: {fileID: 869769594, guid: f6c402fd4fa108a4c9bdc9bece3ce2cc, type: 3}
+  m_Sprite: {fileID: -2650060705289637922, guid: 61664194e4a61e54f814718bee3bbafe, type: 3}
   m_Color: {r: 0.9496855, g: 0.5527483, b: 0.1284164, a: 1}
   m_FlipX: 0
   m_FlipY: 0
@@ -201,7 +202,7 @@ Rigidbody2D:
   m_Interpolate: 0
   m_SleepingMode: 1
   m_CollisionDetection: 0
-  m_Constraints: 4
+  m_Constraints: 0
 --- !u!58 &6141511576260706245
 CircleCollider2D:
   m_ObjectHideFlags: 0
@@ -231,7 +232,7 @@ CircleCollider2D:
   m_CallbackLayers:
     serializedVersion: 2
     m_Bits: 4294967295
-  m_IsTrigger: 0
+  m_IsTrigger: 1
   m_UsedByEffector: 0
   m_UsedByComposite: 0
   m_Offset: {x: 0, y: 0}
@@ -250,6 +251,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   config: {fileID: 11400000, guid: 6439a365c75234b47872e5434db824fa, type: 2}
+  _animatorControllerPath: 
 --- !u!114 &6336828625711015139
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -263,6 +265,12 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   MaxHealth: 30
+  PatrolSpeed: 1
+  ChaseSpeed: 2.5
+  DetectionRange: 5
+  AttackRange: 1.2
+  ContactDamage: 10
+  ContactDamageCooldown: 1
 --- !u!114 &2014046326196121083
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -275,7 +283,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3eccd900d9a8d9242b21aeec5605f086, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  MoveSpeed: 2
 --- !u!114 &3078591048213159095
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -289,6 +296,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   _manualTick: 0
+  _castDelay: 0
 --- !u!114 &5521661132342950801
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -313,3 +321,24 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 54981fe574c0a2f4c972934f1d5bcfa4, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+--- !u!95 &1610015717257425600
+Animator:
+  serializedVersion: 5
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8995715563813495099}
+  m_Enabled: 1
+  m_Avatar: {fileID: 0}
+  m_Controller: {fileID: 9100000, guid: 94f3a4749a7a2d546bff6a953b3137d4, type: 2}
+  m_CullingMode: 0
+  m_UpdateMode: 0
+  m_ApplyRootMotion: 0
+  m_LinearVelocityBlending: 0
+  m_StabilizeFeet: 0
+  m_WarningMessage: 
+  m_HasTransformHierarchy: 1
+  m_AllowConstantClipSamplingOptimization: 1
+  m_KeepAnimatorStateOnDisable: 0
+  m_WriteDefaultValuesOnDisable: 0

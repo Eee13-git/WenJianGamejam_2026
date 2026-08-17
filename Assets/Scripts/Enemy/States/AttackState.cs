@@ -35,10 +35,13 @@ public class AttackState : EnemyStateBase
         // 保持靠近
         Core.Movement?.MoveTowardsPosition(playerPos, Core.Health.ChaseSpeed, 0.3f);
 
-        // 释放技能
+        // 释放技能：支持随机选择就绪技能（多技能敌人概率发动）
         if (Core.SkillManager != null && Core.SkillManager.SkillInstances.Count > 0)
         {
-            Core.SkillManager.TryCastSkill(0, Core, Core.GetTargetDirection());
+            if (Core.config != null && Core.config.useRandomSkill)
+                Core.SkillManager.TryCastRandomReadySkill(Core, Core.GetTargetDirection());
+            else
+                Core.SkillManager.TryCastSkill(0, Core, Core.GetTargetDirection());
         }
     }
 }
