@@ -1,0 +1,28 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 746212e5bc024f94b8766428f48744cc, type: 3}
+  m_Name: "EnemyConfig_\u6D41\u611F\u75C5\u6BD2"
+  m_EditorClassIdentifier: 
+  displayName: "\u6D41\u611F\u75C5\u6BD2"
+  maxHealth: 12
+  contactDamage: 6
+  contactDamageCooldown: 0.3
+  patrolSpeed: 4
+  chaseSpeed: 6
+  detectionRange: 10
+  attackRange: 0.8
+  skillLibrary: {fileID: 11400000, guid: 031b4f2b23b0788469cf239365b790da, type: 2}
+  fixedSkillIds:
+  - influenza_death_wave
+  useAxialSpray: 0
+  axialAlignThreshold: 0.6
+  patrolPoints: []

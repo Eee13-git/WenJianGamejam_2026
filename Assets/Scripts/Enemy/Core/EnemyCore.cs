@@ -38,6 +38,9 @@ public class EnemyCore : MonoBehaviour, IEnemy
     /// <summary>全局静态事件 — 任意敌人死亡时触发 (EnemyCore)</summary>
     public static event Action<EnemyCore> OnAnyEnemyDied;
 
+    /// <summary>全局静态事件 — 任意敌人接触伤害命中时触发 (enemy, hitTarget)</summary>
+    public static event Action<EnemyCore, GameObject> OnAnyContactHit;
+
     /// <summary>玩家碰撞伤害减免乘区（细胞骨架），1=正常，0.7=减免30%</summary>
     public static float PlayerCollisionReductionFactor = 1f;
 
@@ -250,6 +253,9 @@ public class EnemyCore : MonoBehaviour, IEnemy
         {
             damageable.TakeDamage(dmg);
             _lastContactDamageTime = Time.time;
+
+            // 广播接触命中事件（供 OnContactHitBuff 等效果使用）
+            OnAnyContactHit?.Invoke(this, other.gameObject);
         }
     }
 

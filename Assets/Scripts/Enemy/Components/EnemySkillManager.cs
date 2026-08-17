@@ -82,6 +82,29 @@ public class EnemySkillManager : MonoBehaviour
         return null;
     }
 
+    /// <summary>
+    /// 从就绪技能中随机选择一个释放（用于"概率发动多技能"的敌人）。
+    /// 返回是否成功释放。冷却中的技能（含被动）不会参与选择。
+    /// </summary>
+    public bool TryCastRandomReadySkill(ISkillCaster caster, Vector2 dir)
+    {
+        // 收集所有就绪的主动技能
+        var ready = new System.Collections.Generic.List<int>();
+        for (int i = 0; i < _skillInstances.Count; i++)
+        {
+            var s = _skillInstances[i];
+            if (s == null || s.Data == null) continue;
+            if (s.Data.passive) continue;      // 被动技能不参与随机
+            if (s.IsCoolingDown) continue;
+            ready.Add(i);
+        }
+
+        if (ready.Count == 0) return false;
+
+        int idx = ready[Random.Range(0, ready.Count)];
+        return TryCastSkill(idx, caster, dir);
+    }
+
     /// <summary>获取所有冷却完毕的技能实例</summary>
     public int ReadyCount
     {

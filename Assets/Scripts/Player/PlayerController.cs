@@ -81,6 +81,11 @@ public class PlayerController : MonoBehaviour
 
         float horizontal = Input.GetAxisRaw("Horizontal");
         float vertical = Input.GetAxisRaw("Vertical");
+
+        // 手柄摇杆漂移过滤：微小输入归零（阈值 0.1）
+        if (Mathf.Abs(horizontal) < 0.1f) horizontal = 0f;
+        if (Mathf.Abs(vertical) < 0.1f) vertical = 0f;
+
         Vector2 rawInput = new Vector2(horizontal, vertical);
         rawInput = Vector2.ClampMagnitude(rawInput, 1f);
         bool rawAttack = Input.GetMouseButton(0) && !AttackLocked && !IsPointerOverUI();
@@ -121,7 +126,14 @@ public class PlayerController : MonoBehaviour
     {
         if (_rb == null || _stats == null) return;
         if (_stats.IsDead) return;
-        if (InputLocked) return;
+
+        // 输入锁定（房间切换/眩晕/喷射期间）：强制清零速度，防止残留 velocity 导致无限滑动
+        // （Rigidbody2D.linearDrag=0，速度不会自然衰减，必须手动清零）
+        if (InputLocked)
+        {
+            _rb.velocity = Vector2.zero;
+            return;
+        }
 
         // 使用 Rigidbody2D 物理驱动，墙壁碰撞由 Collider2D 处理
         _rb.velocity = _moveInput * _stats.MoveSpeed * SpeedMultiplier;

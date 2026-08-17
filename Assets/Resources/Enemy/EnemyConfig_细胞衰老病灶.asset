@@ -1,0 +1,28 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 746212e5bc024f94b8766428f48744cc, type: 3}
+  m_Name: "EnemyConfig_\u7EC6\u80DE\u8870\u8001\u75C5\u7076"
+  m_EditorClassIdentifier: 
+  displayName: "\u7EC6\u80DE\u8870\u8001\u75C5\u7076"
+  maxHealth: 25
+  contactDamage: 5
+  contactDamageCooldown: 1
+  patrolSpeed: 0.8
+  chaseSpeed: 1.5
+  detectionRange: 6
+  attackRange: 0.8
+  skillLibrary: {fileID: 11400000, guid: dd7ff8f8dfb5c6048b86da911abc4b73, type: 2}
+  fixedSkillIds:
+  - aging_carrier
+  useAxialSpray: 0
+  axialAlignThreshold: 0.6
+  patrolPoints: []

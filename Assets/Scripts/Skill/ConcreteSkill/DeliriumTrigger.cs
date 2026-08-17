@@ -4,6 +4,8 @@ using UnityEngine;
 /// <summary>
 /// 急性谵妄触发体 — 由 ProjectileSkillEffect(speed=0) 原地生成。
 /// Start 时给当前房间所有存活敌人挂上混乱 debuff，播放扩散环视觉后销毁。
+/// 可选：同时锁定玩家输入（affectPlayer=true）。
+/// "释放后即死"由外部 buff（InstantDeathBuff）实现，不在 Trigger 内硬编码。
 /// </summary>
 public class DeliriumTrigger : MonoBehaviour
 {
@@ -14,6 +16,12 @@ public class DeliriumTrigger : MonoBehaviour
     [SerializeField] private float _waveRadius = 10f;
     [Tooltip("扩散动画时长（秒）")]
     [SerializeField] private float _waveDuration = 0.8f;
+
+    [Header("扩展选项")]
+    [Tooltip("是否同时影响玩家（锁定玩家输入）")]
+    [SerializeField] private bool _affectPlayer = false;
+    [Tooltip("玩家锁定时长（秒）")]
+    [SerializeField] private float _playerLockDuration = 3f;
 
     private SpriteRenderer _sr;
     private Material _matInstance;
@@ -43,8 +51,24 @@ public class DeliriumTrigger : MonoBehaviour
         // 给当前房间所有存活敌人挂 debuff
         ApplyDebuffToRoom(casterGO);
 
+        // 同时影响玩家（锁定输入）
+        if (_affectPlayer)
+            StartCoroutine(AffectPlayer());
+
         // 播放扩散环视觉后销毁
         StartCoroutine(PlayWaveAndDestroy());
+    }
+
+    /// <summary>锁定玩家输入若干秒</summary>
+    private IEnumerator AffectPlayer()
+    {
+        var player = FindObjectOfType<PlayerController>();
+        if (player != null)
+        {
+            player.InputLocked = true;
+            yield return new WaitForSeconds(_playerLockDuration);
+            if (player != null) player.InputLocked = false;
+        }
     }
 
     /// <summary>给场景中所有存活、未同化的敌人挂混乱 debuff</summary>

@@ -38,6 +38,10 @@ public class EnemyConfig : ScriptableObject
     [Tooltip("同行/同列判定阈值（世界单位）")]
     public float axialAlignThreshold = 0.6f;
 
+    [Header("随机技能（多技能敌人）")]
+    [Tooltip("为 true 时，攻击时从就绪技能中随机选择释放（概率发动多技能），而非固定释放 index 0")]
+    public bool useRandomSkill = false;
+
     [Header("巡逻点（世界坐标相对室内/由生成器填充或运行时赋值）")]
     public List<Vector2> patrolPoints = new List<Vector2>();
 }

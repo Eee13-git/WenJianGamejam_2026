@@ -209,6 +209,23 @@ public class RoomManager : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// 注册一个敌人到房间存活列表（亡语分裂/召唤生成的敌人也调用此方法），
+    /// 否则亡语怪不计入 _aliveEnemies 会导致房间门提前开启。
+    /// </summary>
+    public void RegisterEnemy(GameObject enemy)
+    {
+        if (enemy == null || _aliveEnemies.Contains(enemy)) return;
+
+        _aliveEnemies.Add(enemy);
+
+        if (enemy.TryGetComponent<IEnemy>(out var ienemy))
+        {
+            ienemy.OnDied += () => OnEnemyDied(enemy);
+            ienemy.OnAssimilated += (_) => OnEnemyAssimilated(enemy);
+        }
+    }
+
     /// <summary>所有敌人被击败</summary>
     private void OnAllEnemiesDefeated()
     {
@@ -216,7 +233,6 @@ public class RoomManager : MonoBehaviour
         
         // 解锁门
         UnlockDoors();
-
         // 激活相邻隐藏房的门 (变为可破坏状态)
         ActivateHiddenWalls();
 

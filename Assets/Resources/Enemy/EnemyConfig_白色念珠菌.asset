@@ -1,0 +1,29 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 746212e5bc024f94b8766428f48744cc, type: 3}
+  m_Name: "EnemyConfig_\u767D\u8272\u5FF5\u73E0\u83CC"
+  m_EditorClassIdentifier: 
+  displayName: "\u767D\u8272\u5FF5\u73E0\u83CC"
+  maxHealth: 30
+  contactDamage: 10
+  contactDamageCooldown: 1
+  patrolSpeed: 1
+  chaseSpeed: 2.5
+  detectionRange: 5
+  attackRange: 1.2
+  skillLibrary: {fileID: 11400000, guid: 7287ef713e5984d4f83643f94cfd5220, type: 2}
+  fixedSkillIds:
+  - candida_hot
+  - candida_split
+  useAxialSpray: 0
+  axialAlignThreshold: 0.6
+  patrolPoints: []
