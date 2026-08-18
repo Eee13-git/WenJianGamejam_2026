@@ -29,6 +29,7 @@ public class EnemyFollower : MonoBehaviour
     private EnemySkillManager _skillManager;
     private bool _isActive;
     private bool _isReviving;
+    private bool _isPaused;
     private FollowerStateMachine _followerSM;
 
     // 进化倾向 buff：记录原始属性，动态刷新时从原始值重算
@@ -64,6 +65,16 @@ public class EnemyFollower : MonoBehaviour
     public float DetectionRange => _detectionRange;
     public float AttackRange => _attackRange;
     public float FollowSpeed => _followSpeed;
+
+    /// <summary>随从是否处于活跃状态（未被暂停）</summary>
+    public bool IsActive => _isActive && !_isPaused;
+
+    /// <summary>暂停/恢复随从 AI（不改变 _isActive，用于陷阱等临时暂停）</summary>
+    public void SetPaused(bool paused)
+    {
+        _isPaused = paused;
+        if (paused) _movement?.Stop();
+    }
 
     private void OnEnable()
     {
@@ -170,7 +181,7 @@ public class EnemyFollower : MonoBehaviour
 
     private void Update()
     {
-        if (!_isActive || _player == null) return;
+        if (!_isActive || _isPaused || _player == null) return;
         if (_core.Health != null && _core.Health.IsDead) return;
 
         // 离玩家过远 → 直接传送到身边，防止掉队或被卡住

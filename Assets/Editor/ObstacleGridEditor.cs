@@ -23,6 +23,9 @@ public class ObstacleGridEditor : EditorWindow
     int selectedObstacleIndex = 0;
     float cellSize = 24f;
 
+    // === 偏移 ===
+    Vector2 placementOffset = Vector2.zero;
+
     // === 运行时数据 ===
     Vector2 roomSize = new(20, 12);
     float cellOffsetX = 0.5f;
@@ -239,6 +242,12 @@ public class ObstacleGridEditor : EditorWindow
 
     Vector3 CellToWorld(Vector2Int cell)
     {
+        return new Vector3(cell.x + cellOffsetX + placementOffset.x, cell.y + cellOffsetY + placementOffset.y, 0);
+    }
+
+    /// <summary>不带偏移的格子→世界坐标（用于预制体原有障碍物）</summary>
+    Vector3 CellToWorldNoOffset(Vector2Int cell)
+    {
         return new Vector3(cell.x + cellOffsetX, cell.y + cellOffsetY, 0);
     }
 
@@ -311,6 +320,7 @@ public class ObstacleGridEditor : EditorWindow
         }
 
         cellSize = EditorGUILayout.Slider("格子像素大小", cellSize, 12f, 40f);
+        placementOffset = EditorGUILayout.Vector2Field("放置偏移 (x,y)", placementOffset);
 
         EditorGUILayout.Space(10);
 
@@ -682,8 +692,8 @@ public class ObstacleGridEditor : EditorWindow
 
             if (idx == -1)
             {
-                // 原有障碍物 → 找到对应的 GO 移回容器
-                Vector3 worldPos = CellToWorld(cell);
+                // 原有障碍物 → 不应用偏移
+                Vector3 worldPos = CellToWorldNoOffset(cell);
                 // 从 preservedObstacles 中找位置匹配的
                 var match = preservedObstacles.FirstOrDefault(go =>
                     WorldToCell(go.transform.localPosition) == cell);
@@ -724,7 +734,7 @@ public class ObstacleGridEditor : EditorWindow
         {
             var go = new GameObject("E");
             go.transform.SetParent(enemyContainer, false);
-            go.transform.localPosition = CellToWorld(cell);
+            go.transform.localPosition = CellToWorldNoOffset(cell);
             enemyArr[ei++] = go.transform;
         }
         if (roomRoot != null)
@@ -745,7 +755,7 @@ public class ObstacleGridEditor : EditorWindow
         {
             var go = new GameObject("I");
             go.transform.SetParent(itemContainer, false);
-            go.transform.localPosition = CellToWorld(cell);
+            go.transform.localPosition = CellToWorldNoOffset(cell);
             itemArr[ii++] = go.transform;
         }
         if (roomRoot != null)
