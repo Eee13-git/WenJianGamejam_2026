@@ -11,12 +11,12 @@ using System.Collections;
 public class EnemyFollower : MonoBehaviour
 {
     [Header("随从参数")]
-    [SerializeField] private float _followDistance = 2f;
+    [SerializeField] private float _followDistance = 3.5f;
     [SerializeField] private float _detectionRange = 8f;
     [SerializeField] private float _attackRange = 2f;
     [SerializeField] private float _followSpeed = 3f;
     [Tooltip("离玩家超过此距离时直接传送到身边，防止掉队")]
-    [SerializeField] private float _maxTeleportDistance = 12f;
+    [SerializeField] private float _maxTeleportDistance = 15f;
 
     [Header("复活")]
     [Tooltip("死亡后复活延迟（秒）")]

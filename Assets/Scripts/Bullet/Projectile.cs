@@ -44,6 +44,7 @@ public class Projectile : MonoBehaviour
     private OwnerType _owner;
     private bool _isInitialized;
     private Vector3 _spawnPos;
+    private Vector3 _baseScale;
 
     /// <summary>是否被时停冻结</summary>
     public bool IsFrozen { get; private set; }
@@ -60,6 +61,7 @@ public class Projectile : MonoBehaviour
         _isInitialized = true;
         IsFrozen = false;
         _spawnPos = transform.position;
+        _baseScale = transform.localScale;
 
         // 用 Invoke 延时回收（替代 Destroy(gameObject, lifeTime)）
         CancelInvoke(nameof(ReturnToPool));
@@ -91,7 +93,7 @@ public class Projectile : MonoBehaviour
         _isInitialized = false;
         _direction = Vector2.zero;
         Caster = null;
-        transform.localScale = Vector3.one;
+        transform.localScale = _baseScale;
         CancelInvoke(nameof(ReturnToPool));
     }
 
@@ -122,11 +124,11 @@ public class Projectile : MonoBehaviour
                 float dist = Vector3.Distance(transform.position, _spawnPos);
                 float t = Mathf.Clamp01(dist / DistanceMaxRange);
                 float scaleMult = Mathf.Lerp(DistanceScaleMaxMult, DistanceScaleMinMult, t);
-                transform.localScale = Vector3.one * scaleMult * BulletScaleMultiplier;
+                transform.localScale = _baseScale * scaleMult * BulletScaleMultiplier;
             }
-            else if (BulletScaleMultiplier != 1f)
+            else
             {
-                transform.localScale = Vector3.one * BulletScaleMultiplier;
+                transform.localScale = _baseScale * BulletScaleMultiplier;
             }
         }
     }

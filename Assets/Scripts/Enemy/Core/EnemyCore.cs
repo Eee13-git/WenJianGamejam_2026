@@ -147,7 +147,7 @@ public class EnemyCore : MonoBehaviour, IEnemy
 
     private void Start()
     {
-        StartCoroutine(LazyFindPlayer());
+        StartCoroutine(TargetRefreshRoutine());
 
         // 启动默认状态
         if (StateMachine != null)
@@ -159,8 +159,13 @@ public class EnemyCore : MonoBehaviour, IEnemy
         }
     }
 
-    private System.Collections.IEnumerator LazyFindPlayer()
+    /// <summary>
+    /// 周期性动态索敌：初始查找玩家后，每 0.3s 扫描检测范围内最近的 "Player" 标签目标（含随从）。
+    /// 死亡或同化后自动停止。
+    /// </summary>
+    private System.Collections.IEnumerator TargetRefreshRoutine()
     {
+        // Phase 1: 初始查找（同原 LazyFindPlayer 逻辑）
         while (PlayerTarget == null)
         {
             if (PlayerManager.Instance != null && PlayerManager.Instance.CurrentPlayer != null)
@@ -170,6 +175,52 @@ public class EnemyCore : MonoBehaviour, IEnemy
 
             yield return new WaitForSeconds(0.3f);
         }
+
+        // Phase 2: 周期性动态刷新 — 扫描最近的 "Player" 标签目标（含随从）
+        while (true)
+        {
+            yield return new WaitForSeconds(0.3f);
+            if (IsDead || IsAssimilated) yield break;
+
+            Transform nearest = FindNearestPlayerTarget();
+            if (nearest != null)
+                PlayerTarget = nearest;
+        }
+    }
+
+    /// <summary>
+    /// 在检测范围内查找最近的 "Player" 标签目标（含真实玩家和随从）。
+    /// 死亡随从的 Collider 已禁用，OverlapCircleAll 自然跳过。
+    /// </summary>
+    private Transform FindNearestPlayerTarget()
+    {
+        if (Health == null) return null;
+
+        Vector2 center = transform.position;
+        float range = Health.DetectionRange;
+
+        Collider2D[] hits = Physics2D.OverlapCircleAll(center, range);
+        Transform best = null;
+        float minDist = float.MaxValue;
+
+        foreach (var hit in hits)
+        {
+            if (!hit.CompareTag("Player")) continue;
+            if (hit.transform == transform) continue;
+
+            // 跳过死亡的敌人/随从（Collider 已禁用，此为双保险）
+            var core = hit.GetComponent<EnemyCore>();
+            if (core != null && core.IsDead) continue;
+
+            float d = ((Vector2)hit.transform.position - center).sqrMagnitude;
+            if (d < minDist)
+            {
+                minDist = d;
+                best = hit.transform;
+            }
+        }
+
+        return best;
     }
 
     private System.Collections.IEnumerator ResetCastBool(float delay)
@@ -298,7 +349,10 @@ public class EnemyCore : MonoBehaviour, IEnemy
         gameObject.tag = "Player";
 
         if (StateMachine != null)
+        {
+            StateMachine.ChangeState(null);
             StateMachine.enabled = false;
+        }
 
         Movement?.Stop();
 

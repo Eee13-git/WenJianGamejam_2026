@@ -66,7 +66,7 @@ public class ToggleFlagEffect : ItemEffectBase
                 CurrencyManager.GainMultiplier = _floatValue;
                 break;
             case FlagType.BulletScale:
-                Projectile.BulletScaleMultiplier = _floatValue;
+                Projectile.BulletScaleMultiplier *= _floatValue;
                 break;
             case FlagType.RevealMap:
                 MinimapUI.RevealAllMap = true;
@@ -126,7 +126,7 @@ public class ToggleFlagEffect : ItemEffectBase
                 CurrencyManager.GainMultiplier = 1f;
                 break;
             case FlagType.BulletScale:
-                Projectile.BulletScaleMultiplier = 1f;
+                Projectile.BulletScaleMultiplier /= _floatValue;
                 break;
             case FlagType.RevealMap:
                 MinimapUI.RevealAllMap = false;
