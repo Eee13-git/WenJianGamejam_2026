@@ -348,7 +348,6 @@ public class MapManager : MonoBehaviour
             );
 
             Vector2 targetPos = playerPos + rotatedOffset;
-            followers[i].transform.SetParent(newParent, true);
             TeleportRigidbody(followers[i].transform, targetPos);
         }
     }

@@ -160,6 +160,14 @@ public class EnemyStats : MonoBehaviour, IDamageable, IHealable
         OnDied = null;
     }
 
+    /// <summary>复活：重置死亡状态并回满血。</summary>
+    public void Revive()
+    {
+        _isDead = false;
+        _health = MaxHealth;
+        OnHealthChanged?.Invoke(_health, MaxHealth);
+    }
+
     // ──────────────────────────────────────────
     //  Buff 系统属性读写接口（类同 PlayerStats）
     // ──────────────────────────────────────────

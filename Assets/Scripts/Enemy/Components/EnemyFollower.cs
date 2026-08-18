@@ -1,4 +1,6 @@
 using UnityEngine;
+using UnityEngine.SceneManagement;
+using System.Collections;
 
 /// <summary>
 /// 随从行为组件：接管被同化敌人的 AI，跟随玩家 + 搜索并攻击其他敌人。
@@ -16,11 +18,16 @@ public class EnemyFollower : MonoBehaviour
     [Tooltip("离玩家超过此距离时直接传送到身边，防止掉队")]
     [SerializeField] private float _maxTeleportDistance = 12f;
 
+    [Header("复活")]
+    [Tooltip("死亡后复活延迟（秒）")]
+    [SerializeField] private float _respawnDelay = 10f;
+
     private Transform _player;
     private EnemyCore _core;
     private EnemyMovement _movement;
     private EnemySkillManager _skillManager;
     private bool _isActive;
+    private bool _isReviving;
 
     // 进化倾向 buff：记录原始属性，动态刷新时从原始值重算
     private float _origMaxHealth, _origPatrolSpeed, _origChaseSpeed;
@@ -51,6 +58,7 @@ public class EnemyFollower : MonoBehaviour
 
         if (MapManager.Instance != null)
             MapManager.Instance.OnRoomSwitchStarted += OnRoomSwitchStarted;
+        SceneManager.sceneLoaded += OnSceneLoaded;
     }
 
     private void OnDisable()
@@ -60,6 +68,7 @@ public class EnemyFollower : MonoBehaviour
             _core.Health.OnDied -= HandleDeath;
         if (MapManager.Instance != null)
             MapManager.Instance.OnRoomSwitchStarted -= OnRoomSwitchStarted;
+        SceneManager.sceneLoaded -= OnSceneLoaded;
     }
 
     private void Awake()
@@ -94,6 +103,10 @@ public class EnemyFollower : MonoBehaviour
 
             _core.Health.OnDied += HandleDeath;
         }
+
+        // 先脱离房间父节点，再标记 DontDestroyOnLoad（对有父节点的子对象直接调用不生效）
+        transform.SetParent(null);
+        DontDestroyOnLoad(gameObject);
     }
 
     /// <summary>根据玩家进化倾向刷新随从全属性增幅（叠加道具乘区）</summary>
@@ -216,29 +229,68 @@ public class EnemyFollower : MonoBehaviour
 
     private void OnRoomSwitchStarted(int fromRoomId, int toRoomId)
     {
-        if (!_isActive || _player == null) return;
-
-        // 1. 将随从切换到新房间的父节点，防止旧房间禁用时连带禁用它
-        if (MapManager.Instance != null)
-        {
-            RoomRoot targetRoom = MapManager.Instance.GetRoom(toRoomId);
-            if (targetRoom != null)
-                transform.SetParent(targetRoom.transform, true);
-        }
-
-        // 2. 立即传送到玩家身边
-        _movement?.Teleport(_player.position);
+        // 随从传送由 MapManager.TeleportFollowers 统一处理（在玩家传送到新房间之后）
     }
 
     private void HandleDeath()
     {
         _isActive = false;
+        _isReviving = true;
 
         // 禁用碰撞
         foreach (var col in GetComponentsInChildren<Collider2D>())
             col.enabled = false;
 
         _movement?.Stop();
-        Destroy(gameObject, 0.5f);
+
+        // 隐藏视觉
+        foreach (var sr in GetComponentsInChildren<SpriteRenderer>())
+            sr.enabled = false;
+
+        StartCoroutine(RespawnRoutine());
+    }
+
+    private IEnumerator RespawnRoutine()
+    {
+        yield return new WaitForSeconds(_respawnDelay);
+
+        // 复活
+        if (_core?.Health != null)
+        {
+            _core.Health.Revive();
+            ApplyEvolutionBuff();
+        }
+
+        // 传送到玩家身边
+        if (_player != null)
+            _movement?.Teleport(_player.position);
+
+        // 恢复视觉和碰撞
+        foreach (var sr in GetComponentsInChildren<SpriteRenderer>())
+            sr.enabled = true;
+        foreach (var col in GetComponentsInChildren<Collider2D>())
+            col.enabled = true;
+
+        _isActive = true;
+        _isReviving = false;
+    }
+
+    private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
+    {
+        if (scene.name == "Start" || scene.name == "Result" || scene.name == "Winning")
+        {
+            Destroy(gameObject);
+            return;
+        }
+
+        // 游戏场景：重新查找玩家引用
+        if (PlayerManager.Instance != null && PlayerManager.Instance.CurrentPlayer != null)
+            _player = PlayerManager.Instance.CurrentPlayer.transform;
+        else
+            _player = GameObject.FindGameObjectWithTag("Player")?.transform;
+
+        // 传送到玩家身边（防止随从出现在旧位置）
+        if (_player != null && _movement != null && !_isReviving)
+            _movement.Teleport(_player.position);
     }
 }

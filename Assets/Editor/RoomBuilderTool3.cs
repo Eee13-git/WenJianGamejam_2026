@@ -34,6 +34,11 @@ public class RoomBuilderTool3 : EditorWindow
     DoorDirection wallSourceDir = DoorDirection.Top;
     Vector2 wallScale = new(1f, 1f);    // (X=沿墙方向, Y=垂直墙方向)
     Vector2 wallOffset = Vector2.zero;  // (X=沿墙方向, Y=垂直墙向外)
+    WallPlaceMode wallPlaceMode = WallPlaceMode.Random;
+    int wallStartIndexTop = 0;
+    int wallStartIndexBottom = 0;
+    int wallStartIndexLeft = 0;
+    int wallStartIndexRight = 0;
 
     // === 墙体延伸 (wallTileSize×wallTileSize, 单方向+旋转+多类型随机, 纯装饰) ===
     List<Sprite> wallExtOutSprites = new();
@@ -44,6 +49,7 @@ public class RoomBuilderTool3 : EditorWindow
 
     // === 墙角 (wallTileSize×wallTileSize, 多类型随机, 单配置+flip) ===
     enum CornerDir { TopLeft, TopRight, BottomRight, BottomLeft }
+    enum WallPlaceMode { Random, Clockwise }
     List<Sprite> cornerSprites = new();
     CornerDir cornerDefaultDir = CornerDir.TopLeft;
     Vector2 cornerScale = new(1f, 1f);
@@ -85,6 +91,12 @@ public class RoomBuilderTool3 : EditorWindow
         public List<string> wallSpriteGUIDs = new();
         public int wallSourceDir = 1;
         public Vector2 wallScale = new(1f, 1f), wallOffset = Vector2.zero;
+
+        public int wallPlaceMode = 0;
+        public int wallStartIndexTop = 0;
+        public int wallStartIndexBottom = 0;
+        public int wallStartIndexLeft = 0;
+        public int wallStartIndexRight = 0;
 
         public List<string> wallExtOutGUIDs = new();
         public List<string> wallExtInGUIDs = new();
@@ -232,6 +244,11 @@ public class RoomBuilderTool3 : EditorWindow
         wallSourceDir = (DoorDirection)d.wallSourceDir;
         wallScale = d.wallScale;
         wallOffset = d.wallOffset;
+        wallPlaceMode = (WallPlaceMode)d.wallPlaceMode;
+        wallStartIndexTop = d.wallStartIndexTop;
+        wallStartIndexBottom = d.wallStartIndexBottom;
+        wallStartIndexLeft = d.wallStartIndexLeft;
+        wallStartIndexRight = d.wallStartIndexRight;
 
         wallExtOutSprites = FromGUIDList(d.wallExtOutGUIDs);
         wallExtInSprites = FromGUIDList(d.wallExtInGUIDs);
@@ -275,6 +292,11 @@ public class RoomBuilderTool3 : EditorWindow
             wallSourceDir = (int)wallSourceDir,
             wallScale = wallScale,
             wallOffset = wallOffset,
+            wallPlaceMode = (int)wallPlaceMode,
+            wallStartIndexTop = wallStartIndexTop,
+            wallStartIndexBottom = wallStartIndexBottom,
+            wallStartIndexLeft = wallStartIndexLeft,
+            wallStartIndexRight = wallStartIndexRight,
             wallExtOutGUIDs = ToGUIDList(wallExtOutSprites),
             wallExtInGUIDs = ToGUIDList(wallExtInSprites),
             wallExtSourceDir = (int)wallExtSourceDir,
@@ -298,6 +320,38 @@ public class RoomBuilderTool3 : EditorWindow
     }
 
     // ──────────────────────────────────────────────
+    //  SpritePicker — 按模式选取素材
+    // ──────────────────────────────────────────────
+
+    class SpritePicker
+    {
+        readonly List<Sprite> _valid;
+        readonly List<int> _order;
+        int _cursor;
+        readonly bool _random;
+
+        public SpritePicker(List<Sprite> sprites, WallPlaceMode mode, int startIndex = 0)
+        {
+            _valid = sprites?.Where(s => s != null).ToList() ?? new List<Sprite>();
+            _random = mode == WallPlaceMode.Random;
+            if (!_random && _valid.Count > 0)
+            {
+                _order = Enumerable.Range(0, _valid.Count).ToList();
+                _cursor = startIndex % _order.Count;
+            }
+        }
+
+        public bool IsEmpty => _valid.Count == 0;
+
+        public Sprite Next()
+        {
+            if (_valid.Count == 0) return null;
+            if (_random) return _valid[Random.Range(0, _valid.Count)];
+            return _valid[_order[_cursor++ % _order.Count]];
+        }
+    }
+
+    // ──────────────────────────────────────────────
     //  UI
     // ──────────────────────────────────────────────
 
@@ -313,7 +367,7 @@ public class RoomBuilderTool3 : EditorWindow
             "墙壁/墙角/墙体延伸为 wallTileSize×wallTileSize 格子（默认2×2），地板仍为1×1。\n" +
             "房间宽高必须为 wallTileSize 的整数倍。\n" +
             "墙壁只需配置一个方向，通过旋转生成其他三个方向。\n" +
-            "墙壁/墙角/延伸支持多种素材，每次放置随机选择。\n" +
+            "墙壁/墙角/延伸支持多种素材，随机/顺时针有序两种布置模式可选。\n" +
             "配置自动保存，关闭 Unity 不丢失。", MessageType.Info);
 
         DrawPresetSection();
@@ -353,9 +407,17 @@ public class RoomBuilderTool3 : EditorWindow
 
         // ── 墙壁 ──
         EditorGUILayout.Space();
-        GUILayout.Label($"墙壁 ({wallTileSize}×{wallTileSize}, 单方向+旋转, 多类型随机)", EditorStyles.miniBoldLabel);
+        GUILayout.Label($"墙壁 ({wallTileSize}×{wallTileSize}, 单方向+旋转, 多类型)", EditorStyles.miniBoldLabel);
         wallSourceDir = (DoorDirection)EditorGUILayout.EnumPopup("素材默认朝向", wallSourceDir);
         DrawSpriteList("墙壁素材列表", wallSprites);
+        wallPlaceMode = (WallPlaceMode)EditorGUILayout.EnumPopup("墙壁布置模式", wallPlaceMode);
+        if (wallPlaceMode == WallPlaceMode.Clockwise)
+        {
+            wallStartIndexTop = EditorGUILayout.IntField("上墙起始索引", wallStartIndexTop);
+            wallStartIndexBottom = EditorGUILayout.IntField("下墙起始索引", wallStartIndexBottom);
+            wallStartIndexLeft = EditorGUILayout.IntField("左墙起始索引", wallStartIndexLeft);
+            wallStartIndexRight = EditorGUILayout.IntField("右墙起始索引", wallStartIndexRight);
+        }
         wallScale = EditorGUILayout.Vector2Field("缩放 (X=沿墙, Y=垂直墙)", wallScale);
         wallOffset = EditorGUILayout.Vector2Field("偏移 (X=沿墙, Y=垂直墙向外)", wallOffset);
 
@@ -636,7 +698,7 @@ public class RoomBuilderTool3 : EditorWindow
     }
 
     // ──────────────────────────────────────────────
-    //  墙壁 (wallTileSize×wallTileSize, 单方向+旋转+多类型随机)
+    //  墙壁 (wallTileSize×wallTileSize, 单方向+旋转, 随机/顺时针有序)
     // ──────────────────────────────────────────────
 
     void BuildWalls(Transform container)
@@ -649,22 +711,23 @@ public class RoomBuilderTool3 : EditorWindow
         BuildWallForDirection(container, DoorDirection.Left, halfW, halfH);
         BuildWallForDirection(container, DoorDirection.Right, halfW, halfH);
 
-        // 墙角
-        BuildCorner(container, "Corner_TL", new Vector3(-halfW - HalfWall, halfH + HalfWall, 0), CornerDir.TopLeft);
-        BuildCorner(container, "Corner_TR", new Vector3(halfW + HalfWall, halfH + HalfWall, 0), CornerDir.TopRight);
-        BuildCorner(container, "Corner_BR", new Vector3(halfW + HalfWall, -halfH - HalfWall, 0), CornerDir.BottomRight);
-        BuildCorner(container, "Corner_BL", new Vector3(-halfW - HalfWall, -halfH - HalfWall, 0), CornerDir.BottomLeft);
+        // 墙角（4个角共用一个 picker）
+        var cornerPicker = new SpritePicker(cornerSprites, wallPlaceMode, 0);
+        BuildCorner(container, "Corner_TL", new Vector3(-halfW - HalfWall, halfH + HalfWall, 0), CornerDir.TopLeft, cornerPicker);
+        BuildCorner(container, "Corner_TR", new Vector3(halfW + HalfWall, halfH + HalfWall, 0), CornerDir.TopRight, cornerPicker);
+        BuildCorner(container, "Corner_BR", new Vector3(halfW + HalfWall, -halfH - HalfWall, 0), CornerDir.BottomRight, cornerPicker);
+        BuildCorner(container, "Corner_BL", new Vector3(-halfW - HalfWall, -halfH - HalfWall, 0), CornerDir.BottomLeft, cornerPicker);
 
         BuildWallExtensions(container, halfW, halfH);
     }
 
     /// <summary>
-    /// 为指定方向构建墙壁：每个墙块为 wallTileSize×wallTileSize，步进 WallWorld，随机选择素材
+    /// 为指定方向构建墙壁：每个墙块为 wallTileSize×wallTileSize，步进 WallWorld，按布置模式选取素材
     /// </summary>
     void BuildWallForDirection(Transform container, DoorDirection targetDir, float halfW, float halfH)
     {
-        var validSprites = wallSprites.Where(s => s != null).ToList();
-        if (validSprites.Count == 0) return;
+        var picker = new SpritePicker(wallSprites, wallPlaceMode, GetWallStartIndex(targetDir));
+        if (picker.IsEmpty) return;
 
         bool horizontal = targetDir == DoorDirection.Top || targetDir == DoorDirection.Bottom;
         float rotation = DirToAngle(targetDir) - DirToAngle(wallSourceDir);
@@ -697,7 +760,7 @@ public class RoomBuilderTool3 : EditorWindow
                 : new Vector3(fixedPos, pos, 0);
             localPos += new Vector3(worldOffset.x, worldOffset.y, 0);
 
-            Sprite sprite = validSprites[Random.Range(0, validSprites.Count)];
+            Sprite sprite = picker.Next();
             var go = CreateSprite($"{prefix}_{i++}", sprite,
                 new Vector2(WallWorld, WallWorld), 0, container, localPos, wallScale, rotation);
 
@@ -729,8 +792,8 @@ public class RoomBuilderTool3 : EditorWindow
         float halfW, float halfH, bool isOut)
     {
         var sprites = isOut ? wallExtOutSprites : wallExtInSprites;
-        var validSprites = sprites.Where(s => s != null).ToList();
-        if (validSprites.Count == 0) return;
+        var picker = new SpritePicker(sprites, wallPlaceMode, GetWallStartIndex(targetDir));
+        if (picker.IsEmpty) return;
 
         bool horizontal = targetDir == DoorDirection.Top || targetDir == DoorDirection.Bottom;
         float rotation = DirToAngle(targetDir) - DirToAngle(wallExtSourceDir);
@@ -767,7 +830,7 @@ public class RoomBuilderTool3 : EditorWindow
                 : new Vector3(extFixedPos, pos, 0);
             localPos += new Vector3(worldOffset.x, worldOffset.y, 0);
 
-            Sprite sprite = validSprites[Random.Range(0, validSprites.Count)];
+            Sprite sprite = picker.Next();
             CreateSprite($"{prefix}_{i++}", sprite,
                 new Vector2(WallWorld, WallWorld), 0, container, localPos, wallExtScale, rotation);
 
@@ -776,15 +839,13 @@ public class RoomBuilderTool3 : EditorWindow
     }
 
     // ──────────────────────────────────────────────
-    //  墙角 (wallTileSize×wallTileSize, 多类型随机, flipX/flipY)
+    //  墙角 (wallTileSize×wallTileSize, 多类型, 随机/顺时针有序, flipX/flipY)
     // ──────────────────────────────────────────────
 
-    void BuildCorner(Transform container, string name, Vector3 localPos, CornerDir targetDir)
+    void BuildCorner(Transform container, string name, Vector3 localPos, CornerDir targetDir, SpritePicker picker)
     {
-        var validSprites = cornerSprites.Where(s => s != null).ToList();
-        if (validSprites.Count == 0) return;
-
-        Sprite sprite = validSprites[Random.Range(0, validSprites.Count)];
+        Sprite sprite = picker.Next();
+        if (sprite == null) return;
 
         bool flipX = IsCornerRight(targetDir) != IsCornerRight(cornerDefaultDir);
         bool flipY = IsCornerBottom(targetDir) != IsCornerBottom(cornerDefaultDir);
@@ -862,6 +923,15 @@ public class RoomBuilderTool3 : EditorWindow
         DoorDirection.Left => 180f,
         DoorDirection.Bottom => 270f,
         _ => 0f
+    };
+
+    int GetWallStartIndex(DoorDirection dir) => dir switch
+    {
+        DoorDirection.Top => wallStartIndexTop,
+        DoorDirection.Bottom => wallStartIndexBottom,
+        DoorDirection.Left => wallStartIndexLeft,
+        DoorDirection.Right => wallStartIndexRight,
+        _ => 0
     };
 
     static Vector2 RotateVector2(Vector2 v, float angleDeg)

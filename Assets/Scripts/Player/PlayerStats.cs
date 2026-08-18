@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 /// <summary>
 /// 玩家所有数值属性的唯一数据源。
@@ -156,6 +157,8 @@ public class PlayerStats : MonoBehaviour, IDamageable, IHealable
         Debug.Log("玩家死亡");
 
         OnDied?.Invoke();
+
+        SceneManager.LoadScene("Result");
     }
 
     // ---------- Buff 系统属性读写接口 ----------
