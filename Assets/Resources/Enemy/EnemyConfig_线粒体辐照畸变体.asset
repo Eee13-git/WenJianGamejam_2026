@@ -14,14 +14,16 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   displayName: "\u7EBF\u7C92\u4F53\u8F90\u7167\u7578\u53D8\u4F53"
   maxHealth: 30
-  contactDamage: 10
+  contactDamage: 6
   contactDamageCooldown: 1
-  patrolSpeed: 1
-  chaseSpeed: 2.5
-  detectionRange: 5
-  attackRange: 1.2
-  skillLibrary: {fileID: 11400000, guid: cc88abea7715f7d4fab56ea5a0594ded, type: 2}
-  fixedSkillIds: []
+  patrolSpeed: 0.8
+  chaseSpeed: 1.8
+  detectionRange: 8
+  attackRange: 1.5
+  skillLibrary: {fileID: 11400000, guid: bff1637e175e44648967316d8ad75558, type: 2}
+  fixedSkillIds:
+  - mito_radiance
   useAxialSpray: 0
   axialAlignThreshold: 0.6
+  useRandomSkill: 0
   patrolPoints: []
