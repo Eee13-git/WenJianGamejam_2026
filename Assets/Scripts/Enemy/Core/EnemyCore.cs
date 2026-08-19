@@ -38,6 +38,9 @@ public class EnemyCore : MonoBehaviour, IEnemy
     /// <summary>全局静态事件 — 任意敌人死亡时触发 (EnemyCore)</summary>
     public static event Action<EnemyCore> OnAnyEnemyDied;
 
+    /// <summary>全局静态事件 — 任意敌人生成时触发 (EnemyCore)</summary>
+    public static event Action<EnemyCore> OnAnyEnemySpawned;
+
     /// <summary>全局静态事件 — 任意敌人接触伤害命中时触发 (enemy, hitTarget)</summary>
     public static event Action<EnemyCore, GameObject> OnAnyContactHit;
 
@@ -143,6 +146,21 @@ public class EnemyCore : MonoBehaviour, IEnemy
                     StateMachine.ChangeState(new DeadState(this));
             };
         }
+
+        // 依赖注入：获取当前房间的寻路网格
+        if (Movement != null)
+        {
+            var roomMgr = FindObjectOfType<RoomManager>();
+            if (roomMgr != null)
+            {
+                var grid = roomMgr.GetGridAtPosition(transform.position);
+                if (grid != null)
+                    Movement.SetRoomGrid(grid);
+            }
+        }
+
+        // 广播生成事件
+        OnAnyEnemySpawned?.Invoke(this);
     }
 
     private void Start()

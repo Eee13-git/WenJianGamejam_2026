@@ -98,10 +98,16 @@ public class RoomConfig : ScriptableObject
         };
     }
 
-    /// <summary>从预制体池中随机选取一个。池为空时返回 null。</summary>
+    /// <summary>从预制体池中随机选取一个（跳过 null 项）。池为空或全为 null 时返回 null。</summary>
     public GameObject GetRandomPrefab()
     {
         if (roomPrefabs == null || roomPrefabs.Length == 0) return null;
-        return roomPrefabs[Random.Range(0, roomPrefabs.Length)];
+
+        var valid = new System.Collections.Generic.List<GameObject>();
+        foreach (var p in roomPrefabs)
+            if (p != null) valid.Add(p);
+
+        if (valid.Count == 0) return null;
+        return valid[Random.Range(0, valid.Count)];
     }
 }

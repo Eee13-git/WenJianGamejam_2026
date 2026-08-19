@@ -62,6 +62,15 @@ public class RoomBuilderTool : EditorWindow
     int enemySpawnCount = 8;
     int itemSpawnCount = 5;
 
+    // === 网格编辑 ===
+    enum GridEditMode { None, EnemySpawn, ItemSpawn }
+    GridEditMode _gridEditMode = GridEditMode.None;
+    HashSet<Vector2Int> _enemyCells = new();
+    HashSet<Vector2Int> _itemCells = new();
+    Vector2 _gridScroll;
+    float _gridCellSize = 24f;
+    Vector2Int? _hoverCell;
+
     // === 材质 ===
     Material spriteMaterial;
 
@@ -101,6 +110,8 @@ public class RoomBuilderTool : EditorWindow
         public Vector2 doorTopOffset = Vector2.zero, doorBottomOffset = Vector2.zero;
         public Vector2 doorLeftOffset = Vector2.zero, doorRightOffset = Vector2.zero;
         public int enemySpawnCount = 8, itemSpawnCount = 5;
+        public List<int> enemyCellX = new(), enemyCellY = new();
+        public List<int> itemCellX = new(), itemCellY = new();
         public string materialGUID;
         public string prefabName = "Room_Normal_1F";
         public string outputFolder = "Assets/Prefabs/Rooms";
@@ -257,6 +268,14 @@ public class RoomBuilderTool : EditorWindow
         doorLeftOffset = d.doorLeftOffset; doorRightOffset = d.doorRightOffset;
         enemySpawnCount = d.enemySpawnCount;
         itemSpawnCount = d.itemSpawnCount;
+        _enemyCells.Clear();
+        if (d.enemyCellX != null && d.enemyCellY != null)
+            for (int i = 0; i < d.enemyCellX.Count && i < d.enemyCellY.Count; i++)
+                _enemyCells.Add(new Vector2Int(d.enemyCellX[i], d.enemyCellY[i]));
+        _itemCells.Clear();
+        if (d.itemCellX != null && d.itemCellY != null)
+            for (int i = 0; i < d.itemCellX.Count && i < d.itemCellY.Count; i++)
+                _itemCells.Add(new Vector2Int(d.itemCellX[i], d.itemCellY[i]));
         spriteMaterial = FromGUID<Material>(d.materialGUID);
         if (spriteMaterial == null)
             spriteMaterial = AssetDatabase.LoadAssetAtPath<Material>("Assets/Materials/SpriteLit.mat");
@@ -308,6 +327,10 @@ public class RoomBuilderTool : EditorWindow
             doorLeftOffset = doorLeftOffset, doorRightOffset = doorRightOffset,
             enemySpawnCount = enemySpawnCount,
             itemSpawnCount = itemSpawnCount,
+            enemyCellX = _enemyCells.Select(c => c.x).ToList(),
+            enemyCellY = _enemyCells.Select(c => c.y).ToList(),
+            itemCellX = _itemCells.Select(c => c.x).ToList(),
+            itemCellY = _itemCells.Select(c => c.y).ToList(),
             materialGUID = ToGUID(spriteMaterial),
             prefabName = prefabName,
             outputFolder = outputFolder
@@ -539,6 +562,24 @@ public class RoomBuilderTool : EditorWindow
         EditorGUILayout.LabelField("完整路径", $"{outputFolder}/{prefabName}.prefab", EditorStyles.miniLabel);
 
         EditorGUILayout.Space(10);
+
+        // ── 生成点网格编辑 ──
+        GUILayout.Label("生成点编辑", EditorStyles.miniBoldLabel);
+        _gridEditMode = (GridEditMode)EditorGUILayout.EnumPopup("编辑模式", _gridEditMode);
+        _gridCellSize = EditorGUILayout.Slider("格子像素大小", _gridCellSize, 12f, 40f);
+
+        EditorGUILayout.BeginHorizontal();
+        DrawLegendGrid(new Color(0.6f, 0.6f, 0.6f, 0.3f), "空");
+        DrawLegendGrid(new Color(0.2f, 0.5f, 0.9f, 0.7f), "敌人点");
+        DrawLegendGrid(new Color(0.7f, 0.3f, 0.9f, 0.7f), "道具点");
+        EditorGUILayout.EndHorizontal();
+
+        DrawSpawnGrid();
+
+        if (_gridEditMode != GridEditMode.None)
+            EditorGUILayout.HelpBox("点击格子放置/删除生成点，敌人点和道具点互斥", MessageType.None);
+
+        EditorGUILayout.Space(10);
         if (GUILayout.Button("生成房间预制体", GUILayout.Height(30)))
         {
             SaveCurrentToPresets();
@@ -553,6 +594,110 @@ public class RoomBuilderTool : EditorWindow
             SaveCurrentToPresets();
             SavePresetsToDisk();
         }
+    }
+
+    // ──────────────────────────────────────────────
+    //  生成点网格
+    // ──────────────────────────────────────────────
+
+    void DrawLegendGrid(Color color, string label)
+    {
+        var rect = GUILayoutUtility.GetRect(12, 12, GUILayout.Width(12), GUILayout.Height(12));
+        EditorGUI.DrawRect(rect, color);
+        EditorGUILayout.LabelField(label, EditorStyles.miniLabel, GUILayout.Width(50));
+    }
+
+    void DrawSpawnGrid()
+    {
+        int halfX = roomTilesX / 2;
+        int halfY = roomTilesY / 2;
+        float gridW = roomTilesX * _gridCellSize;
+        float gridH = roomTilesY * _gridCellSize;
+
+        _gridScroll = EditorGUILayout.BeginScrollView(_gridScroll,
+            GUILayout.Height(Mathf.Min(gridH + 40, 400)),
+            GUILayout.MaxWidth(gridW + 30));
+
+        EditorGUILayout.BeginVertical(GUILayout.Width(gridW));
+
+        for (int row = roomTilesY - 1; row >= 0; row--)
+        {
+            EditorGUILayout.BeginHorizontal(GUILayout.Width(gridW));
+            for (int col = 0; col < roomTilesX; col++)
+            {
+                var cell = new Vector2Int(col - halfX, row - halfY);
+
+                Color bg;
+                string label = "";
+
+                if (_enemyCells.Contains(cell))
+                {
+                    bg = new Color(0.2f, 0.5f, 0.9f, 0.7f);
+                    label = "E";
+                }
+                else if (_itemCells.Contains(cell))
+                {
+                    bg = new Color(0.7f, 0.3f, 0.9f, 0.7f);
+                    label = "I";
+                }
+                else
+                    bg = new Color(0.6f, 0.6f, 0.6f, 0.3f);
+
+                bool isHover = _hoverCell.HasValue && _hoverCell.Value == cell;
+                if (isHover)
+                    bg = Color.Lerp(bg, Color.yellow, 0.4f);
+
+                var oldBg = GUI.backgroundColor;
+                GUI.backgroundColor = bg;
+
+                if (GUILayout.Button(label, GUILayout.Width(_gridCellSize), GUILayout.Height(_gridCellSize)))
+                {
+                    OnGridCellClicked(cell);
+                    Repaint();
+                }
+
+                if (Event.current.type == EventType.Repaint)
+                {
+                    var btnRect = GUILayoutUtility.GetLastRect();
+                    if (btnRect.Contains(Event.current.mousePosition))
+                        _hoverCell = cell;
+                }
+
+                GUI.backgroundColor = oldBg;
+            }
+            EditorGUILayout.EndHorizontal();
+        }
+
+        EditorGUILayout.EndVertical();
+        EditorGUILayout.EndScrollView();
+    }
+
+    void OnGridCellClicked(Vector2Int cell)
+    {
+        switch (_gridEditMode)
+        {
+            case GridEditMode.EnemySpawn:
+                if (_itemCells.Contains(cell)) return;
+                if (_enemyCells.Contains(cell))
+                    _enemyCells.Remove(cell);
+                else
+                    _enemyCells.Add(cell);
+                break;
+            case GridEditMode.ItemSpawn:
+                if (_enemyCells.Contains(cell)) return;
+                if (_itemCells.Contains(cell))
+                    _itemCells.Remove(cell);
+                else
+                    _itemCells.Add(cell);
+                break;
+        }
+    }
+
+    Vector3 SpawnCellToWorld(Vector2Int cell)
+    {
+        float ox = (roomTilesX % 2 == 0) ? 0.5f * tileSize : 0f;
+        float oy = (roomTilesY % 2 == 0) ? 0.5f * tileSize : 0f;
+        return new Vector3(cell.x * tileSize + ox, cell.y * tileSize + oy, 0);
     }
 
     // ──────────────────────────────────────────────
@@ -821,33 +966,73 @@ public class RoomBuilderTool : EditorWindow
         float minX = -halfW + margin, maxX = halfW - margin;
         float minY = -halfH + margin, maxY = halfH - margin;
 
+        // 敌人生成点
         var enemyContainer = new GameObject("EnemySpawnPoints").transform;
         enemyContainer.SetParent(root, false);
-        var eArr = new Transform[enemySpawnCount];
-        for (int i = 0; i < enemySpawnCount; i++)
+
+        Transform[] eArr;
+        if (_enemyCells.Count > 0)
         {
-            var go = new GameObject("E");
-            go.transform.SetParent(enemyContainer, false);
-            float t = enemySpawnCount > 1 ? (float)i / (enemySpawnCount - 1) : 0.5f;
-            float x = Mathf.Lerp(minX, maxX, t);
-            float y = (i % 2 == 0) ? Mathf.Lerp(minY, maxY, 0.33f) : Mathf.Lerp(minY, maxY, 0.67f);
-            go.transform.localPosition = new Vector3(x, y, 0);
-            eArr[i] = go.transform;
+            // 使用网格手动放置的格子
+            eArr = new Transform[_enemyCells.Count];
+            int ei = 0;
+            foreach (var cell in _enemyCells)
+            {
+                var go = new GameObject("E");
+                go.transform.SetParent(enemyContainer, false);
+                go.transform.localPosition = SpawnCellToWorld(cell);
+                eArr[ei++] = go.transform;
+            }
+        }
+        else
+        {
+            // 自动布局
+            eArr = new Transform[enemySpawnCount];
+            for (int i = 0; i < enemySpawnCount; i++)
+            {
+                var go = new GameObject("E");
+                go.transform.SetParent(enemyContainer, false);
+                float t = enemySpawnCount > 1 ? (float)i / (enemySpawnCount - 1) : 0.5f;
+                float x = Mathf.Lerp(minX, maxX, t);
+                float y = (i % 2 == 0) ? Mathf.Lerp(minY, maxY, 0.33f) : Mathf.Lerp(minY, maxY, 0.67f);
+                go.transform.localPosition = new Vector3(x, y, 0);
+                eArr[i] = go.transform;
+            }
         }
         roomRoot.enemySpawnPoints = eArr;
 
+        // 道具生成点
         var itemContainer = new GameObject("ItemSpawnPoints").transform;
         itemContainer.SetParent(root, false);
-        var iArr = new Transform[itemSpawnCount];
-        for (int i = 0; i < itemSpawnCount; i++)
+
+        Transform[] iArr;
+        if (_itemCells.Count > 0)
         {
-            var go = new GameObject("I");
-            go.transform.SetParent(itemContainer, false);
-            float t = itemSpawnCount > 1 ? (float)i / (itemSpawnCount - 1) : 0.5f;
-            float x = Mathf.Lerp(minX, maxX, 0.2f + t * 0.6f);
-            float y = Mathf.Lerp(minY, maxY, 0.5f + Mathf.Sin(t * Mathf.PI) * 0.2f);
-            go.transform.localPosition = new Vector3(x, y, 0);
-            iArr[i] = go.transform;
+            // 使用网格手动放置的格子
+            iArr = new Transform[_itemCells.Count];
+            int ii = 0;
+            foreach (var cell in _itemCells)
+            {
+                var go = new GameObject("I");
+                go.transform.SetParent(itemContainer, false);
+                go.transform.localPosition = SpawnCellToWorld(cell);
+                iArr[ii++] = go.transform;
+            }
+        }
+        else
+        {
+            // 自动布局
+            iArr = new Transform[itemSpawnCount];
+            for (int i = 0; i < itemSpawnCount; i++)
+            {
+                var go = new GameObject("I");
+                go.transform.SetParent(itemContainer, false);
+                float t = itemSpawnCount > 1 ? (float)i / (itemSpawnCount - 1) : 0.5f;
+                float x = Mathf.Lerp(minX, maxX, 0.2f + t * 0.6f);
+                float y = Mathf.Lerp(minY, maxY, 0.5f + Mathf.Sin(t * Mathf.PI) * 0.2f);
+                go.transform.localPosition = new Vector3(x, y, 0);
+                iArr[i] = go.transform;
+            }
         }
         roomRoot.itemSpawnPoints = iArr;
     }

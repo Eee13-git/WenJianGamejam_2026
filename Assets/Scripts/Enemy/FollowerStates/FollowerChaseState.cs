@@ -29,7 +29,8 @@ public class FollowerChaseState : FollowerStateBase
             return;
         }
 
-        // 追击敌人
-        Movement?.MoveTowardsPosition(enemy.position, Follower.FollowSpeed);
+        // 追击敌人（A* 寻路）
+        var path = Movement.GetPath(enemy.position);
+        Movement?.MoveAlongPath(path, Follower.FollowSpeed);
     }
 }

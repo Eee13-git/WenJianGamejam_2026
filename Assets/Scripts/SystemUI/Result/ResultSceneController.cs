@@ -226,7 +226,7 @@ public class ResultSceneController : MonoBehaviour
                 string priceStr = count > 1
                     ? $"<color=#FFD700>{totalPrice} ATP</color> <color=#888888>({item.price}×{count})</color>"
                     : $"<color=#FFD700>{item.price} ATP</color>";
-                sb.AppendLine($"  <color={qualityColor}>◆</color> {item.itemName}  {priceStr}{countStr}");
+                sb.AppendLine($"  <color={qualityColor}>{item.itemName}</color>  {priceStr}{countStr}");
             }
         }
 
@@ -261,7 +261,7 @@ public class ResultSceneController : MonoBehaviour
             {
                 bool isBoss = kvp.Key.Contains("Boss") || kvp.Key.Contains("boss");
                 string enemyLabel = isBoss
-                    ? $"  <color=#FF4500>★ Boss</color> {kvp.Key}"
+                    ? $"  <color=#FF4500>[Boss] {kvp.Key}</color>"
                     : $"  <color=#AAA>·</color> {kvp.Key}";
                 sb.AppendLine($"{enemyLabel}  ×<color=#FFD700>{kvp.Value}</color>");
             }

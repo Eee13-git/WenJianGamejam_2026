@@ -28,6 +28,18 @@ public class RoomRoot : MonoBehaviour
     [Header("房间边界 (用于摄像机)")]
     public Vector2 roomSize = new Vector2(20f, 12f);
 
+    [Header("寻路网格")]
+    [SerializeField] private float _pathCellSize = 1f;
+
+    /// <summary>寻路网格（运行时构建，可能为 null）</summary>
+    public PathfindingGrid PathGrid { get; private set; }
+
+    /// <summary>构建寻路网格 — 在房间激活/敌人生成前调用</summary>
+    public void BuildPathfindingGrid()
+    {
+        PathGrid = PathfindingGrid.Build(Center, roomSize, _pathCellSize);
+    }
+
     /// <summary>获取房间中心世界坐标</summary>
     public Vector2 Center => (Vector2)transform.position;
 

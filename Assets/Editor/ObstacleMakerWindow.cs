@@ -13,6 +13,28 @@ public class ObstacleMakerWindow : EditorWindow
 {
     const string PresetsPrefsKey = "ObstacleMakerWindow_Presets";
 
+    // === 障碍物类型 ===
+    enum ObstacleType { Normal, HoleTrap, SpikeTrap }
+    ObstacleType _obstacleType = ObstacleType.Normal;
+
+    // === 洞陷阱参数 ===
+    float _damageRatio = 0.1f;
+    float _trapDuration = 2f;
+    float _shrinkScale = 0.2f;
+    float _popOffset = 1.5f;
+    Vector2 _colliderSize = new Vector2(1f, 1f);
+
+    // === 刺陷阱参数 ===
+    Sprite _spikeSprite1;
+    Sprite _spikeSprite2;
+    Sprite _spikeSprite3;
+    float _spikeDamageRatio = 0.1f;
+    float _spikeDamageCooldown = 0.5f;
+    float _spikeState1End = 1f;
+    float _spikeState2FirstEnd = 1.5f;
+    float _spikeState3End = 3f;
+    float _spikeState2SecondEnd = 3.5f;
+
     // === 输入 Sprite (单个) ===
     Sprite sourceSprite;
 
@@ -35,6 +57,22 @@ public class ObstacleMakerWindow : EditorWindow
         public string materialGUID;
         public string outputFolder = "Assets/Prefabs/Obstacles";
         public string prefabName = "Obstacle";
+        public int obstacleType = 0;
+        public float damageRatio = 0.1f;
+        public float trapDuration = 2f;
+        public float shrinkScale = 0.2f;
+        public float popOffset = 1.5f;
+        public Vector2 colliderSize = new Vector2(1f, 1f);
+        // Spike trap
+        public string spikeSprite1GUID = "";
+        public string spikeSprite2GUID = "";
+        public string spikeSprite3GUID = "";
+        public float spikeDamageRatio = 0.1f;
+        public float spikeDamageCooldown = 0.5f;
+        public float spikeState1End = 1f;
+        public float spikeState2FirstEnd = 1.5f;
+        public float spikeState3End = 3f;
+        public float spikeState2SecondEnd = 3.5f;
     }
 
     [System.Serializable]
@@ -144,6 +182,21 @@ public class ObstacleMakerWindow : EditorWindow
             spriteMaterial = AssetDatabase.LoadAssetAtPath<Material>("Assets/Materials/SpriteLit.mat");
         outputFolder = string.IsNullOrEmpty(d.outputFolder) ? "Assets/Prefabs/Obstacles" : d.outputFolder;
         prefabName = string.IsNullOrEmpty(d.prefabName) ? "Obstacle" : d.prefabName;
+        _obstacleType = (ObstacleType)d.obstacleType;
+        _damageRatio = d.damageRatio > 0f ? d.damageRatio : 0.1f;
+        _trapDuration = d.trapDuration > 0f ? d.trapDuration : 2f;
+        _shrinkScale = d.shrinkScale > 0f ? d.shrinkScale : 0.2f;
+        _popOffset = d.popOffset > 0f ? d.popOffset : 1.5f;
+        _colliderSize = d.colliderSize.magnitude > 0f ? d.colliderSize : new Vector2(1f, 1f);
+        _spikeSprite1 = FromGUID<Sprite>(d.spikeSprite1GUID);
+        _spikeSprite2 = FromGUID<Sprite>(d.spikeSprite2GUID);
+        _spikeSprite3 = FromGUID<Sprite>(d.spikeSprite3GUID);
+        _spikeDamageRatio = d.spikeDamageRatio > 0f ? d.spikeDamageRatio : 0.1f;
+        _spikeDamageCooldown = d.spikeDamageCooldown > 0f ? d.spikeDamageCooldown : 0.5f;
+        _spikeState1End = d.spikeState1End > 0f ? d.spikeState1End : 1f;
+        _spikeState2FirstEnd = d.spikeState2FirstEnd > 0f ? d.spikeState2FirstEnd : 1.5f;
+        _spikeState3End = d.spikeState3End > 0f ? d.spikeState3End : 3f;
+        _spikeState2SecondEnd = d.spikeState2SecondEnd > 0f ? d.spikeState2SecondEnd : 3.5f;
     }
 
     ConfigData CollectFieldsToConfig()
@@ -154,7 +207,22 @@ public class ObstacleMakerWindow : EditorWindow
             targetWorldSize = targetWorldSize,
             materialGUID = ToGUID(spriteMaterial),
             outputFolder = outputFolder,
-            prefabName = prefabName
+            prefabName = prefabName,
+            obstacleType = (int)_obstacleType,
+            damageRatio = _damageRatio,
+            trapDuration = _trapDuration,
+            shrinkScale = _shrinkScale,
+            popOffset = _popOffset,
+            colliderSize = _colliderSize,
+            spikeSprite1GUID = ToGUID(_spikeSprite1),
+            spikeSprite2GUID = ToGUID(_spikeSprite2),
+            spikeSprite3GUID = ToGUID(_spikeSprite3),
+            spikeDamageRatio = _spikeDamageRatio,
+            spikeDamageCooldown = _spikeDamageCooldown,
+            spikeState1End = _spikeState1End,
+            spikeState2FirstEnd = _spikeState2FirstEnd,
+            spikeState3End = _spikeState3End,
+            spikeState2SecondEnd = _spikeState2SecondEnd
         };
     }
 
@@ -174,6 +242,43 @@ public class ObstacleMakerWindow : EditorWindow
             "配置自动保存，关闭 Unity 不丢失。", MessageType.Info);
 
         DrawPresetSection();
+
+        // ── 障碍物类型 ──
+        EditorGUILayout.Space();
+        GUILayout.Label("障碍物类型", EditorStyles.miniBoldLabel);
+        _obstacleType = (ObstacleType)GUILayout.SelectionGrid(
+            (int)_obstacleType, new[] { "普通障碍物", "洞陷阱", "刺陷阱" }, 3, GUILayout.Height(25));
+
+        // ── 洞陷阱参数 ──
+        if (_obstacleType == ObstacleType.HoleTrap)
+        {
+            EditorGUILayout.Space();
+            GUILayout.Label("陷阱参数", EditorStyles.miniBoldLabel);
+            _damageRatio = EditorGUILayout.Slider("扣血比例 (占最大生命)", _damageRatio, 0f, 1f);
+            _trapDuration = EditorGUILayout.FloatField("陷入时间 (秒)", _trapDuration);
+            _shrinkScale = EditorGUILayout.Slider("缩小倍率", _shrinkScale, 0.05f, 1f);
+            _popOffset = EditorGUILayout.FloatField("弹出距离", _popOffset);
+            _colliderSize = EditorGUILayout.Vector2Field("碰撞箱尺寸 (宽,高)", _colliderSize);
+        }
+
+        // ── 刺陷阱参数 ──
+        if (_obstacleType == ObstacleType.SpikeTrap)
+        {
+            EditorGUILayout.Space();
+            GUILayout.Label("刺陷阱参数", EditorStyles.miniBoldLabel);
+            _spikeSprite1 = (Sprite)EditorGUILayout.ObjectField("状态1 Sprite (未探出)", _spikeSprite1, typeof(Sprite), false);
+            _spikeSprite2 = (Sprite)EditorGUILayout.ObjectField("状态2 Sprite (将探出)", _spikeSprite2, typeof(Sprite), false);
+            _spikeSprite3 = (Sprite)EditorGUILayout.ObjectField("状态3 Sprite (完全探出)", _spikeSprite3, typeof(Sprite), false);
+            EditorGUILayout.Space();
+            _spikeDamageRatio = EditorGUILayout.Slider("扣血比例 (占最大生命)", _spikeDamageRatio, 0f, 1f);
+            _spikeDamageCooldown = EditorGUILayout.FloatField("伤害冷却 (秒)", _spikeDamageCooldown);
+            EditorGUILayout.Space();
+            GUILayout.Label("时序 (秒)", EditorStyles.miniBoldLabel);
+            _spikeState1End = EditorGUILayout.FloatField("状态1结束", _spikeState1End);
+            _spikeState2FirstEnd = EditorGUILayout.FloatField("状态2首段结束", _spikeState2FirstEnd);
+            _spikeState3End = EditorGUILayout.FloatField("状态3结束", _spikeState3End);
+            _spikeState2SecondEnd = EditorGUILayout.FloatField("状态2次段结束", _spikeState2SecondEnd);
+        }
 
         // ── 输入 Sprite ──
         EditorGUILayout.Space();
@@ -242,11 +347,22 @@ public class ObstacleMakerWindow : EditorWindow
         EditorGUILayout.Space(10);
         using (new EditorGUI.DisabledScope(sourceSprite == null || spriteMaterial == null))
         {
-            if (GUILayout.Button("生成障碍物预制体", GUILayout.Height(30)))
+            string btnLabel = _obstacleType switch
+            {
+                ObstacleType.HoleTrap => "生成洞陷阱预制体",
+                ObstacleType.SpikeTrap => "生成刺陷阱预制体",
+                _ => "生成障碍物预制体"
+            };
+            if (GUILayout.Button(btnLabel, GUILayout.Height(30)))
             {
                 SaveCurrentToPresets();
                 SavePresetsToDisk();
-                GenerateObstacle();
+                switch (_obstacleType)
+                {
+                    case ObstacleType.HoleTrap: GenerateHoleTrap(); break;
+                    case ObstacleType.SpikeTrap: GenerateSpikeTrap(); break;
+                    default: GenerateObstacle(); break;
+                }
             }
         }
 
@@ -423,6 +539,119 @@ public class ObstacleMakerWindow : EditorWindow
         AssetDatabase.Refresh();
         Debug.Log($"[ObstacleMaker] 生成: {prefabPath} | Sprite: {sourceSprite.name} | 原始: {spriteWorldSize} → 目标: {targetWorldSize}");
         EditorUtility.DisplayDialog("完成", $"障碍物预制体已生成:\n{prefabPath}", "确定");
+    }
+
+    void GenerateHoleTrap()
+    {
+        if (sourceSprite == null) { Warn("请选择 Sprite"); return; }
+        if (spriteMaterial == null) { Warn("请指定材质"); return; }
+
+        if (!AssetDatabase.IsValidFolder(outputFolder))
+        {
+            string parent = Path.GetDirectoryName(outputFolder).Replace('\\', '/');
+            string folderName = Path.GetFileName(outputFolder);
+            if (!AssetDatabase.IsValidFolder(parent))
+            {
+                Warn($"父文件夹不存在: {parent}");
+                return;
+            }
+            AssetDatabase.CreateFolder(parent, folderName);
+        }
+
+        EnsureTag("Obstacles");
+
+        string prefabPath = $"{outputFolder}/{prefabName}.prefab";
+
+        var go = new GameObject(prefabName);
+        go.tag = "Obstacles";
+
+        var sr = go.AddComponent<SpriteRenderer>();
+        sr.sprite = sourceSprite;
+        sr.sharedMaterial = spriteMaterial;
+        sr.sortingOrder = 0;
+        sr.drawMode = SpriteDrawMode.Simple;
+
+        // 缩放到目标世界尺寸
+        Vector2 spriteWorldSize = sourceSprite.bounds.size;
+        float sx = spriteWorldSize.x > 0 ? targetWorldSize.x / spriteWorldSize.x : 1f;
+        float sy = spriteWorldSize.y > 0 ? targetWorldSize.y / spriteWorldSize.y : 1f;
+        go.transform.localScale = new Vector3(sx, sy, 1f);
+
+        // 碰撞器：isTrigger + 指定尺寸
+        var col = go.AddComponent<BoxCollider2D>();
+        col.size = _colliderSize;
+        col.isTrigger = true;
+
+        // 添加 HoleTrap 组件并配置参数
+        var trap = go.AddComponent<HoleTrap>();
+        trap.Configure(_damageRatio, _trapDuration, _shrinkScale, _popOffset);
+
+        PrefabUtility.SaveAsPrefabAsset(go, prefabPath);
+        DestroyImmediate(go);
+
+        AssetDatabase.SaveAssets();
+        AssetDatabase.Refresh();
+        Debug.Log($"[ObstacleMaker] 生成洞陷阱: {prefabPath} | Sprite: {sourceSprite.name} | 碰撞箱尺寸: {_colliderSize} | 扣血: {_damageRatio} | 陷入: {_trapDuration}s | 缩小: {_shrinkScale}");
+        EditorUtility.DisplayDialog("完成", $"洞陷阱预制体已生成:\n{prefabPath}", "确定");
+    }
+
+    void GenerateSpikeTrap()
+    {
+        if (_spikeSprite1 == null || _spikeSprite2 == null || _spikeSprite3 == null)
+        { Warn("请指定三张状态 Sprite"); return; }
+        if (spriteMaterial == null) { Warn("请指定材质"); return; }
+
+        if (!AssetDatabase.IsValidFolder(outputFolder))
+        {
+            string parent = Path.GetDirectoryName(outputFolder).Replace('\\', '/');
+            string folderName = Path.GetFileName(outputFolder);
+            if (!AssetDatabase.IsValidFolder(parent))
+            { Warn($"父文件夹不存在: {parent}"); return; }
+            AssetDatabase.CreateFolder(parent, folderName);
+        }
+
+        EnsureTag("Obstacles");
+
+        string prefabPath = $"{outputFolder}/{prefabName}.prefab";
+
+        var go = new GameObject(prefabName);
+        go.tag = "Obstacles";
+
+        var sr = go.AddComponent<SpriteRenderer>();
+        sr.sprite = _spikeSprite1;
+        sr.sharedMaterial = spriteMaterial;
+        sr.sortingOrder = 0;
+
+        // 缩放到目标世界尺寸
+        Vector2 spriteWorldSize = _spikeSprite1.bounds.size;
+        float sx = spriteWorldSize.x > 0 ? targetWorldSize.x / spriteWorldSize.x : 1f;
+        float sy = spriteWorldSize.y > 0 ? targetWorldSize.y / spriteWorldSize.y : 1f;
+        go.transform.localScale = new Vector3(sx, sy, 1f);
+
+        var col = go.AddComponent<BoxCollider2D>();
+        col.size = spriteWorldSize;
+        col.isTrigger = true;
+
+        var spike = go.AddComponent<NerveSpike>();
+        var so = new SerializedObject(spike);
+        so.FindProperty("_state1Sprite").objectReferenceValue = _spikeSprite1;
+        so.FindProperty("_state2Sprite").objectReferenceValue = _spikeSprite2;
+        so.FindProperty("_state3Sprite").objectReferenceValue = _spikeSprite3;
+        so.FindProperty("_state1End").floatValue = _spikeState1End;
+        so.FindProperty("_state2FirstEnd").floatValue = _spikeState2FirstEnd;
+        so.FindProperty("_state3End").floatValue = _spikeState3End;
+        so.FindProperty("_state2SecondEnd").floatValue = _spikeState2SecondEnd;
+        so.FindProperty("_damageRatio").floatValue = _spikeDamageRatio;
+        so.FindProperty("_damageCooldown").floatValue = _spikeDamageCooldown;
+        so.ApplyModifiedPropertiesWithoutUndo();
+
+        PrefabUtility.SaveAsPrefabAsset(go, prefabPath);
+        DestroyImmediate(go);
+
+        AssetDatabase.SaveAssets();
+        AssetDatabase.Refresh();
+        Debug.Log($"[ObstacleMaker] 生成刺陷阱: {prefabPath} | spriteSize={spriteWorldSize} | 扣血: {_spikeDamageRatio*100}% | 时序: {_spikeState1End}/{_spikeState2FirstEnd}/{_spikeState3End}/{_spikeState2SecondEnd}");
+        EditorUtility.DisplayDialog("完成", $"刺陷阱预制体已生成:\n{prefabPath}", "确定");
     }
 
     // ──────────────────────────────────────────────
