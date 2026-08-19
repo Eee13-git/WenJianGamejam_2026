@@ -27,7 +27,8 @@ public class FollowerFollowState : FollowerStateBase
             return;
         }
 
-        // 朝玩家移动
-        Movement?.MoveTowardsPosition(Player.position, Follower.FollowSpeed);
+        // 朝玩家移动（A* 寻路）
+        var path = Movement.GetPath(Player.position);
+        Movement?.MoveAlongPath(path, Follower.FollowSpeed);
     }
 }
