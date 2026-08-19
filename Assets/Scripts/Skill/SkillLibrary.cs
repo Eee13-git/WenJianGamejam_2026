@@ -14,10 +14,10 @@ public class SkillLibrary : ScriptableObject
     /// <summary>所有技能列表</summary>
     public IReadOnlyList<SkillData> AllSkills => _allSkills;
 
-    /// <summary>通过 ID 查找技能数据</summary>
+    /// <summary>通过 ID 查找技能数据（跳过列表中的 null 元素，防止遍历时空引用崩溃）</summary>
     public SkillData GetById(string skillId)
     {
-        return _allSkills?.Find(s => s.skillId == skillId);
+        return _allSkills?.Find(s => s != null && s.skillId == skillId);
     }
 
     /// <summary>
@@ -30,6 +30,20 @@ public class SkillLibrary : ScriptableObject
         if (data == null)
         {
             Debug.LogWarning($"SkillLibrary: 未找到 skillId='{skillId}'");
+            return null;
+        }
+
+        return CreateSkillInstance(data);
+    }
+
+    /// <summary>
+    /// 从 SkillData 直接创建技能实例（支持不在本库中的技能，如吞噬敌人专用技能）。
+    /// </summary>
+    public SkillInstance CreateSkillInstance(SkillData data)
+    {
+        if (data == null)
+        {
+            Debug.LogWarning("SkillLibrary: SkillData 为空");
             return null;
         }
 

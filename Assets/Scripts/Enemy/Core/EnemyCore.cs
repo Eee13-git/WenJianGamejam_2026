@@ -337,7 +337,16 @@ public class EnemyCore : MonoBehaviour, IEnemy
     public float GetSkillDamageModifier() => 1f;
 
     // ---------- 同化 ----------
+    /// <summary>同化敌人为随从（自动分配槽位）</summary>
     public void Assimilate(Transform playerTarget)
+    {
+        Assimilate(playerTarget, -1);
+    }
+
+    /// <summary>
+    /// 同化敌人为随从，并指定随从槽位索引（-1=自动分配）。
+    /// </summary>
+    public void Assimilate(Transform playerTarget, int slotIndex)
     {
         IsAssimilated = true;
 
@@ -359,8 +368,35 @@ public class EnemyCore : MonoBehaviour, IEnemy
         EnemyFollower follower = GetComponent<EnemyFollower>();
         if (follower == null)
             follower = gameObject.AddComponent<EnemyFollower>();
-        follower.Activate(playerTarget);
+        follower.Activate(playerTarget, slotIndex);
 
         PlayerTarget = playerTarget;
+    }
+
+    /// <summary>
+    /// 以"已同化"方式消耗敌人（同种升级场景）：触发 OnAssimilated 供房间计数，
+    /// 但不创建随从，直接销毁该敌人。
+    /// </summary>
+    public void ConsumeAsAssimilated(Transform playerTarget)
+    {
+        IsAssimilated = true;
+
+        if (Health != null)
+            Health.ClearOnDied();
+
+        OnAssimilated?.Invoke(this);
+
+        gameObject.tag = "Player";
+
+        if (StateMachine != null)
+        {
+            StateMachine.ChangeState(null);
+            StateMachine.enabled = false;
+        }
+
+        Movement?.Stop();
+
+        PlayerTarget = playerTarget;
+        Destroy(gameObject);
     }
 }

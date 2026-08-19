@@ -19,6 +19,12 @@ public class EnemyFollower : MonoBehaviour
     [Tooltip("离玩家超过此距离时直接传送到身边，防止掉队")]
     [SerializeField] private float _maxTeleportDistance = 15f;
 
+    [Header("同种升级")]
+    [Tooltip("同种类随从升级：每级属性倍率增量（0.15 = 每级 +15%）")]
+    [SerializeField] private float _levelStatFactor = 0.15f;
+    [Tooltip("同种类随从升级：技能等级是否 +1")]
+    [SerializeField] private bool _upgradeSkillsOnLevelUp = true;
+
     [Header("复活")]
     [Tooltip("死亡后复活延迟（秒）")]
     [SerializeField] private float _respawnDelay = 10f;
@@ -37,6 +43,15 @@ public class EnemyFollower : MonoBehaviour
 
     /// <summary>所有活跃随从列表（供 MapManager 查询，避免 FindObjectsByType）</summary>
     public static readonly System.Collections.Generic.List<EnemyFollower> ActiveFollowers = new();
+
+    /// <summary>随从列表修订号：增删/升级时自增，UI 据此重建行</summary>
+    public static int Revision { get; private set; }
+
+    /// <summary>随从槽位索引（0..MaxFollowerCount-1，-1=未分配）</summary>
+    public int SlotIndex { get; private set; } = -1;
+
+    /// <summary>随从等级（同种升级叠加，默认 1）</summary>
+    public int Level { get; private set; } = 1;
 
     // ── 道具增强（静态，影响所有随从）──
     /// <summary>随从生命上限乘区（免疫球蛋白）</summary>
@@ -68,6 +83,7 @@ public class EnemyFollower : MonoBehaviour
     private void OnEnable()
     {
         ActiveFollowers.Add(this);
+        Revision++;
 
         if (MapManager.Instance != null)
             MapManager.Instance.OnRoomSwitchStarted += OnRoomSwitchStarted;
@@ -77,6 +93,7 @@ public class EnemyFollower : MonoBehaviour
     private void OnDisable()
     {
         ActiveFollowers.Remove(this);
+        Revision++;
         if (_core != null && _core.Health != null)
             _core.Health.OnDied -= HandleDeath;
         if (MapManager.Instance != null)
@@ -92,10 +109,15 @@ public class EnemyFollower : MonoBehaviour
     /// <summary>
     /// 激活随从模式。
     /// </summary>
-    public void Activate(Transform player)
+    /// <param name="player">玩家 Transform</param>
+    /// <param name="slotIndex">槽位索引（-1=自动分配最小空闲槽）</param>
+    public void Activate(Transform player, int slotIndex = -1)
     {
         _player = player;
         _isActive = true;
+
+        // 槽位分配：显式指定或自动取最小空闲槽
+        SlotIndex = slotIndex >= 0 ? slotIndex : FindFreeSlotIndex();
 
         _movement = _core.Movement;
         _skillManager = _core.SkillManager;
@@ -136,7 +158,8 @@ public class EnemyFollower : MonoBehaviour
 
         float tendency = playerStats.EvolutionTendency;
         float factor = playerStats.EvolveFollowerBuffFactor;
-        float mult = Mathf.Max(0f, 1f + (-tendency) * factor);
+        float levelMult = 1f + (Level - 1) * _levelStatFactor;
+        float mult = Mathf.Max(0f, 1f + (-tendency) * factor) * levelMult;
 
         _core.Health.MaxHealth = Mathf.Max(_origMaxHealth * mult * MaxHealthMultiplier, 1f);
         _core.Health.PatrolSpeed = _origPatrolSpeed * mult;
@@ -279,4 +302,117 @@ public class EnemyFollower : MonoBehaviour
         if (_player != null && _movement != null && !_isReviving)
             _movement.Teleport(_player.position);
     }
+
+    // ── 槽位与升级 ──
+
+    /// <summary>查找最小空闲槽位索引（0..MaxFollowerCount-1），满员返回 MaxFollowerCount</summary>
+    private int FindFreeSlotIndex()
+    {
+        var used = new System.Collections.Generic.HashSet<int>();
+        foreach (var f in ActiveFollowers)
+        {
+            if (f != this && f.SlotIndex >= 0)
+                used.Add(f.SlotIndex);
+        }
+
+        for (int i = 0; i < MaxFollowerCount; i++)
+        {
+            if (!used.Contains(i))
+                return i;
+        }
+        return MaxFollowerCount;
+    }
+
+    /// <summary>按槽位顺序返回随从列表（空槽为 null，长度 = MaxFollowerCount）</summary>
+    public static System.Collections.Generic.List<EnemyFollower> GetSlotsInOrder()
+    {
+        var list = new System.Collections.Generic.List<EnemyFollower>();
+        for (int i = 0; i < MaxFollowerCount; i++)
+        {
+            EnemyFollower found = null;
+            foreach (var f in ActiveFollowers)
+            {
+                if (f.SlotIndex == i)
+                {
+                    found = f;
+                    break;
+                }
+            }
+            list.Add(found);
+        }
+        return list;
+    }
+
+    /// <summary>判断两个敌人是否同种类（config 引用相等，config 为空回退 displayName）</summary>
+    public static bool SameType(EnemyCore a, EnemyCore b)
+    {
+        if (a == null || b == null) return false;
+
+        var ca = a.config;
+        var cb = b.config;
+        if (ca != null && cb != null) return ca == cb;
+
+        return string.Equals(ca != null ? ca.displayName : null,
+                             cb != null ? cb.displayName : null);
+    }
+
+    /// <summary>
+    /// 升级随从：等级 +1，属性按 _levelStatFactor 提升，技能等级 +1（可选）。
+    /// </summary>
+    public void UpgradeLevel()
+    {
+        Level++;
+
+        if (_upgradeSkillsOnLevelUp && _skillManager != null)
+        {
+            foreach (var s in _skillManager.SkillInstances)
+                s?.TryUpgrade();
+        }
+
+        ApplyEvolutionBuff();
+        Revision++;
+    }
+
+    /// <summary>
+    /// 把敌人同化到指定槽位：空槽=放置；同种=升级并消耗敌人；异种=替换（销毁旧随从）。
+    /// 成功路径都会触发 OnAssimilated（供房间计数/门锁逻辑）。
+    /// </summary>
+    public static FollowerSlotResult AssimilateToSlot(EnemyCore enemy, Transform player, int slotIndex)
+    {
+        if (enemy == null || player == null)
+            return FollowerSlotResult.Failed;
+
+        var slots = GetSlotsInOrder();
+        if (slotIndex < 0 || slotIndex >= slots.Count)
+            return FollowerSlotResult.Failed;
+
+        var existing = slots[slotIndex];
+
+        // 同种升级：提升现有随从等级，消耗被侵蚀的敌人（不创建新随从）
+        if (existing != null && SameType(existing.Core, enemy))
+        {
+            existing.UpgradeLevel();
+            enemy.ConsumeAsAssimilated(player);
+            return FollowerSlotResult.Upgraded;
+        }
+
+        // 替换：同步销毁旧随从释放槽位（时间缩放 0 时 Destroy 延后一帧会导致槽位短暂重复）
+        // 注意：DestroyImmediate 后 Unity 对象判空（existing != null）会变为 false，须先缓存布尔值
+        bool hadExisting = existing != null;
+        if (hadExisting)
+            DestroyImmediate(existing.gameObject);
+
+        // 放置/替换：同化敌人到指定槽位
+        enemy.Assimilate(player, slotIndex);
+        return hadExisting ? FollowerSlotResult.Replaced : FollowerSlotResult.Placed;
+    }
+}
+
+/// <summary>同化到槽位的操作结果</summary>
+public enum FollowerSlotResult
+{
+    Failed,
+    Placed,
+    Upgraded,
+    Replaced
 }

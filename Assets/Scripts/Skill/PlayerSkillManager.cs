@@ -102,6 +102,9 @@ public class PlayerSkillManager : MonoBehaviour, ISkillCaster
         SkillSlot slot = _slots[index];
         if (!slot.isUnlocked || slot.IsEmpty) return;
 
+        // 被动技能（如吞噬的敌人亡语技能）不应通过按键重复触发
+        if (slot.Skill.Data != null && slot.Skill.Data.passive) return;
+
         Vector2 direction = GetTargetDirection();
 
         if (slot.TryCast(this, direction))
@@ -127,6 +130,22 @@ public class PlayerSkillManager : MonoBehaviour, ISkillCaster
         if (index < 0 || index >= _slots.Count || !_slots[index].isUnlocked) return false;
 
         SkillInstance instance = _skillLibrary.CreateSkillInstance(skillId);
+        if (instance == null) return false;
+
+        _slots[index].Equip(instance);
+        return true;
+    }
+
+    /// <summary>
+    /// 用 SkillData 直接装备到指定槽位（支持玩家技能库之外的技能，如吞噬的敌人专用技能）。
+    /// </summary>
+    public bool EquipSkillData(int index, SkillData data)
+    {
+        if (_skillLibrary == null) return false;
+        if (data == null) return false;
+        if (index < 0 || index >= _slots.Count || !_slots[index].isUnlocked) return false;
+
+        SkillInstance instance = _skillLibrary.CreateSkillInstance(data);
         if (instance == null) return false;
 
         _slots[index].Equip(instance);

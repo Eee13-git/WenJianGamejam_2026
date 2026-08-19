@@ -141,20 +141,12 @@ public class ErodeChoicePopupManager : MonoBehaviour
         SkillStealPopupManager popup = SkillStealPopupManager.Instance;
         if (popup != null && _enemySkills != null && _enemySkills.Count > 0)
         {
-            popup.ShowPopup(_enemySkills, _playerSkillManager, () =>
-            {
-                // 技能夺取弹窗关闭 → 恢复时间
-                _onClose?.Invoke();
-                _onClose = null;
-                _isShowing = false;
-            });
+            popup.ShowPopup(_enemySkills, _playerSkillManager, Finish);
         }
         else
         {
             // 无弹窗或无技能 → 直接关闭
-            _onClose?.Invoke();
-            _onClose = null;
-            _isShowing = false;
+            Finish();
         }
     }
 
@@ -162,23 +154,36 @@ public class ErodeChoicePopupManager : MonoBehaviour
     {
         HideUI();
 
-        if (_targetEnemy != null && !_targetEnemy.IsDead && _playerSkillManager != null)
+        if (_targetEnemy == null || _targetEnemy.IsDead || _playerSkillManager == null)
         {
-            // 随从数量上限检查（胸腺肽可提高上限）
-            if (EnemyFollower.ActiveFollowers.Count >= EnemyFollower.MaxFollowerCount)
-            {
-                _onClose?.Invoke();
-                _onClose = null;
-                _isShowing = false;
-                return;
-            }
-
-            _targetEnemy.Assimilate(_playerSkillManager.CasterTransform);
-
-            // 同化成功 → 进化倾向降低（朝向独特）
-            ApplyEvolutionTendency(-_evolveAssimilateDelta);
+            Finish();
+            return;
         }
 
+        // 无槽位可用（上限被设为 0）→ 直接关闭
+        if (EnemyFollower.MaxFollowerCount <= 0)
+        {
+            Finish();
+            return;
+        }
+
+        // 打开随从槽位选择弹窗：槽位操作成功后降低进化倾向（朝向独特）
+        FollowerSlotPopupManager popup = FollowerSlotPopupManager.Instance;
+        if (popup != null)
+        {
+            popup.ShowPopup(_targetEnemy, _playerSkillManager,
+                () => ApplyEvolutionTendency(-_evolveAssimilateDelta),
+                Finish);
+        }
+        else
+        {
+            Finish();
+        }
+    }
+
+    /// <summary>统一收尾：关闭回调（恢复时间）+ 复位状态</summary>
+    private void Finish()
+    {
         _onClose?.Invoke();
         _onClose = null;
         _isShowing = false;

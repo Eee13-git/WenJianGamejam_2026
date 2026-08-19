@@ -308,7 +308,9 @@ public class MapManager : MonoBehaviour
     /// <summary>将所有活跃随从传送到玩家两侧和侧前方（正前方留空不挡路），阵型跟随面朝方向旋转</summary>
     private static void TeleportFollowers(Vector2 playerPos, Vector2 playerForward, Transform newParent)
     {
-        var followers = EnemyFollower.ActiveFollowers;
+        // 按槽位索引排序，保证阵型顺序与随从列表面板一致
+        var followers = new List<EnemyFollower>(EnemyFollower.ActiveFollowers);
+        followers.Sort((a, b) => a.SlotIndex.CompareTo(b.SlotIndex));
         int count = followers.Count;
         if (count == 0) return;
 

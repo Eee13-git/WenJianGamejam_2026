@@ -122,17 +122,9 @@ public class SkillStealPopupManager : MonoBehaviour
         if (hasSkill)
             data.KeyLabel = playerLv < skill.MaxLevel ? "升级" : "已满";
         else
-            data.KeyLabel = HasEmptySlot() ? "新技能" : "无空槽";
+            data.KeyLabel = "夺取";
 
         return data;
-    }
-
-    private bool HasEmptySlot()
-    {
-        for (int i = 0; i < _playerSkillManager.SlotCount; i++)
-            if (_playerSkillManager.IsSlotUnlocked(i) && _playerSkillManager.GetSkill(i) == null)
-                return true;
-        return false;
     }
 
     private bool PlayerHasSkill(string skillId, out int level, out int slotIdx)
@@ -157,19 +149,47 @@ public class SkillStealPopupManager : MonoBehaviour
         if (index < 0 || index >= _enemySkills.Count) return;
 
         SkillInstance enemySkill = _enemySkills[index];
-        string skillId = enemySkill.Data.skillId;
+        SkillData skillData = enemySkill.Data;
 
-        if (PlayerHasSkill(skillId, out int playerLv, out int slotIdx))
+        // 隐藏技能列表弹窗，进入装配槽选择
+        HideUI();
+
+        SkillEquipSlotPopupManager popup = SkillEquipSlotPopupManager.Instance;
+        if (popup != null)
         {
-            if (playerLv < enemySkill.MaxLevel)
-                _playerSkillManager.UpgradeSkill(slotIdx);
+            popup.ShowPopup(skillData, _playerSkillManager, Finish);
         }
         else
         {
-            _playerSkillManager.AcquireSkill(skillId);
+            // 兜底：无弹窗时回退原有直接装配行为
+            if (PlayerHasSkill(skillData.skillId, out int playerLv, out int slotIdx))
+            {
+                if (playerLv < enemySkill.MaxLevel)
+                    _playerSkillManager.UpgradeSkill(slotIdx);
+            }
+            else
+            {
+                _playerSkillManager.AcquireSkill(skillData.skillId);
+            }
+            Finish();
         }
+    }
 
-        ClosePopup();
+    /// <summary>统一收尾：关闭回调（恢复时间）+ 复位状态</summary>
+    private void Finish()
+    {
+        _onClose?.Invoke();
+        _onClose = null;
+        _isShowing = false;
+    }
+
+    /// <summary>隐藏弹窗 UI（不触发回调）</summary>
+    private void HideUI()
+    {
+        if (_backdrop != null)
+            _backdrop.SetActive(false);
+        if (_popupPanel != null)
+            _popupPanel.SetActive(false);
     }
 
     public void ClosePopup()
@@ -177,10 +197,7 @@ public class SkillStealPopupManager : MonoBehaviour
         if (!_isShowing) return;
         _isShowing = false;
 
-        if (_backdrop != null)
-            _backdrop.SetActive(false);
-        if (_popupPanel != null)
-            _popupPanel.SetActive(false);
+        HideUI();
 
         _onClose?.Invoke();
         _onClose = null;
