@@ -3,9 +3,10 @@ using UnityEngine.SceneManagement;
 using System.Collections;
 
 /// <summary>
-/// 随从行为组件：接管被同化敌人的 AI，跟随玩家 + 搜索并攻击其他敌人。
+/// 随从行为组件：接管被同化敌人的 AI。
+/// AI 决策由 FollowerStateMachine 驱动（Idle/Follow/Chase/Attack 四状态）。
+/// 生命周期管理（传送/复活/跨场景/进化buff/道具增强）保留在本组件中。
 /// 由 EnemyCore.Assimilate() 激活。
-/// 攻击方式：碰撞伤害（EnemyCore.ProcessContactDamage）+ 技能。
 /// </summary>
 [RequireComponent(typeof(EnemyCore))]
 public class EnemyFollower : MonoBehaviour
@@ -28,6 +29,7 @@ public class EnemyFollower : MonoBehaviour
     private EnemySkillManager _skillManager;
     private bool _isActive;
     private bool _isReviving;
+    private FollowerStateMachine _followerSM;
 
     // 进化倾向 buff：记录原始属性，动态刷新时从原始值重算
     private float _origMaxHealth, _origPatrolSpeed, _origChaseSpeed;
@@ -51,6 +53,17 @@ public class EnemyFollower : MonoBehaviour
     public static float SlowDuration = 2f;
     /// <summary>随从数量上限（胸腺肽），默认4</summary>
     public static int MaxFollowerCount = 4;
+
+    // ── 暴露给状态机的只读属性 ──
+    public EnemyCore Core => _core;
+    public EnemyMovement Movement => _movement;
+    public EnemySkillManager SkillManager => _skillManager;
+    public Transform Player => _player;
+    public FollowerStateMachine StateMachine => _followerSM;
+    public float FollowDistance => _followDistance;
+    public float DetectionRange => _detectionRange;
+    public float AttackRange => _attackRange;
+    public float FollowSpeed => _followSpeed;
 
     private void OnEnable()
     {
@@ -107,6 +120,10 @@ public class EnemyFollower : MonoBehaviour
         // 先脱离房间父节点，再标记 DontDestroyOnLoad（对有父节点的子对象直接调用不生效）
         transform.SetParent(null);
         DontDestroyOnLoad(gameObject);
+
+        // 创建随从状态机并启动
+        _followerSM = new FollowerStateMachine();
+        _followerSM.ChangeState(new FollowerIdleState(this));
     }
 
     /// <summary>根据玩家进化倾向刷新随从全属性增幅（叠加道具乘区）</summary>
@@ -156,56 +173,19 @@ public class EnemyFollower : MonoBehaviour
         if (!_isActive || _player == null) return;
         if (_core.Health != null && _core.Health.IsDead) return;
 
-        Vector2 pos = transform.position;
-        Vector2 playerPos = _player.position;
-
         // 离玩家过远 → 直接传送到身边，防止掉队或被卡住
-        float sqrDistToPlayer = (pos - playerPos).sqrMagnitude;
+        float sqrDistToPlayer = ((Vector2)transform.position - (Vector2)_player.position).sqrMagnitude;
         if (sqrDistToPlayer > _maxTeleportDistance * _maxTeleportDistance)
         {
-            _movement?.Teleport(playerPos);
+            _movement?.Teleport(_player.position);
             return;
         }
 
-        // 寻找最近的敌人
-        Transform nearestEnemy = FindNearestEnemy(pos);
-
-        if (nearestEnemy != null)
-        {
-            Vector2 enemyPos = nearestEnemy.position;
-            float distToEnemy = Vector2.Distance(pos, enemyPos);
-
-            if (distToEnemy <= _attackRange)
-            {
-                _movement?.Stop();
-
-                // 尝试释放技能
-                if (_skillManager != null && _skillManager.SkillInstances.Count > 0)
-                {
-                    Vector2 dir = (enemyPos - pos).normalized;
-                    _skillManager.TryCastSkill(0, _core, dir);
-                }
-            }
-            else
-            {
-                _movement?.MoveTowardsPosition(enemyPos, _followSpeed);
-            }
-            return;
-        }
-
-        // 没有敌人 → 跟随玩家
-        float distToPlayer = Vector2.Distance(pos, playerPos);
-        if (distToPlayer > _followDistance)
-        {
-            _movement?.MoveTowardsPosition(playerPos, _followSpeed);
-        }
-        else
-        {
-            _movement?.Stop();
-        }
+        _followerSM?.Tick();
     }
 
-    private Transform FindNearestEnemy(Vector2 center)
+    /// <summary>在检测范围内查找最近的 "Enemy" 标签目标</summary>
+    public Transform FindNearestEnemy(Vector2 center)
     {
         Collider2D[] hits = Physics2D.OverlapCircleAll(center, _detectionRange);
         Transform nearest = null;
@@ -236,6 +216,9 @@ public class EnemyFollower : MonoBehaviour
     {
         _isActive = false;
         _isReviving = true;
+
+        // 停止状态机
+        _followerSM?.ChangeState(null);
 
         // 禁用碰撞
         foreach (var col in GetComponentsInChildren<Collider2D>())
@@ -273,6 +256,9 @@ public class EnemyFollower : MonoBehaviour
 
         _isActive = true;
         _isReviving = false;
+
+        // 重启状态机
+        _followerSM?.ChangeState(new FollowerIdleState(this));
     }
 
     private void OnSceneLoaded(Scene scene, LoadSceneMode mode)

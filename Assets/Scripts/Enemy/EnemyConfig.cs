@@ -42,6 +42,12 @@ public class EnemyConfig : ScriptableObject
     [Tooltip("为 true 时，攻击时从就绪技能中随机选择释放（概率发动多技能），而非固定释放 index 0")]
     public bool useRandomSkill = false;
 
+    [Header("Idle 随机游走")]
+    [Tooltip("Idle 停留时间范围（秒）")]
+    public Vector2 idleWaitTimeRange = new Vector2(1f, 3f);
+    [Tooltip("Idle 随机移动距离范围（世界单位）")]
+    public Vector2 idleWanderDistanceRange = new Vector2(2f, 4f);
+
     [Header("巡逻点（世界坐标相对室内/由生成器填充或运行时赋值）")]
     public List<Vector2> patrolPoints = new List<Vector2>();
 }
