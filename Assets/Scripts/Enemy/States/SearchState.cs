@@ -46,8 +46,9 @@ public class SearchState : EnemyStateBase
             }
             else
             {
-                // 搜索时用 patrolSpeed，额外减速 0.8
-                Core.Movement?.MoveTowardsPosition(lastPos,
+                // 搜索时用 patrolSpeed，额外减速 0.8（A* 寻路）
+                var path = Core.Movement.GetPath(lastPos);
+                Core.Movement?.MoveAlongPath(path,
                     Core.Health != null ? Core.Health.PatrolSpeed : 1f, 0.8f);
             }
         }

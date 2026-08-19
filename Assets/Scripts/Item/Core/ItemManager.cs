@@ -227,6 +227,14 @@ public class ItemManager : MonoBehaviour
         OnItemAcquired?.Invoke(item);
     }
 
+    /// <summary>记录道具拾取（不加入背包，仅触发事件供统计）</summary>
+    public void RecordPickup(ItemData item)
+    {
+        if (item == null) return;
+        OnItemAcquired?.Invoke(item);
+        OnAnyItemAcquired?.Invoke(gameObject);
+    }
+
     /// <summary>是否有指定道具</summary>
     public bool HasItem(string itemId) => _itemDict.ContainsKey(itemId);
 

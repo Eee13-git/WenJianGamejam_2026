@@ -57,7 +57,8 @@ public class ChaseState : EnemyStateBase
             return;
         }
 
-        // 追击
-        Core.Movement?.MoveTowardsPosition(playerPos, Core.Health.ChaseSpeed);
+        // 追击（A* 寻路）
+        var path = Core.Movement.GetPath(playerPos);
+        Core.Movement?.MoveAlongPath(path, Core.Health.ChaseSpeed);
     }
 }

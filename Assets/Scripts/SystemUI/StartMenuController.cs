@@ -16,6 +16,9 @@ namespace WenJian.UI
         [Header("科技树按钮")]
         [SerializeField] private Button _techTreeButton;
 
+        [Header("图鉴按钮")]
+        [SerializeField] private Button _codexButton;
+
         [Header("场景名称")]
         [SerializeField] private string playSceneName = "yang";
 
@@ -29,6 +32,9 @@ namespace WenJian.UI
 
             if (_techTreeButton != null)
                 _techTreeButton.onClick.AddListener(OnTechTreeClicked);
+
+            if (_codexButton != null)
+                _codexButton.onClick.AddListener(OnCodexClicked);
         }
 
         private void OnPlayClicked()
@@ -52,6 +58,11 @@ namespace WenJian.UI
         private void OnTechTreeClicked()
         {
             TechTreeUIController.Toggle();
+        }
+
+        private void OnCodexClicked()
+        {
+            CodexUIController.Toggle();
         }
 
 #if UNITY_EDITOR

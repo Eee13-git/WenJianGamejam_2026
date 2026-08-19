@@ -25,6 +25,17 @@ public class RoomManager : MonoBehaviour
     /// <summary>是否首次进入</summary>
     public bool IsFirstEnter => _isFirstEnter;
 
+    /// <summary>获取指定位置的寻路网格（供敌人依赖注入）</summary>
+    public PathfindingGrid GetGridAtPosition(Vector2 position)
+    {
+        if (roomRoot != null && roomRoot.PathGrid != null)
+        {
+            if (roomRoot.Bounds.Contains(position))
+                return roomRoot.PathGrid;
+        }
+        return null;
+    }
+
     /// <summary>当前存活怪物列表</summary>
     private List<GameObject> _aliveEnemies = new();
 
@@ -74,6 +85,9 @@ public class RoomManager : MonoBehaviour
 
             // 统计：首次进入房间
             GameStatistics.Instance?.RecordRoomVisited(roomRoot.config.roomType);
+
+            // 构建寻路网格（在敌人生成前）
+            roomRoot.BuildPathfindingGrid();
 
             SpawnEnemies();
             Debug.Log($"[RoomManager] Room{roomRoot.roomId} spawned enemies, _aliveEnemies.Count={_aliveEnemies.Count}");
@@ -213,6 +227,10 @@ public class RoomManager : MonoBehaviour
     /// 注册一个敌人到房间存活列表（亡语分裂/召唤生成的敌人也调用此方法），
     /// 否则亡语怪不计入 _aliveEnemies 会导致房间门提前开启。
     /// </summary>
+    /// <summary>
+    /// 注册一个敌人到房间存活列表（分裹/召唤生成的敌人也调用此方法）。
+    /// 否则分裹不计入 _aliveEnemies 会导致房间门提前开启。
+    /// </summary>
     public void RegisterEnemy(GameObject enemy)
     {
         if (enemy == null || _aliveEnemies.Contains(enemy)) return;
@@ -331,6 +349,18 @@ public class RoomManager : MonoBehaviour
         {
             if (picked[i] == null) continue;
             Instantiate(picked[i], roomRoot.itemSpawnPoints[i].position, Quaternion.identity, transform);
+        }
+
+        // Boss 房必定生成一个溶酶体（使用无副作用方法，不影响随机池）
+        if (roomRoot.config.roomType == RoomType.Boss)
+        {
+            var lysosomePrefab = library.GetItemPrefabDirectly("lysosome");
+            if (lysosomePrefab != null && spawnPointCount > 0)
+            {
+                int idx = Mathf.Min(picked.Count, spawnPointCount - 1);
+                Instantiate(lysosomePrefab, roomRoot.itemSpawnPoints[idx].position,
+                             Quaternion.identity, transform);
+            }
         }
     }
 

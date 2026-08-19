@@ -203,6 +203,25 @@ public class ItemsLibrary : ScriptableObject
         return result;
     }
 
+    /// <summary>
+    /// 按 itemId 直接获取道具预制体（无副作用）。
+    /// 不检查运行时池、不从池中移除、不影响不放回抽取逻辑。
+    /// 用于 Boss 房等需要必定生成指定道具的场景。
+    /// </summary>
+    public GameObject GetItemPrefabDirectly(string itemId)
+    {
+        if (_itemPrefabs == null) return null;
+        foreach (var prefab in _itemPrefabs)
+        {
+            if (prefab == null) continue;
+            var pickup = prefab.GetComponent<ItemPickup>();
+            if (pickup != null && pickup.itemData != null
+                && pickup.itemData.itemId == itemId)
+                return prefab;
+        }
+        return null;
+    }
+
     // ========== 局内权重偏移 API ==========
 
     /// <summary>

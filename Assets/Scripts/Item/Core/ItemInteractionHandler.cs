@@ -166,6 +166,26 @@ public class ItemInteractionHandler : MonoBehaviour
 
         ItemData data = _nearestPickup.Pickup();
 
+        // 溶酶体：不进背包，直接施加 Buff + 记录统计
+        if (data != null && data.effect is ApplyBuffEffect abe
+            && abe.buffData != null && abe.buffData.effect is ItemRemoverBuffEffect)
+        {
+            var buffManager = _itemManager.GetComponent<BuffManager>();
+            if (buffManager != null)
+            {
+                var instance = buffManager.ApplyBuff(abe.buffData, _itemManager.gameObject);
+                if (instance != null) instance.Indestructible = true;
+            }
+            _itemManager.RecordPickup(data);
+
+            if (_detailPopup != null) _detailPopup.Hide();
+            var toDestroy = _nearestPickup.gameObject;
+            _nearestPickup = null;
+            _highlightedPickup = null;
+            Destroy(toDestroy);
+            return;
+        }
+
         if (_itemManager.AcquireItem(data))
         {
             if (_detailPopup != null)

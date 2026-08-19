@@ -64,6 +64,8 @@ public class PlayerSkillManager : MonoBehaviour, ISkillCaster
     public event System.Action<int, SkillData> OnSkillCast;
     /// <summary>技能升级事件</summary>
     public event System.Action<int, int> OnSkillUpgraded;
+    /// <summary>技能获得事件: (skillId)</summary>
+    public event System.Action<string> OnSkillAcquired;
 
     private void Awake()
     {
@@ -117,7 +119,10 @@ public class PlayerSkillManager : MonoBehaviour, ISkillCaster
         if (_skillLibrary == null) return false;
 
         SkillInstance instance = _skillLibrary.CreateSkillInstance(skillId);
-        return instance != null && EquipToEmptySlot(instance);
+        bool success = instance != null && EquipToEmptySlot(instance);
+        if (success)
+            OnSkillAcquired?.Invoke(skillId);
+        return success;
     }
 
     /// <summary>装备技能到指定槽位</summary>
