@@ -51,7 +51,7 @@ public class CarriedThrow : MonoBehaviour
         {
             if (hit == null) continue;
             if (selfCol != null && hit == selfCol) continue;
-            if (hit.CompareTag("Obstacles") || hit.CompareTag("Wall"))
+            if (hit.CompareTag("Obstacles") || hit.CompareTag("Wall") || hit.CompareTag("Spike") || hit.CompareTag("Hole"))
             {
                 HitWall();
                 return;

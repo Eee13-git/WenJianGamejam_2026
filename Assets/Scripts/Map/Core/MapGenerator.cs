@@ -2,14 +2,14 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// 地图生成器 — 基于配置生成房间图和布局
+/// 地图生成器 — 基于配置生成房间图谱和布局
 /// 
 /// 算法:
 /// 1. 从 Start 房间开始 (放置在中心)
-/// 2. BFS 扩展: 每次从已放置房间的未占用门出发
+/// 2. BFS 扩展: 每次从已放置房间的未占用门出口
 /// 3. 随机选取匹配门方向的房间配置
 /// 4. 根据门的本地坐标对齐相邻房间
-/// 5. Boss/Exit 放最后，隐藏房从非终点的开放门放置
+/// 5. Boss 放最后，隐藏房从非终点的开放门放置
 /// </summary>
 public class MapGenerator
 {
@@ -34,7 +34,7 @@ public class MapGenerator
 
         if (_config.startRoom == null)
         {
-            Debug.LogError("MapGenerator: startRoom 未配置!");
+            Debug.LogError("MapGenerator: startRoom 未配置");
             return graph;
         }
 
@@ -68,9 +68,10 @@ public class MapGenerator
 
             RoomType targetType = roomTypeQueue[typeQueueIndex];
 
-            // Boss/Exit 不与 Start 房间直连，跳过该门
-            if ((targetType == RoomType.Boss || targetType == RoomType.Exit) && anchorNode.roomType == RoomType.Start)
+            // Boss 不与 Start 房间直连，跳过该门
+            if (targetType == RoomType.Boss && anchorNode.roomType == RoomType.Start)
                 continue;
+
             RoomConfig[] pool = _config.GetPoolForType(targetType);
 
             if (pool == null || pool.Length == 0)
@@ -120,24 +121,11 @@ public class MapGenerator
             
             // 将新房间的未连接门加入开放列表
             AddOpenDoors(placedOpenDoors, newNode, targetDir);
-            
-            // 如果是 Exit 房间，记录
-            if (targetType == RoomType.Exit)
-                graph.exitRoomId = newNode.roomId;
-
-            // 如果是 Boss 房间，记录 (hasBoss=true 时 Exit 不在队列中)
-            // if (targetType == RoomType.Boss) {} // Boss 无需额外处理
 
             typeQueueIndex++;
         }
 
-        // 如果 Exit 还没放置 (hasBoss=false 且 BFS 主循环未成功放置)，兜底放置
-        if (graph.exitRoomId == 0 && !_config.hasBoss && _config.exitRoom != null)
-        {
-            PlaceExitRoomFarthest(graph, placedOpenDoors);
-        }
-
-        // 放置隐藏房：从非 Boss/Exit 房间的开放门中随机选取
+        // 放置隐藏房：从非 Boss 房间的开放门中随机选取放置
         PlaceHiddenRooms(graph, placedOpenDoors);
 
         if (failsafe >= maxAttempts)
@@ -147,7 +135,7 @@ public class MapGenerator
         return graph;
     }
 
-    /// <summary>构建房间类型队列 (打乱，最终Boss/Exit放最后)</summary>
+    /// <summary>构建房间类型队列 (打乱，最终 Boss 放最后)</summary>
     private List<RoomType> BuildRoomTypeQueue()
     {
         var queue = new List<RoomType>();
@@ -159,18 +147,11 @@ public class MapGenerator
         for (int i = 0; i < _config.shopRoomCount; i++)
             queue.Add(RoomType.Shop);
 
-        // 最终房间: Boss 或 Exit 二选一，放最后
-        if (_config.hasBoss)
-        {
-            for (int i = 0; i < _config.bossRoomCount; i++)
-                queue.Add(RoomType.Boss);
-        }
-        else
-        {
-            queue.Add(RoomType.Exit);
-        }
+        // 最终房间：Boss 放最后
+        for (int i = 0; i < _config.bossRoomCount; i++)
+            queue.Add(RoomType.Boss);
 
-        // 打乱除最后一个 (Boss/Exit) 之外的所有房间
+        // 打乱除最后一个 (Boss) 以外的所有房间
         int shuffleCount = queue.Count - 1;
         for (int i = 0; i < shuffleCount; i++)
         {
@@ -179,52 +160,6 @@ public class MapGenerator
         }
 
         return queue;
-    }
-
-    /// <summary>兜底放置 Exit: 从开放门中选距离 Start 最远的那个</summary>
-    private void PlaceExitRoomFarthest(RoomGraph graph, 
-        List<(int roomId, DoorDirection dir)> openDoors)
-    {
-        if (openDoors.Count == 0) return;
-
-        var startNode = graph.GetNode(graph.startRoomId);
-        Vector2 startPos = startNode != null ? startNode.worldPosition : Vector2.zero;
-
-        // 找距离 Start 最远的开放门
-        var candidates = new List<(int roomId, DoorDirection dir, float dist)>();
-        foreach (var od in openDoors)
-        {
-            var node = graph.GetNode(od.roomId);
-            if (node == null) continue;
-            // 估算门位置
-            Vector2 doorPos = node.GetDoorWorldPosition(od.dir);
-            float dist = Vector2.Distance(doorPos, startPos);
-            candidates.Add((od.roomId, od.dir, dist));
-        }
-        candidates.Sort((a, b) => b.dist.CompareTo(a.dist)); // 降序
-
-        foreach (var (roomId, dir, _) in candidates)
-        {
-            var anchorNode = graph.GetNode(roomId);
-            if (anchorNode == null) continue;
-
-            var opp = RoomConfig.OppositeDir(dir);
-            if (!_config.exitRoom.HasDoor(opp)) continue;
-
-            Vector2 anchorDoorWorld = anchorNode.GetDoorWorldPosition(dir);
-            Vector2 targetDoorLocal = _config.exitRoom.GetDoorOffset(opp);
-            Vector2 newPos = anchorDoorWorld - targetDoorLocal;
-            var newBounds = new Rect(newPos - _config.exitRoom.roomSize * 0.5f, _config.exitRoom.roomSize);
-            if (OverlapsAny(graph, newBounds)) continue;
-
-            var exitNode = graph.AddNode(_config.exitRoom, RoomType.Exit, newPos);
-            graph.Connect(roomId, exitNode.roomId, dir, opp);
-            graph.exitRoomId = exitNode.roomId;
-            Debug.Log("MapGenerator: Exit 放置在距离 Start 最远的开放门");
-            return;
-        }
-
-        Debug.LogWarning("MapGenerator: 无法为 Exit 找到合适位置");
     }
 
     /// <summary>将房间的未使用门加入开放列表</summary>
@@ -240,7 +175,7 @@ public class MapGenerator
         }
     }
 
-    /// <summary>放置隐藏房：从非 Boss/Exit 房间的开放门中随机选取放置</summary>
+    /// <summary>放置隐藏房：从非 Boss 房间的开放门中随机选取放置</summary>
     private void PlaceHiddenRooms(RoomGraph graph, 
         List<(int roomId, DoorDirection dir)> openDoors)
     {
@@ -248,13 +183,13 @@ public class MapGenerator
         int count = _config.hiddenRoomCount;
         if (count <= 0) return;
 
-        // 收集非 Boss/Exit 房间的开放门
+        // 收集非 Boss 房间的开放门
         var eligibleDoors = new List<(int roomId, DoorDirection dir)>();
         foreach (var od in openDoors)
         {
             var node = graph.GetNode(od.roomId);
             if (node == null) continue;
-            if (node.roomType == RoomType.Boss || node.roomType == RoomType.Exit) continue;
+            if (node.roomType == RoomType.Boss) continue;
             eligibleDoors.Add(od);
         }
 
@@ -307,8 +242,9 @@ public class MapGenerator
     }
 
     /// <summary>检查矩形是否与已有房间重叠。
-    /// 相邻房间共享边界 (edge-to-edge) 不算重叠，只有真正交叉才冲突。
-    /// roomSpacing 用作最小间隔。</summary>
+    /// 相邻房间共享边界 (edge-to-edge) 不算重叠，只有真正交叉才算冲突。
+    /// roomSpacing 用作最小间距。
+    /// </summary>
     private bool OverlapsAny(RoomGraph graph, Rect bounds)
     {
         // 缩一圈来确保最小间距 (只对真正相交的生效)

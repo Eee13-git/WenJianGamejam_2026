@@ -138,6 +138,15 @@ public class RoomManager : MonoBehaviour
         if (roomRoot == null || roomRoot.config == null) return;
         
         var cfg = roomRoot.config;
+
+        // Boss 房在 hasBoss=false 时不生成敌人（空房间直接清场）
+        if (cfg.roomType == RoomType.Boss)
+        {
+            var mapConfigAsset = MapManager.Instance?.MapConfigAsset;
+            if (mapConfigAsset != null && !mapConfigAsset.hasBoss)
+                return;
+        }
+
         if (cfg.enemyPool == null || cfg.enemyPool.Count == 0) return;
 
         // 按权重选择敌人
@@ -273,7 +282,7 @@ public class RoomManager : MonoBehaviour
     {
         if (roomRoot == null || roomRoot.config == null) return;
         var roomType = roomRoot.config.roomType;
-        if (roomType != RoomType.Boss && roomType != RoomType.Exit) return;
+        if (roomType != RoomType.Boss) return;
 
         var mapConfigAsset = MapManager.Instance?.MapConfigAsset;
         if (mapConfigAsset == null) return;

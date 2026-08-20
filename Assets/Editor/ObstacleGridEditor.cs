@@ -692,15 +692,12 @@ public class ObstacleGridEditor : EditorWindow
 
             if (idx == -1)
             {
-                // 原有障碍物 → 不应用偏移
-                Vector3 worldPos = CellToWorldNoOffset(cell);
-                // 从 preservedObstacles 中找位置匹配的
+                // 原有障碍物 → 完全保留原始位置，不做任何修改
                 var match = preservedObstacles.FirstOrDefault(go =>
                     WorldToCell(go.transform.localPosition) == cell);
                 if (match != null)
                 {
-                    match.transform.SetParent(obsContainer, false);
-                    match.transform.localPosition = worldPos;
+                    match.transform.SetParent(obsContainer, true);
                     preservedObstacles.Remove(match);
                     placedCount++;
                 }

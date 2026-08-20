@@ -32,8 +32,9 @@ public class AttackState : EnemyStateBase
             return;
         }
 
-        // 保持靠近
-        Core.Movement?.MoveTowardsPosition(playerPos, Core.Health.ChaseSpeed, 0.3f);
+        // 保持靠近（A* 寻路）
+        var path = Core.Movement.GetPath(playerPos);
+        Core.Movement?.MoveAlongPath(path, Core.Health.ChaseSpeed, 0.3f);
 
         // 释放技能：支持随机选择就绪技能（多技能敌人概率发动）
         if (Core.SkillManager != null && Core.SkillManager.SkillInstances.Count > 0)

@@ -558,12 +558,12 @@ public class ObstacleMakerWindow : EditorWindow
             AssetDatabase.CreateFolder(parent, folderName);
         }
 
-        EnsureTag("Obstacles");
+        EnsureTag("Hole");
 
         string prefabPath = $"{outputFolder}/{prefabName}.prefab";
 
         var go = new GameObject(prefabName);
-        go.tag = "Obstacles";
+        go.tag = "Hole";
 
         var sr = go.AddComponent<SpriteRenderer>();
         sr.sprite = sourceSprite;
@@ -610,12 +610,12 @@ public class ObstacleMakerWindow : EditorWindow
             AssetDatabase.CreateFolder(parent, folderName);
         }
 
-        EnsureTag("Obstacles");
+        EnsureTag("Spike");
 
         string prefabPath = $"{outputFolder}/{prefabName}.prefab";
 
         var go = new GameObject(prefabName);
-        go.tag = "Obstacles";
+        go.tag = "Spike";
 
         var sr = go.AddComponent<SpriteRenderer>();
         sr.sprite = _spikeSprite1;

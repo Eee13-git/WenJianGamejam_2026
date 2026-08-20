@@ -40,39 +40,19 @@ public class PathfindingGrid
 
         var grid = new PathfindingGrid(origin, width, height, cellSize);
 
-        // 1. 收集房间范围内所有 Wall/Obstacles 的 bounds
-        Vector2 bottomLeft = origin;
-        Vector2 topRight = origin + new Vector2(width * cellSize, height * cellSize);
-        var colliders = Physics2D.OverlapAreaAll(bottomLeft, topRight);
-
-        var obstacleBounds = new List<Rect>();
-        foreach (var col in colliders)
-        {
-            if (col.CompareTag("Wall") || col.CompareTag("Obstacles"))
-            {
-                var b = col.bounds;
-                obstacleBounds.Add(new Rect(b.min.x, b.min.y, b.size.x, b.size.y));
-            }
-        }
-
-        // 2. 每个 cell 的收缩 Rect 与障碍物 bounds 交集检测
-        float shrink = cellSize * 0.1f;
+        // 每个 cell 中心用 OverlapCircle 检测是否有障碍碰撞体
+        float checkRadius = cellSize * 0.25f;
 
         for (int x = 0; x < width; x++)
         {
             for (int y = 0; y < height; y++)
             {
                 Vector2 cellCenter = grid.CellToWorld(x, y);
-                Rect cellRect = new Rect(
-                    cellCenter.x - cellSize * 0.5f + shrink,
-                    cellCenter.y - cellSize * 0.5f + shrink,
-                    cellSize - shrink * 2f,
-                    cellSize - shrink * 2f);
-
+                var hits = Physics2D.OverlapCircleAll(cellCenter, checkRadius);
                 bool blocked = false;
-                foreach (var obsRect in obstacleBounds)
+                foreach (var hit in hits)
                 {
-                    if (cellRect.Overlaps(obsRect))
+                    if (hit.CompareTag("Wall") || hit.CompareTag("Obstacles") || hit.CompareTag("Spike") || hit.CompareTag("Hole"))
                     {
                         blocked = true;
                         break;

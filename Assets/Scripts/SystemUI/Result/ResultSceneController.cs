@@ -330,7 +330,6 @@ public class ResultSceneController : MonoBehaviour
             RoomType.Treasure => "宝箱房",
             RoomType.Boss => "Boss房",
             RoomType.Shop => "商店",
-            RoomType.Exit => "出口",
             RoomType.Hidden => "隐藏房",
             _ => type.ToString()
         };

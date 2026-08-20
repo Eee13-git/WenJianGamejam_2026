@@ -13,9 +13,6 @@ public class RoomGraph
     /// <summary>起始房间 ID</summary>
     public int startRoomId;
 
-    /// <summary>出口房间 ID</summary>
-    public int exitRoomId;
-
     private int _nextId;
 
     /// <summary>添加房间节点</summary>

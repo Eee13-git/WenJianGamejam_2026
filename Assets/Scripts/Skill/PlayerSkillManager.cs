@@ -138,6 +138,7 @@ public class PlayerSkillManager : MonoBehaviour, ISkillCaster
         if (instance == null) return false;
 
         _slots[index].Equip(instance);
+        OnSkillAcquired?.Invoke(skillId);
         return true;
     }
 
@@ -154,6 +155,7 @@ public class PlayerSkillManager : MonoBehaviour, ISkillCaster
         if (instance == null) return false;
 
         _slots[index].Equip(instance);
+        OnSkillAcquired?.Invoke(data.skillId);
         return true;
     }
 

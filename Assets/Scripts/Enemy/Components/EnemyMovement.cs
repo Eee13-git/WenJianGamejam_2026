@@ -110,6 +110,31 @@ public class EnemyMovement : MonoBehaviour
     public void SetRoomGrid(PathfindingGrid grid) { _grid = grid; }
 
     /// <summary>
+    /// 矩形检测：以敌人为中心，沿 dir 方向检测 checkDist 距离内是否有障碍或墙。
+    /// 矩形宽=敌人直径，长=checkDist。
+    /// </summary>
+    public bool IsDirectionBlocked(Vector2 dir, float checkDist = 0.5f)
+    {
+        Vector2 start = transform.position;
+        Vector2 normalizedDir = dir.normalized;
+        if (normalizedDir == Vector2.zero) return false;
+
+        float enemyDiameter = GetEnemyDiameter();
+        Vector2 target = start + normalizedDir * checkDist;
+        Vector2 center = (start + target) / 2f;
+        float angle = Mathf.Atan2(normalizedDir.y, normalizedDir.x) * Mathf.Rad2Deg;
+        Vector2 size = new Vector2(checkDist, enemyDiameter);
+
+        var hits = Physics2D.OverlapBoxAll(center, size, angle);
+        foreach (var hit in hits)
+        {
+            if (hit.CompareTag("Wall") || hit.CompareTag("Obstacles") || hit.CompareTag("Spike") || hit.CompareTag("Hole"))
+                return true;
+        }
+        return false;
+    }
+
+    /// <summary>
     /// 矩形视线检测 — 矩形宽=敌人直径，方向朝目标。
     /// 用于寻路判断（与发现玩家的 HasLineOfSight 不同）。
     /// </summary>
@@ -129,7 +154,7 @@ public class EnemyMovement : MonoBehaviour
         var hits = Physics2D.OverlapBoxAll(center, size, angle);
         foreach (var hit in hits)
         {
-            if (hit.CompareTag("Wall") || hit.CompareTag("Obstacles"))
+            if (hit.CompareTag("Wall") || hit.CompareTag("Obstacles") || hit.CompareTag("Spike") || hit.CompareTag("Hole"))
                 return true;
         }
         return false;

@@ -67,7 +67,7 @@ public class SlideRuntime : MonoBehaviour
     {
         if (!_isActive || !_carryEnabled) return;
         if (collision.collider == null) return;
-        if (collision.collider.CompareTag("Obstacles") || collision.collider.CompareTag("Wall"))
+        if (collision.collider.CompareTag("Obstacles") || collision.collider.CompareTag("Wall") || collision.collider.CompareTag("Spike") || collision.collider.CompareTag("Hole"))
             HitWall();
     }
 
@@ -257,7 +257,7 @@ public class SlideRuntime : MonoBehaviour
         {
             if (fh == null) continue;
             // 跳过自身 collider（冲刺期间已禁用）和敌人（命中由 CheckCarry 处理）
-            if (fh.CompareTag("Obstacles") || fh.CompareTag("Wall"))
+            if (fh.CompareTag("Obstacles") || fh.CompareTag("Wall") || fh.CompareTag("Spike") || fh.CompareTag("Hole"))
             {
                 EndSlide();
                 return;

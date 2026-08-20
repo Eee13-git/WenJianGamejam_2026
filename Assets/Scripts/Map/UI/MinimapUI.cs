@@ -24,7 +24,6 @@ public class MinimapUI : MonoBehaviour
     [SerializeField] private Color _treasureColor = new(1f, 0.84f, 0f);
     [SerializeField] private Color _bossColor = new(0.8f, 0.2f, 0.2f);
     [SerializeField] private Color _shopColor = new(0.3f, 0.6f, 1f);
-    [SerializeField] private Color _exitColor = new(0.6f, 0.2f, 0.8f);
     [SerializeField] private Color _hiddenColor = new(0.85f, 0.5f, 0.1f);
     [SerializeField] private Color _explorableColor = new(0.25f, 0.25f, 0.25f, 0.45f);
     [SerializeField] private Color _explorableBorderColor = new(0.18f, 0.18f, 0.18f, 0.55f);
@@ -246,9 +245,9 @@ public class MinimapUI : MonoBehaviour
         {
             if (!explorableIds.Contains(node.roomId)) continue;
 
-            bool isBossOrExit = node.roomType == RoomType.Boss || node.roomType == RoomType.Exit;
-            Color fillColor = isBossOrExit ? GetRoomColor(node.roomType) : _explorableColor;
-            Color borderColor = isBossOrExit
+            bool isBoss = node.roomType == RoomType.Boss;
+            Color fillColor = isBoss ? GetRoomColor(node.roomType) : _explorableColor;
+            Color borderColor = isBoss
                 ? Color.Lerp(GetRoomColor(node.roomType), Color.black, 0.3f)
                 : _explorableBorderColor;
 
@@ -389,7 +388,6 @@ public class MinimapUI : MonoBehaviour
             RoomType.Treasure => _treasureColor,
             RoomType.Boss => _bossColor,
             RoomType.Shop => _shopColor,
-            RoomType.Exit => _exitColor,
             RoomType.Hidden => _hiddenColor,
             _ => Color.gray
         };

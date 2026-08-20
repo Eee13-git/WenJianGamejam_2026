@@ -55,7 +55,12 @@ public class PatrolState : EnemyStateBase
         else
         {
             _waitTimer = 0f;
-            Core.Movement?.MoveTowardsPosition(target, Core.Health.PatrolSpeed);
+            // 检测前方 0.5 格是否有障碍/墙，有则跳过当前点去下一个
+            Vector2 moveDir = (target - (Vector2)Core.transform.position).normalized;
+            if (Core.Movement != null && Core.Movement.IsDirectionBlocked(moveDir))
+                _currentIndex = (_currentIndex + 1) % pts.Count;
+            else
+                Core.Movement?.MoveTowardsPosition(target, Core.Health.PatrolSpeed);
         }
     }
 }

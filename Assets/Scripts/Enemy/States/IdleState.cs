@@ -61,9 +61,18 @@ public class IdleState : EnemyStateBase
             case SubState.Wander:
                 float sqrDist = ((Vector2)Core.transform.position - _wanderTarget).sqrMagnitude;
                 if (sqrDist < ArriveThreshold * ArriveThreshold)
+                {
                     EnterWaitState();
+                }
                 else
-                    Core.Movement?.MoveTowardsPosition(_wanderTarget, Core.Health.PatrolSpeed);
+                {
+                    // 检测前方 0.5 格是否有障碍/墙，有则停下
+                    Vector2 moveDir = (_wanderTarget - (Vector2)Core.transform.position).normalized;
+                    if (Core.Movement != null && Core.Movement.IsDirectionBlocked(moveDir))
+                        EnterWaitState();
+                    else
+                        Core.Movement?.MoveTowardsPosition(_wanderTarget, Core.Health.PatrolSpeed);
+                }
                 break;
         }
     }
@@ -81,15 +90,30 @@ public class IdleState : EnemyStateBase
     {
         _subState = SubState.Wander;
 
-        // 随机方向：上/下/左/右
+        // 随机方向：上/下/左/右（打乱顺序）
         Vector2[] dirs = { Vector2.up, Vector2.down, Vector2.left, Vector2.right };
-        Vector2 dir = dirs[Random.Range(0, 4)];
+        for (int i = dirs.Length - 1; i > 0; i--)
+        {
+            int j = Random.Range(0, i + 1);
+            (dirs[i], dirs[j]) = (dirs[j], dirs[i]);
+        }
 
         // 随机距离
         var distRange = Core.config != null ? Core.config.idleWanderDistanceRange : new Vector2(1f, 3f);
         float dist = Random.Range(distRange.x, distRange.y);
 
-        _wanderTarget = (Vector2)Core.transform.position + dir * dist;
+        // 找一个前方 0.5 格无障碍的方向
+        foreach (var dir in dirs)
+        {
+            if (Core.Movement == null || !Core.Movement.IsDirectionBlocked(dir))
+            {
+                _wanderTarget = (Vector2)Core.transform.position + dir * dist;
+                return;
+            }
+        }
+
+        // 4 个方向都有障碍 → 继续等待
+        EnterWaitState();
     }
 
     private void TryFindPlayer()
