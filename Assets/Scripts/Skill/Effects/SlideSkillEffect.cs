@@ -54,6 +54,11 @@ public class SlideSkillEffect : SkillEffectBase
         if (existing != null && existing.IsActive) return;
 
         var slide = caster.CasterTransform.gameObject.AddComponent<SlideRuntime>();
+
+        // 敌人阵营：使用外部传入方向（Boss 轴向冲刺等）；玩家阵营由 SlideRuntime 内部读取输入
+        if (ownerType == Projectile.OwnerType.Enemy && direction.sqrMagnitude > 0.01f)
+            slide.SetForcedDirection(direction);
+
         slide.Activate(caster, _distance, _speed, _immuneDuration, _trailMaterial);
 
         // 卷起能力配置

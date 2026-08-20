@@ -97,6 +97,12 @@ public class SummonSkillEffect : SkillEffectBase
                     core.PlayerTarget = target; // 字段名是 PlayerTarget，但实际是"攻击目标"
             }
 
+            // 计入房间敌人计数（Boss 召唤的小怪也必须计入，否则房间门提前开启）
+            var room = caster.CasterTransform.parent != null
+                ? caster.CasterTransform.parent.GetComponentInParent<RoomManager>()
+                : null;
+            room?.RegisterEnemy(go);
+
             yield return new WaitForSeconds(spawnInterval);
         }
     }

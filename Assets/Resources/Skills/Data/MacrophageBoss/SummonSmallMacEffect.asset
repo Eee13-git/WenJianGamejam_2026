@@ -1,0 +1,23 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5223916dedf03ca4184b9508498e318e, type: 3}
+  m_Name: SummonSmallMacEffect
+  m_EditorClassIdentifier: 
+  enemyMinionPrefabs:
+  - {fileID: 2463900296616836152, guid: a8861c9a90f1b354f89d0c9780ce9e6a, type: 3}
+  playerMinionPrefabs:
+  - {fileID: 2463900296616836152, guid: a8861c9a90f1b354f89d0c9780ce9e6a, type: 3}
+  count: 3
+  spawnRadius: 4
+  spawnInterval: 0.3
+  preferEnemySpawn: 0
+  enemySpawnChance: 0.9

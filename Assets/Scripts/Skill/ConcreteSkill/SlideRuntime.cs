@@ -35,6 +35,7 @@ public class SlideRuntime : MonoBehaviour
 
     // ── 运行时状态 ──
     private Vector2 _direction;
+    private Vector2 _forcedDirection;   // 外部强制方向（Boss 轴向冲刺等），为零则内部计算
     private Vector3 _startPos;
     private float _traveled;
     private bool _isActive;
@@ -85,9 +86,12 @@ public class SlideRuntime : MonoBehaviour
         _playerController = _casterGO.GetComponent<PlayerController>();
         _casterSprite = _casterGO.GetComponentInChildren<SpriteRenderer>();
 
-        // 方向：玩家朝移动方向（无输入则朝鼠标），敌人随机
-        // 若启用自动锁敌，则优先朝最近敌人方向突进
-        if (_autoAimNearest)
+        // 方向：优先使用外部强制方向（Boss 轴向冲刺等），否则内部计算
+        if (_forcedDirection.sqrMagnitude > 0.01f)
+        {
+            _direction = _forcedDirection.normalized;
+        }
+        else if (_autoAimNearest)
         {
             _direction = FindNearestTargetDirection();
         }
@@ -143,6 +147,12 @@ public class SlideRuntime : MonoBehaviour
                 immunity = _casterGO.AddComponent<DamageImmunity>();
             immunity.GrantImmunity(_immuneDuration);
         }
+    }
+
+    /// <summary>设置强制方向（Boss 轴向冲刺等场景），Activate 时优先使用此方向</summary>
+    public void SetForcedDirection(Vector2 dir)
+    {
+        _forcedDirection = dir;
     }
 
     /// <summary>启用卷起敌人能力（肌束应急奔突等）</summary>
