@@ -32,19 +32,6 @@ public class AttackState : EnemyStateBase
             return;
         }
 
-        // Boss 张嘴冲刺型：检测同行/同列对齐 → 切 BossLungeState
-        if (Core.config != null && Core.config.useBossLunge && Core.GetComponent<BossCore>() != null)
-        {
-            float threshold = Core.config.axialAlignThreshold > 0f ? Core.config.axialAlignThreshold : 0.6f;
-            bool aligned = Mathf.Abs(playerPos.x - Core.transform.position.x) <= threshold
-                        || Mathf.Abs(playerPos.y - Core.transform.position.y) <= threshold;
-            if (aligned)
-            {
-                Core.StateMachine.ChangeState(new BossLungeState(Core));
-                return;
-            }
-        }
-
         // 保持靠近（A* 寻路）
         var path = Core.Movement.GetPath(playerPos);
         Core.Movement?.MoveAlongPath(path, Core.Health.ChaseSpeed, 0.3f);
@@ -52,11 +39,6 @@ public class AttackState : EnemyStateBase
         // 释放技能：支持随机选择就绪技能（多技能敌人概率发动）
         if (Core.SkillManager != null && Core.SkillManager.SkillInstances.Count > 0)
         {
-            // Boss 张嘴冲刺型：lunge 由 BossLungeState 管理，AttackState 不施放技能
-            // （BossCore.Update 负责施放非 lunge 技能如召唤）
-            if (Core.config != null && Core.config.useBossLunge)
-                return;
-
             if (Core.config != null && Core.config.useRandomSkill)
                 Core.SkillManager.TryCastRandomReadySkill(Core, Core.GetTargetDirection());
             else

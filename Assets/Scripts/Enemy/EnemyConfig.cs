@@ -42,6 +42,10 @@ public class EnemyConfig : ScriptableObject
     [Tooltip("为 true 时，攻击时从就绪技能中随机选择释放（概率发动多技能），而非固定释放 index 0")]
     public bool useRandomSkill = false;
 
+    [Header("Boss 张嘴冲刺（巨噬细胞 Boss 等）")]
+    [Tooltip("为 true 时，Boss 检测到玩家在同一行/同一列即朝该轴张嘴冲刺")]
+    public bool useBossLunge = false;
+
     [Header("Idle 随机游走")]
     [Tooltip("Idle 停留时间范围（秒）")]
     public Vector2 idleWaitTimeRange = new Vector2(1f, 3f);

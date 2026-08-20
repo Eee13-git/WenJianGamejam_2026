@@ -50,6 +50,19 @@ public class ChaseState : EnemyStateBase
             }
         }
 
+        // Boss 张嘴冲刺型（巨噬细胞 Boss）：同行/同列时进入冲刺状态
+        if (Core.config != null && Core.config.useBossLunge && Core.GetComponent<BossCore>() != null)
+        {
+            float threshold = Core.config.axialAlignThreshold > 0f ? Core.config.axialAlignThreshold : 0.6f;
+            bool aligned = Mathf.Abs(playerPos.x - Core.transform.position.x) <= threshold
+                        || Mathf.Abs(playerPos.y - Core.transform.position.y) <= threshold;
+            if (aligned)
+            {
+                Core.StateMachine.ChangeState(new BossLungeState(Core));
+                return;
+            }
+        }
+
         // 进入攻击范围
         if (sqrDist <= attackSqr)
         {

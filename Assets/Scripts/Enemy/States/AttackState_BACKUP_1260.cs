@@ -32,6 +32,11 @@ public class AttackState : EnemyStateBase
             return;
         }
 
+<<<<<<< HEAD
+        // 保持靠近（A* 寻路）
+        var path = Core.Movement.GetPath(playerPos);
+        Core.Movement?.MoveAlongPath(path, Core.Health.ChaseSpeed, 0.3f);
+=======
         // Boss 张嘴冲刺型：检测同行/同列对齐 → 切 BossLungeState
         if (Core.config != null && Core.config.useBossLunge && Core.GetComponent<BossCore>() != null)
         {
@@ -45,9 +50,9 @@ public class AttackState : EnemyStateBase
             }
         }
 
-        // 保持靠近（A* 寻路）
-        var path = Core.Movement.GetPath(playerPos);
-        Core.Movement?.MoveAlongPath(path, Core.Health.ChaseSpeed, 0.3f);
+        // 保持靠近
+        Core.Movement?.MoveTowardsPosition(playerPos, Core.Health.ChaseSpeed, 0.3f);
+>>>>>>> origin/LHJ
 
         // 释放技能：支持随机选择就绪技能（多技能敌人概率发动）
         if (Core.SkillManager != null && Core.SkillManager.SkillInstances.Count > 0)
