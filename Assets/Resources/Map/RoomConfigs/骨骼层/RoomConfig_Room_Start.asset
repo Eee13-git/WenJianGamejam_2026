@@ -1,0 +1,48 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 22b1d282c0213c24fbac9c767b4c1132, type: 3}
+  m_Name: RoomConfig_Room_Start
+  m_EditorClassIdentifier: 
+  roomType: 0
+  roomPrefabs:
+  - {fileID: 2429198125338884543, guid: eebb3d1e9c60f6d4f82d4b787b38e786, type: 3}
+  difficultyLevel: 0
+  hasTopDoor: 1
+  hasBottomDoor: 1
+  hasLeftDoor: 1
+  hasRightDoor: 1
+  roomSize: {x: 20, y: 12}
+  topDoorOffset: {x: 0, y: 6.5}
+  bottomDoorOffset: {x: 0, y: -6.5}
+  leftDoorOffset: {x: -10.5, y: 0}
+  rightDoorOffset: {x: 10.5, y: 0}
+  enemyPool:
+  - enemyPrefab: {fileID: 2800763903024477077, guid: 67adfd3a041fbfa42bdb10ec1bad8d2f, type: 3}
+    minCount: 1
+    maxCount: 3
+    weight: 1
+  - enemyPrefab: {fileID: 3394569538219518364, guid: 19a7e932d6c85e84289cbb55e205b7ce, type: 3}
+    minCount: 1
+    maxCount: 3
+    weight: 1
+  - enemyPrefab: {fileID: 5938946019499785119, guid: 7d35103aa466f4545b1e08a2ee4a646c, type: 3}
+    minCount: 1
+    maxCount: 3
+    weight: 1
+  minEnemies: 3
+  maxEnemies: 3
+  itemPool:
+  - {fileID: 1174511386879087513, guid: 86a8ef3a187a782449eba98cafd5f7fd, type: 3}
+  minItems: 5
+  maxItems: 5
+  qualityWeights: []
+  hiddenWallHP: 0
