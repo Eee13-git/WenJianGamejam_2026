@@ -33,6 +33,10 @@ public class SlideRuntime : MonoBehaviour
     private Material _burstWaveMaterial;
     private bool _burstTriggered;      // 本次冲刺是否已触发过爆发
 
+    // ── 音效配置（由 SetSounds 设置）──
+    private string _endSoundName;      // 自然结束（到达终点/命中）音效
+    private string _wallSoundName;     // 撞墙结束音效
+
     // ── 运行时状态 ──
     private Vector2 _direction;
     private Vector2 _forcedDirection;   // 外部强制方向（Boss 轴向冲刺等），为零则内部计算
@@ -155,6 +159,13 @@ public class SlideRuntime : MonoBehaviour
         _forcedDirection = dir;
     }
 
+    /// <summary>设置冲刺结束/撞墙音效（空=不播放）</summary>
+    public void SetSounds(string endSoundName, string wallSoundName)
+    {
+        _endSoundName = endSoundName;
+        _wallSoundName = wallSoundName;
+    }
+
     /// <summary>启用卷起敌人能力（肌束应急奔突等）</summary>
     public void EnableCarrying(float carryRadius, float carryDamage,
         float wallDamage, bool carriedInvincible, Projectile.OwnerType ownerType)
@@ -269,7 +280,7 @@ public class SlideRuntime : MonoBehaviour
             // 跳过自身 collider（冲刺期间已禁用）和敌人（命中由 CheckCarry 处理）
             if (fh.CompareTag("Obstacles") || fh.CompareTag("Wall") || fh.CompareTag("Spike") || fh.CompareTag("Hole"))
             {
-                EndSlide();
+                EndSlide(true);   // 撞墙结束（播放撞墙音效）
                 return;
             }
         }
@@ -559,10 +570,15 @@ public class SlideRuntime : MonoBehaviour
         fade.Init(0.25f);
     }
 
-    private void EndSlide()
+    private void EndSlide(bool hitWall = false)
     {
         if (!_isActive) return;
         _isActive = false;
+
+        // 结束音效：撞墙 vs 自然结束（如已配置）
+        string sound = hitWall ? _wallSoundName : _endSoundName;
+        if (!string.IsNullOrEmpty(sound) && AudioManager.Instance != null)
+            AudioManager.Instance.PlaySFX(sound);
 
         // 恢复施法者刚体类型 + collider（冲刺期间改成了 Kinematic + 禁用 collider）
         if (_casterRb != null)

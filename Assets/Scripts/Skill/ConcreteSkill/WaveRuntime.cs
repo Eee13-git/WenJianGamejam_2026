@@ -26,6 +26,9 @@ public class WaveRuntime : MonoBehaviour
     private float _knockbackDuration;
     private Projectile.OwnerType _ownerType;
 
+    // ── 音效（由 SetEndSound 设置）──
+    private string _endSoundName;
+
     // ── 运行时状态 ──
     private float _effectTimer;
     private float _effectDuration;
@@ -67,6 +70,12 @@ public class WaveRuntime : MonoBehaviour
 
     /// <summary>是否正在生效中</summary>
     public bool IsActive => _isActive;
+
+    /// <summary>设置效果结束时的音效名称（空=不播放）</summary>
+    public void SetEndSound(string soundName)
+    {
+        _endSoundName = soundName;
+    }
 
     /// <summary>
     /// 初始化扩散波。所有行为由参数控制，可选功能传 null/0/false 即可禁用。
@@ -495,6 +504,10 @@ public class WaveRuntime : MonoBehaviour
 
         _isActive = false;
         _listeningForCancel = false;
+
+        // 结束音效（如轴突传导阻滞结束）
+        if (!string.IsNullOrEmpty(_endSoundName) && AudioManager.Instance != null)
+            AudioManager.Instance.PlaySFX(_endSoundName);
 
         UnfreezeAll();
         RestoreAllKnockback();

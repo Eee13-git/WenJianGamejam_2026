@@ -66,6 +66,15 @@ public class RoomManager : MonoBehaviour
         if (roomRoot == null) roomRoot = GetComponent<RoomRoot>();
         if (roomRoot == null || roomRoot.config == null) return;
 
+        // BGM 切换：Boss 房间 → Boss 战音乐；其他房间 → 日常战斗音乐
+        if (BgmManager.Instance != null)
+        {
+            if (roomRoot.config.roomType == RoomType.Boss)
+                BgmManager.Instance.PlayBoss();
+            else
+                BgmManager.Instance.PlayCombat();
+        }
+
         // Shop 房间特殊处理：开张商店
         if (roomRoot.config.roomType == RoomType.Shop)
         {

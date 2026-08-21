@@ -46,6 +46,12 @@ public class SlideSkillEffect : SkillEffectBase
     [Tooltip("气浪视觉材质（可复用扩散波/气浪 shader 材质）")]
     [SerializeField] private Material _burstWaveMaterial;
 
+    [Header("音效（可选）")]
+    [Tooltip("冲刺自然结束（到达终点/命中敌人）时播放的音效名称，空=不播放")]
+    [SerializeField] private string _endSoundName;
+    [Tooltip("冲刺撞墙结束时播放的音效名称（如 \"muscle_burst_wall\"），空=不播放")]
+    [SerializeField] private string _wallSoundName;
+
     public override void Execute(ISkillCaster caster, Vector2 direction,
                                   float damageMultiplier, Projectile.OwnerType ownerType)
     {
@@ -54,6 +60,9 @@ public class SlideSkillEffect : SkillEffectBase
         if (existing != null && existing.IsActive) return;
 
         var slide = caster.CasterTransform.gameObject.AddComponent<SlideRuntime>();
+
+        // 结束/撞墙音效配置
+        slide.SetSounds(_endSoundName, _wallSoundName);
 
         // 敌人阵营：使用外部传入方向（Boss 轴向冲刺等）；玩家阵营由 SlideRuntime 内部读取输入
         if (ownerType == Projectile.OwnerType.Enemy && direction.sqrMagnitude > 0.01f)

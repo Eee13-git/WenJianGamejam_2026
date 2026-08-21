@@ -112,6 +112,10 @@ public class PlayerSkillManager : MonoBehaviour, ISkillCaster
         if (slot.TryCast(this, direction))
         {
             OnSkillCast?.Invoke(index, slot.Skill.Data);
+
+            // 技能释放音效（与效果同步；无专属音效的技能静默）
+            if (AudioManager.Instance != null)
+                AudioManager.Instance.PlaySkillCastSound(slot.Skill.Data.skillId);
         }
     }
 

@@ -175,7 +175,10 @@ public class EnemySkillManager : MonoBehaviour
         if (_castDelay > 0f)
             StartCoroutine(DelayedExecute(skill, caster, dir));
         else
+        {
+            PlayCastSound(skill);
             skill.ExecuteEffect(caster, dir);
+        }
 
         return true;
     }
@@ -183,6 +186,15 @@ public class EnemySkillManager : MonoBehaviour
     private IEnumerator DelayedExecute(SkillInstance skill, ISkillCaster caster, Vector2 dir)
     {
         yield return new WaitForSeconds(_castDelay);
+        PlayCastSound(skill);
         skill.ExecuteEffect(caster, dir);
+    }
+
+    /// <summary>播放技能释放音效（与动画效果帧同步；无专属音效的技能静默）</summary>
+    private void PlayCastSound(SkillInstance skill)
+    {
+        if (skill == null || skill.Data == null) return;
+        if (AudioManager.Instance != null)
+            AudioManager.Instance.PlaySkillCastSound(skill.Data.skillId);
     }
 }

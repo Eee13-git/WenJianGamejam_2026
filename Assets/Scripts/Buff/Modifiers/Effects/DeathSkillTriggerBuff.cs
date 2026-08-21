@@ -12,8 +12,11 @@ using UnityEngine;
 [CreateAssetMenu(fileName = "DeathSkillTriggerBuff", menuName = "Game/Buff Effect/Death Skill Trigger")]
 public class DeathSkillTriggerBuff : BuffEffectBase
 {
-    [Tooltip("死亡时执行的技能效果")]
+    [Tooltip("死亡时执行的技能效果（fallback：未配置 deathSkillId 或角色身上无该技能时使用）")]
     public SkillEffectBase deathSkillEffect;
+
+    [Tooltip("死亡时调用的角色自身技能 ID（从 EnemySkillManager 查找并执行，如 \"axon_block\"）。空=用 deathSkillEffect")]
+    public string deathSkillId;
 
     private static readonly Dictionary<BuffInstance, Action> _handlers
         = new Dictionary<BuffInstance, Action>();
@@ -46,10 +49,33 @@ public class DeathSkillTriggerBuff : BuffEffectBase
 
     private void ExecuteDeathSkill(GameObject caster)
     {
-        if (deathSkillEffect == null || caster == null) return;
+        if (caster == null) return;
 
         var core = caster.GetComponent<EnemyCore>();
         if (core == null) return;
+
+        // 优先：调用角色身上携带的技能（从 EnemySkillManager 按 skillId 查找实例）
+        if (!string.IsNullOrEmpty(deathSkillId))
+        {
+            if (core.SkillManager != null)
+            {
+                foreach (var inst in core.SkillManager.SkillInstances)
+                {
+                    if (inst == null || inst.Data == null) continue;
+                    if (inst.Data.skillId != deathSkillId) continue;
+
+                    // 直接执行效果（不检查冷却——亡语释放不应受冷却限制）
+                    inst.ExecuteEffect(core, Vector2.up);
+                    Debug.Log($"[DeathSkillTrigger] {caster.name} 死亡 → 调用身上技能 {deathSkillId}");
+                    return;
+                }
+            }
+
+            Debug.LogWarning($"[DeathSkillTrigger] {caster.name} 身上未找到技能 {deathSkillId}，回退到 deathSkillEffect");
+        }
+
+        // 回退：直接执行配置的效果
+        if (deathSkillEffect == null) return;
 
         deathSkillEffect.Execute(
             core,

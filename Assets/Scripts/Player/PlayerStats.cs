@@ -115,6 +115,10 @@ public class PlayerStats : MonoBehaviour, IDamageable, IHealable
         // 弹出伤害数字（玩家受伤用红色）
         DamagePopup.Spawn(transform.position, damage, isPlayerDamage: true);
 
+        // 受击音效（实际扣血才播放）
+        if (damage > 0f && AudioManager.Instance != null)
+            AudioManager.Instance.PlaySFX("player_hurt");
+
         // 角色受击 → 屏幕振动 + 全屏红闪
         if (CameraShake.Instance != null)
         {

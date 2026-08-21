@@ -126,6 +126,10 @@ public class EnemyStats : MonoBehaviour, IDamageable, IHealable
 
         DamagePopup.Spawn(transform.position, damage);
 
+        // 受击音效（0.05s 最小间隔由 AudioManager 内部控制，防高频叠加）
+        if (AudioManager.Instance != null)
+            AudioManager.Instance.PlaySFX("enemy_hurt");
+
         if (CameraShake.Instance != null)
             CameraShake.Instance.Shake(0.7f);
 

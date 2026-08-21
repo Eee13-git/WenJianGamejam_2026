@@ -50,6 +50,10 @@ public class WaveSkillEffect : SkillEffectBase
     [Tooltip("全屏覆盖材质（null=无覆盖层）")]
     [SerializeField] private Material _overlayMaterial;
 
+    [Header("音效（可选）")]
+    [Tooltip("波纹结束/消散时播放的音效名称（如 \"axon_block_end\"），空=不播放")]
+    [SerializeField] private string _endSoundName;
+
     public override void Execute(ISkillCaster caster, Vector2 direction,
                                   float damageMultiplier, Projectile.OwnerType ownerType)
     {
@@ -61,6 +65,8 @@ public class WaveSkillEffect : SkillEffectBase
 
         var go = new GameObject("DiffusionWave");
         var runtime = go.AddComponent<WaveRuntime>();
+
+        runtime.SetEndSound(_endSoundName);
 
         runtime.Initialize(
             origin, direction, _waveSpeed, _maxRadius, _spreadAngle,

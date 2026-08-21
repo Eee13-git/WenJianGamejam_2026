@@ -206,6 +206,10 @@ public class PhotonBeam : MonoBehaviour
         if (_beamMat != null)
             _beamMat.SetFloat("_Flash", 0f);
 
+        // 落地音效（光柱砸下）
+        if (AudioManager.Instance != null)
+            AudioManager.Instance.PlaySFX("photon_radiance_landing");
+
         // 落地闪光 + 血池
         SpawnImpactFlash();
         SpawnRadiancePool();

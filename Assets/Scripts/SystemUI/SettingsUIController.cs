@@ -43,7 +43,9 @@ public class SettingsUIController : MonoBehaviour
         if (_volumeSlider != null)
         {
             _volumeSlider.onValueChanged.AddListener(OnVolumeChanged);
-            _volumeSlider.value = AudioListener.volume;
+            _volumeSlider.value = AudioManager.Instance != null
+                ? AudioManager.Instance.MasterVolume
+                : AudioListener.volume;
         }
 
         if (_brightnessSlider != null)
@@ -89,7 +91,11 @@ public class SettingsUIController : MonoBehaviour
 
     private void OnVolumeChanged(float value)
     {
-        AudioListener.volume = value;
+        // 统一走 AudioManager 主音量（内部同步 AudioListener.volume）
+        if (AudioManager.Instance != null)
+            AudioManager.Instance.SetMasterVolume(value);
+        else
+            AudioListener.volume = value;
     }
 
     private void OnBrightnessChanged(float value)
