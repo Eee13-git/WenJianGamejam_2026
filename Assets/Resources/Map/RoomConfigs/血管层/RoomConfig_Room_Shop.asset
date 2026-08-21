@@ -10,13 +10,12 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 22b1d282c0213c24fbac9c767b4c1132, type: 3}
-  m_Name: RoomConfig_Room_Hidden
+  m_Name: RoomConfig_Room_Shop
   m_EditorClassIdentifier: 
-  roomType: 6
+  roomType: 4
   roomPrefabs:
-  - {fileID: 8714994603401707951, guid: 3901a0e2c78395242b1bed208161feab, type: 3}
-  - {fileID: 7773221451206624572, guid: 853a29bdfd024c34d9eabf1cf5abccc5, type: 3}
-  difficultyLevel: 1
+  - {fileID: 1714103777742176836, guid: a86f2d2aa5264df4fbf2e3293dfeea6a, type: 3}
+  difficultyLevel: 0
   hasTopDoor: 1
   hasBottomDoor: 1
   hasLeftDoor: 1
@@ -78,15 +77,15 @@ MonoBehaviour:
   minEnemies: 8
   maxEnemies: 15
   itemPool: []
-  minItems: 2
-  maxItems: 3
+  minItems: 1
+  maxItems: 2
   qualityWeights:
   - quality: 0
-    weight: 20
+    weight: 30
   - quality: 1
-    weight: 30
+    weight: 35
   - quality: 2
-    weight: 30
+    weight: 25
   - quality: 3
-    weight: 20
-  hiddenWallHP: 4
+    weight: 10
+  hiddenWallHP: 0
