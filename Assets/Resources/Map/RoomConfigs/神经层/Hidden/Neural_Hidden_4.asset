@@ -1,0 +1,94 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 22b1d282c0213c24fbac9c767b4c1132, type: 3}
+  m_Name: Neural_Hidden_4
+  m_EditorClassIdentifier: 
+  roomType: 6
+  roomPrefabs:
+  - {fileID: 5769680316266932873, guid: 5aeaaa1e50c1ade49b3f243c1605c7ce, type: 3}
+  difficultyLevel: 1
+  hasTopDoor: 1
+  hasBottomDoor: 1
+  hasLeftDoor: 1
+  hasRightDoor: 1
+  roomSize: {x: 20, y: 12}
+  topDoorOffset: {x: 0, y: 6.5}
+  bottomDoorOffset: {x: 0, y: -6.5}
+  leftDoorOffset: {x: -10.5, y: 0}
+  rightDoorOffset: {x: 10.5, y: 0}
+  enemyPool:
+  - enemyPrefab: {fileID: 1543939389936749292, guid: be4429c5414d5d54bafd276834108740, type: 3}
+    minCount: 1
+    maxCount: 5
+    weight: 1
+  - enemyPrefab: {fileID: 3394569538219518364, guid: 19a7e932d6c85e84289cbb55e205b7ce, type: 3}
+    minCount: 1
+    maxCount: 5
+    weight: 1.2
+  - enemyPrefab: {fileID: 6216737995924536335, guid: 2c118a3cc72911643aad3018b2457e4c, type: 3}
+    minCount: 1
+    maxCount: 5
+    weight: 0.8
+  - enemyPrefab: {fileID: 6313027962090680599, guid: eb90b4ca14cae6a41ad0a39728ccd795, type: 3}
+    minCount: 1
+    maxCount: 5
+    weight: 0.5
+  - enemyPrefab: {fileID: 1669273398600419878, guid: d8cb411d72555344f8623865e0575546, type: 3}
+    minCount: 1
+    maxCount: 5
+    weight: 1
+  - enemyPrefab: {fileID: 1587994525134528811, guid: 327f1296c8fb88a4aa4cced41d3b2f96, type: 3}
+    minCount: 1
+    maxCount: 5
+    weight: 0.7
+  - enemyPrefab: {fileID: 459126445960509181, guid: 41555d3c820cb7340aaef8e8cfd45346, type: 3}
+    minCount: 1
+    maxCount: 5
+    weight: 1
+  - enemyPrefab: {fileID: 8995715563813495099, guid: f85e5233d548f994788c83481e2df3ec, type: 3}
+    minCount: 1
+    maxCount: 5
+    weight: 1.3
+  - enemyPrefab: {fileID: 5938946019499785119, guid: 7d35103aa466f4545b1e08a2ee4a646c, type: 3}
+    minCount: 1
+    maxCount: 5
+    weight: 1.2
+  - enemyPrefab: {fileID: 2800763903024477077, guid: 67adfd3a041fbfa42bdb10ec1bad8d2f, type: 3}
+    minCount: 1
+    maxCount: 5
+    weight: 0.4
+  - enemyPrefab: {fileID: 2691007392336545358, guid: 6116bc8d79dccc44188bdbc647126bc2, type: 3}
+    minCount: 5
+    maxCount: 10
+    weight: 10
+  - enemyPrefab: {fileID: 5557266737327248120, guid: d4c2a1e1ffc78d04bb980b8b7aed389c, type: 3}
+    minCount: 5
+    maxCount: 10
+    weight: 10
+  minEnemies: 2
+  maxEnemies: 4
+  itemPool: []
+  itemSpawnChance: 1
+  itemCountWeights: 010000000300000001000000
+  qualityWeights:
+  - quality: 0
+    weight: 20
+  - quality: 1
+    weight: 30
+  - quality: 2
+    weight: 30
+  - quality: 3
+    weight: 20
+  healthPickupChance: 0.5
+  healthPickupCountWeights: 0200000001000000
+  healthPickupPrefab: {fileID: 5876232037650745459, guid: 6432679e6b1f7cf459ff780d9d459603, type: 3}
+  hiddenWallHP: 4
