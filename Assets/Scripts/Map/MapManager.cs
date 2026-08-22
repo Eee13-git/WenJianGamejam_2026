@@ -29,6 +29,24 @@ public class MapManager : MonoBehaviour
     /// <summary>玩家从门进入新房间时的内缩距离 (避免立刻再次触发门)</summary>
     [SerializeField] private float _doorEntryOffset = 0f;
 
+    /// <summary>全局门触发冷却 (秒)，防止切换后瞬间弹回</summary>
+    private float _lastGlobalPortalTime = -999f;
+    private const float PortalCooldown = 0.2f;
+
+    [Header("门触发阈值")]
+    [Tooltip("垂直墙方向距离阈值 (玩家离墙壁多近触发)")]
+    [SerializeField] private float _portalEnterThresholdY = 1.0f;
+
+    [Tooltip("沿墙方向距离阈值 (门洞宽度)")]
+    [SerializeField] private float _portalEnterThresholdX = 1.0f;
+
+    [Tooltip("输入方向最小分量 (防止静止误触发)")]
+    [SerializeField] private float _portalMinInput = 0.5f;
+
+    public float PortalEnterThresholdY => _portalEnterThresholdY;
+    public float PortalEnterThresholdX => _portalEnterThresholdX;
+    public float PortalMinInput => _portalMinInput;
+
     // 事件
     public event System.Action<int, int> OnRoomChanged; // (fromRoomId, toRoomId)
     public event System.Action<int, int> OnRoomSwitchStarted;
@@ -40,6 +58,10 @@ public class MapManager : MonoBehaviour
     public bool IsSwitchingRoom => _isSwitchingRoom;
     public RoomGraph RoomGraph => _roomGraph;
     public MapConfig MapConfigAsset => _mapConfig;
+
+    /// <summary>全局门触发冷却检查 (防止切换后瞬间弹回)</summary>
+    public bool CanTriggerPortal() => Time.time - _lastGlobalPortalTime >= PortalCooldown;
+    public void OnPortalTriggered() => _lastGlobalPortalTime = Time.time;
 
     private void Awake()
     {
@@ -252,6 +274,9 @@ public class MapManager : MonoBehaviour
         OnRoomChanged?.Invoke(fromRoomId, targetRoomId);
         OnRoomSwitchCompleted?.Invoke(targetRoomId);
 
+        // 切换完成后重置冷却计时器，确保玩家到达新房间后有冷却窗口
+        OnPortalTriggered();
+
         // 统计：访问房间已由 RoomManager.OnPlayerEnter（_isFirstEnter 守卫）负责，此处不再重复
 
         Debug.Log($"MapManager: 切换到房间 {targetRoomId} ({targetRoom.config.roomType})");
@@ -342,7 +367,7 @@ public class MapManager : MonoBehaviour
 
             float sideX = Mathf.Sin(rad);
             float forwardY = Mathf.Cos(rad);
-            Vector2 localOffset = new Vector2(sideX, forwardY) * 1.2f;
+            Vector2 localOffset = new Vector2(sideX, forwardY) * 0.8f;
 
             Vector2 rotatedOffset = new Vector2(
                 localOffset.x * cos - localOffset.y * sin,

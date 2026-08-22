@@ -1038,7 +1038,7 @@ public class RoomBuilderTool3 : EditorWindow
         doorGO.transform.localRotation = Quaternion.Euler(0, 0, rotZ);
 
         var trigger = doorGO.AddComponent<BoxCollider2D>();
-        trigger.size = nat;
+        trigger.size = new Vector2(1.25f, 1.25f);
         trigger.isTrigger = true;
 
         var portal = doorGO.AddComponent<RoomPortal>();

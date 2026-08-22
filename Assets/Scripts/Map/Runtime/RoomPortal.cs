@@ -2,8 +2,8 @@ using UnityEngine;
 
 /// <summary>
 /// 房间门 — 挂载在每个门 GO 上。
-/// 普通门：Trigger 检测玩家 → 切换房间。
-/// 隐藏墙：清房后 openTrigger 启用但不放行玩家，子弹命中 N 次后墙壁破碎，显示门。
+/// 普通门：Update 中基于距离+输入方向检测玩家是否朝门移动 → 切换房间。
+/// 隐藏墙：清房后 openTrigger 启用接收子弹，命中 N 次后墙壁破碎，显示门。
 /// 无连接的门：直接隐藏，不出现墙壁贴图。
 /// </summary>
 public class RoomPortal : MonoBehaviour
@@ -31,11 +31,71 @@ public class RoomPortal : MonoBehaviour
     private int _hiddenWallHP;
     private int _currentHP;
 
+    // 惰性缓存的玩家引用 (零 Find, 零 GC)
+    private static PlayerController _cachedPlayer;
+
     private void Awake()
     {
         if (doorSprite == null) doorSprite = GetComponent<SpriteRenderer>();
         if (openTrigger == null) openTrigger = GetComponent<Collider2D>();
         if (openTrigger != null) openTrigger.isTrigger = true;
+    }
+
+    private void Update()
+    {
+        if (_hidden || _locked || targetRoomId < 0) return;
+        if (_breakable) return;
+        if (MapManager.Instance == null) return;
+        if (MapManager.Instance.IsSwitchingRoom) return;
+        if (!MapManager.Instance.CanTriggerPortal()) return;
+
+        // 惰性缓存 PlayerController
+        if (_cachedPlayer == null || _cachedPlayer.gameObject == null)
+        {
+            var player = PlayerManager.Instance?.CurrentPlayer;
+            if (player == null) return;
+            _cachedPlayer = player.GetComponent<PlayerController>();
+            if (_cachedPlayer == null) return;
+        }
+
+        Vector2 playerPos = _cachedPlayer.transform.position;
+        Vector2 doorPos = transform.position;
+        Vector2 inputDir = _cachedPlayer.MoveDirection;
+
+        float dx = Mathf.Abs(playerPos.x - doorPos.x);
+        float dy = Mathf.Abs(playerPos.y - doorPos.y);
+
+        float thresholdY = MapManager.Instance.PortalEnterThresholdY;
+        float thresholdX = MapManager.Instance.PortalEnterThresholdX;
+        float minInput = MapManager.Instance.PortalMinInput;
+
+        bool inRange, movingTowardDoor;
+        switch (direction)
+        {
+            case DoorDirection.Top:
+                inRange = dy < thresholdY && dx < thresholdX;
+                movingTowardDoor = inputDir.y > minInput;
+                break;
+            case DoorDirection.Bottom:
+                inRange = dy < thresholdY && dx < thresholdX;
+                movingTowardDoor = inputDir.y < -minInput;
+                break;
+            case DoorDirection.Left:
+                inRange = dx < thresholdY && dy < thresholdX;
+                movingTowardDoor = inputDir.x < -minInput;
+                break;
+            case DoorDirection.Right:
+                inRange = dx < thresholdY && dy < thresholdX;
+                movingTowardDoor = inputDir.x > minInput;
+                break;
+            default: return;
+        }
+
+        if (inRange && movingTowardDoor)
+        {
+            MapManager.Instance.OnPortalTriggered();
+            MapManager.Instance.SwitchRoom(targetRoomId, direction);
+        }
     }
 
     private void OnTriggerEnter2D(Collider2D other)
@@ -46,17 +106,6 @@ public class RoomPortal : MonoBehaviour
             OnBulletHit(proj);
             return;
         }
-
-        // 隐藏墙未破坏前不放行玩家 (_locked 为 true)
-        if (_locked) return;
-
-        // 正常的门传送
-        if (targetRoomId < 0) return;
-        if (!other.CompareTag(targetTag)) return;
-        if (MapManager.Instance == null) return;
-        if (other.GetComponent<PlayerStats>() == null) return;
-
-        MapManager.Instance.SwitchRoom(targetRoomId, direction);
     }
 
     private void OnBulletHit(Projectile proj)
