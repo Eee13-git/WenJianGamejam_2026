@@ -24,7 +24,7 @@ public class ItemPickup : MonoBehaviour
     [SerializeField] private bool _enableFloatAnimation = true;
     [SerializeField] private float _floatAmplitude = 0.15f;
     [SerializeField] private float _floatFrequency = 2f;
-    [SerializeField] private bool _enableRotation = true;
+    [SerializeField] private bool _enableRotation = false;
     [SerializeField] private float _rotationSpeed = 30f;
 
     [Header("高亮")]

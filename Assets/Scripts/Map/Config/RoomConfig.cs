@@ -46,14 +46,24 @@ public class RoomConfig : ScriptableObject
     [Tooltip("道具池覆盖（留空则使用 ItemsLibrary 全局道具池）。非空时仅从该子池抽取")]
     public List<GameObject> itemPool = new();
 
-    [Tooltip("最少道具数")]
-    public int minItems = 0;
+    [Tooltip("道具生成概率 (0~1)")]
+    [Range(0f, 1f)] public float itemSpawnChance = 1.0f;
 
-    [Tooltip("最多道具数")]
-    public int maxItems = 2;
+    [Tooltip("道具数量权重 (索引i → 生成i+1个)")]
+    public int[] itemCountWeights = { 1, 3, 1 };
 
     [Tooltip("品质权重覆盖（留空则使用 ItemsLibrary 默认权重）")]
     public QualityWeight[] qualityWeights;
+
+    [Header("血量回复物")]
+    [Tooltip("血量回复物生成概率 (0~1, 清房后判定)")]
+    [Range(0f, 1f)] public float healthPickupChance = 0.5f;
+
+    [Tooltip("血量回复物数量权重 (索引i → 生成i+1个)")]
+    public int[] healthPickupCountWeights = { 2, 1 };
+
+    [Tooltip("血量回复物预制体")]
+    public GameObject healthPickupPrefab;
 
     [Header("隐藏墙")]
     [Tooltip("隐藏墙血量 (需要攻击次数)，0=普通门")]

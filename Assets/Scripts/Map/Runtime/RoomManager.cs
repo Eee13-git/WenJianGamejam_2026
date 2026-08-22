@@ -109,8 +109,11 @@ public class RoomManager : MonoBehaviour
             }
             else
             {
-                // 无怪物的房间（如 Start 房）：直接生成道具
-                SpawnItems();
+                // 无怪物的房间（如 Start 房）：直接生成道具（不生成血量回复物）
+                var availablePoints = new List<Transform>();
+                if (roomRoot.itemSpawnPoints != null)
+                    availablePoints.AddRange(roomRoot.itemSpawnPoints);
+                SpawnItems(availablePoints);
             }
         }
     }
@@ -219,7 +222,7 @@ public class RoomManager : MonoBehaviour
     /// <summary>敌人死亡回调</summary>
     private void OnEnemyDied(GameObject enemy)
     {
-        _aliveEnemies.Remove(enemy);
+        RemoveAliveEnemy(enemy);
 
         // 生成货币掉落
         SpawnCurrency(enemy.transform.position, _currencyPerEnemy);
@@ -233,11 +236,26 @@ public class RoomManager : MonoBehaviour
     /// <summary>敌人被同化为随从（不再计入房间清空判定）</summary>
     private void OnEnemyAssimilated(GameObject enemy)
     {
-        _aliveEnemies.Remove(enemy);
+        RemoveAliveEnemy(enemy);
 
         if (_aliveEnemies.Count == 0)
         {
             OnAllEnemiesDefeated();
+        }
+    }
+
+    /// <summary>
+    /// 安全移除存活敌人 — List.Remove 依赖 EqualityComparer，Unity 对象销毁后
+    /// ==重载返回 null 但比较器可能匹配失败，导致幽灵条目残留房间永远清不掉。
+    /// 改用遍历 + Unity null 判断移除。
+    /// </summary>
+    private void RemoveAliveEnemy(GameObject enemy)
+    {
+        for (int i = _aliveEnemies.Count - 1; i >= 0; i--)
+        {
+            // 同时清理已销毁的幽灵条目
+            if (_aliveEnemies[i] == null || _aliveEnemies[i] == enemy)
+                _aliveEnemies.RemoveAt(i);
         }
     }
 
@@ -272,8 +290,16 @@ public class RoomManager : MonoBehaviour
         // 激活相邻隐藏房的门 (变为可破坏状态)
         ActivateHiddenWalls();
 
-        // 生成道具奖励
-        SpawnItems();
+        // 共享生成点列表：道具先生成占点，血量回复物后生成用剩余点
+        var availablePoints = new List<Transform>();
+        if (roomRoot.itemSpawnPoints != null)
+            availablePoints.AddRange(roomRoot.itemSpawnPoints);
+
+        // 道具先生成
+        SpawnItems(availablePoints);
+
+        // 血量回复物后生成（用剩余点）
+        SpawnHealthPickups(availablePoints);
 
         // Boss/Exit 房生成下一层出口
         TrySpawnNextLevelExit();
@@ -338,17 +364,21 @@ public class RoomManager : MonoBehaviour
         }
     }
 
-    /// <summary>生成道具</summary>
-    private void SpawnItems()
+    /// <summary>生成道具（概率+权重，占点后从 availablePoints 移除）</summary>
+    private void SpawnItems(List<Transform> availablePoints)
     {
         if (roomRoot == null || roomRoot.config == null) return;
         var cfg = roomRoot.config;
 
-        int totalItems = Random.Range(cfg.minItems, cfg.maxItems + 1);
-        int spawnPointCount = roomRoot.itemSpawnPoints != null ? roomRoot.itemSpawnPoints.Length : 0;
-        if (spawnPointCount == 0) return;
+        if (availablePoints == null || availablePoints.Count == 0) return;
 
-        int spawnCount = Mathf.Min(totalItems, spawnPointCount);
+        // 概率判定
+        if (Random.value > cfg.itemSpawnChance) return;
+
+        // 权重抽取生成数量
+        int count = GetWeightedRandomCount(cfg.itemCountWeights);
+        count = Mathf.Min(count, availablePoints.Count);
+        if (count <= 0) return;
 
         var library = ItemsLibrary.Instance;
         if (library == null)
@@ -357,29 +387,73 @@ public class RoomManager : MonoBehaviour
             return;
         }
 
-        // 确定池和权重：RoomConfig 覆盖优先
         var pool = (cfg.itemPool != null && cfg.itemPool.Count > 0) ? cfg.itemPool : null;
         var weights = (cfg.qualityWeights != null && cfg.qualityWeights.Length > 0) ? cfg.qualityWeights : null;
         var filter = ItemPoolFilter.GetPlayerItemManager();
 
-        var picked = library.GetRandomItemPrefabs(spawnCount, pool, weights, filter);
-        for (int i = 0; i < picked.Count && i < spawnPointCount; i++)
+        var picked = library.GetRandomItemPrefabs(count, pool, weights, filter);
+        for (int i = 0; i < picked.Count && availablePoints.Count > 0; i++)
         {
             if (picked[i] == null) continue;
-            Instantiate(picked[i], roomRoot.itemSpawnPoints[i].position, Quaternion.identity, transform);
+            int idx = Random.Range(0, availablePoints.Count);
+            Instantiate(picked[i], availablePoints[idx].position, Quaternion.identity, transform);
+            availablePoints.RemoveAt(idx);
         }
 
         // Boss 房必定生成一个溶酶体（使用无副作用方法，不影响随机池）
         if (roomRoot.config.roomType == RoomType.Boss)
         {
             var lysosomePrefab = library.GetItemPrefabDirectly("lysosome");
-            if (lysosomePrefab != null && spawnPointCount > 0)
+            if (lysosomePrefab != null && availablePoints.Count > 0)
             {
-                int idx = Mathf.Min(picked.Count, spawnPointCount - 1);
-                Instantiate(lysosomePrefab, roomRoot.itemSpawnPoints[idx].position,
-                             Quaternion.identity, transform);
+                int idx = Random.Range(0, availablePoints.Count);
+                Instantiate(lysosomePrefab, availablePoints[idx].position, Quaternion.identity, transform);
+                availablePoints.RemoveAt(idx);
             }
         }
+    }
+
+    /// <summary>生成血量回复物（清房后概率+权重，用道具剩余的生成点）</summary>
+    private void SpawnHealthPickups(List<Transform> availablePoints)
+    {
+        if (roomRoot == null || roomRoot.config == null) return;
+        var cfg = roomRoot.config;
+
+        if (availablePoints == null || availablePoints.Count == 0) return;
+        if (cfg.healthPickupPrefab == null) return;
+
+        // 概率判定
+        if (Random.value > cfg.healthPickupChance) return;
+
+        // 权重抽取生成数量
+        int count = GetWeightedRandomCount(cfg.healthPickupCountWeights);
+        count = Mathf.Min(count, availablePoints.Count);
+        if (count <= 0) return;
+
+        for (int i = 0; i < count; i++)
+        {
+            if (availablePoints.Count == 0) break;
+            int idx = Random.Range(0, availablePoints.Count);
+            Instantiate(cfg.healthPickupPrefab, availablePoints[idx].position, Quaternion.identity, transform);
+            availablePoints.RemoveAt(idx);
+        }
+    }
+
+    /// <summary>加权随机抽取生成数量（索引i → 生成i+1个）</summary>
+    private int GetWeightedRandomCount(int[] weights)
+    {
+        if (weights == null || weights.Length == 0) return 0;
+        int totalWeight = 0;
+        foreach (int w in weights) totalWeight += w;
+        if (totalWeight <= 0) return 0;
+        int roll = Random.Range(0, totalWeight);
+        int cumulative = 0;
+        for (int i = 0; i < weights.Length; i++)
+        {
+            cumulative += weights[i];
+            if (roll < cumulative) return i + 1;
+        }
+        return weights.Length;
     }
 
     /// <summary>协程: 轮询检查敌人死亡 (用于未继承 BaseEnemy 的敌人)</summary>

@@ -4,7 +4,7 @@ using UnityEngine;
 /// <summary>
 /// 道具池过滤工具 — 道具刷新时排除玩家已达拾取上限的道具。
 /// 玩家持有某道具数量 >= ItemData.maxCount（且 maxCount>0）时，该道具不再从池中刷新。
-/// 供 ItemSpawner（房间刷新）与 ShopManager（商店开张）共用。
+/// 供 RoomManager（房间刷新）与 ShopManager（商店开张）共用。
 /// </summary>
 public static class ItemPoolFilter
 {
