@@ -53,9 +53,21 @@ public class ItemSlotView : MonoBehaviour, IPointerEnterHandler, IPointerExitHan
         {
             _icon.sprite = data.Icon;
             _icon.enabled = data.Icon != null;
+
+            // 移除旧动画组件
+            var existingAnim = _icon.GetComponent<ItemIconAnimator>();
+            if (existingAnim != null) Destroy(existingAnim);
         }
         if (_emptyIcon != null)
             _emptyIcon.SetActive(data.Icon == null);
+
+        // 如果道具有动画帧，添加动画组件
+        if (boundItem != null && boundItem.animationFrames != null
+            && boundItem.animationFrames.Length > 1 && _icon != null)
+        {
+            var anim = _icon.gameObject.AddComponent<ItemIconAnimator>();
+            anim.Initialize(boundItem.animationFrames, boundItem.animationFPS, true);
+        }
 
         if (_qualityFrame != null)
         {
@@ -88,7 +100,13 @@ public class ItemSlotView : MonoBehaviour, IPointerEnterHandler, IPointerExitHan
         if (_background != null)
             _background.color = new Color(0f, 0f, 0f, 0f); // 完全透明
 
-        if (_icon != null) _icon.enabled = false;
+        if (_icon != null)
+        {
+            _icon.enabled = false;
+            // 移除动画组件
+            var existingAnim = _icon.GetComponent<ItemIconAnimator>();
+            if (existingAnim != null) Destroy(existingAnim);
+        }
         if (_emptyIcon != null) _emptyIcon.SetActive(false);
         if (_qualityFrame != null) _qualityFrame.gameObject.SetActive(false);
         if (_nameText != null) _nameText.text = "";

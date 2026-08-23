@@ -28,4 +28,11 @@ public class ItemData : ScriptableObject
     [Header("获取限制")]
     [Tooltip("可获取的数量上限。0 = 无限制，>0 = 最多持有该数量")]
     [Min(0)] public int maxCount;     // 数量上限
+
+    [Header("图标动画")]
+    [Tooltip("帧动画精灵数组（如 DNA 旋转动画）。为空则图标静态显示 icon。")]
+    public Sprite[] animationFrames;
+
+    [Tooltip("帧动画播放速率（帧/秒）")]
+    public float animationFPS = 8f;
 }
