@@ -65,6 +65,28 @@ public class EnemyDeathSpawner : MonoBehaviour
             var go = Instantiate(entry.prefab, pos, Quaternion.identity);
             go.name = $"DeathSpawn_{entry.prefab.name}";
 
+            // 计入房间敌人计数：亡语生成的噬菌体/分裂怪必须计入 _aliveEnemies，
+            // 否则房间门提前开启（且其死亡也不触发清房判定）
+            var room = enemy.transform.parent != null
+                ? enemy.transform.parent.GetComponentInParent<RoomManager>()
+                : null;
+            // fallback：按死亡位置匹配房间（敌人无 parent 时，如编辑器测试实例）
+            if (room == null)
+            {
+                foreach (var rr in Object.FindObjectsOfType<RoomRoot>(true))
+                {
+                    Vector2 half = rr.roomSize * 0.5f;
+                    Vector2 p = enemy.transform.position;
+                    if (Mathf.Abs(p.x - rr.transform.position.x) <= half.x
+                        && Mathf.Abs(p.y - rr.transform.position.y) <= half.y)
+                    {
+                        room = rr.GetComponent<RoomManager>();
+                        break;
+                    }
+                }
+            }
+            room?.RegisterEnemy(go);
+
             Debug.Log($"[EnemyDeathSpawner] {enemyName} 死亡 → 生成 {entry.prefab.name}");
         }
     }

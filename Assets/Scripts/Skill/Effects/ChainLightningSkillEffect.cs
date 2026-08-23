@@ -216,6 +216,9 @@ public class ChainLightningArcRuntime : MonoBehaviour
     private int _refreshInterval = 1;
     private int _frameCounter;
 
+    /// <summary>是否渐变（中间亮白、两端边缘色）。false=整条纯色（如暗仪刺刀统一暗紫）</summary>
+    public bool useGradient = true;
+
     public void Init(LineRenderer lr, Vector3 from, Vector3 to,
         int segments, float jitter, float duration, Color edgeColor, int refreshInterval = 1)
     {
@@ -255,23 +258,40 @@ public class ChainLightningArcRuntime : MonoBehaviour
         }
     }
 
-    /// <summary>应用颜色渐变：中间亮白、两端边缘色（青蓝），alpha 整体衰减</summary>
+    /// <summary>应用颜色：useGradient=true 渐变（中间亮白、两端边缘色），false 纯色（统一边缘色）</summary>
     private void ApplyGradient(float a)
     {
         var grad = new Gradient();
-        grad.SetKeys(
-            new[]
-            {
-                new GradientColorKey(_edgeColor, 0f),
-                new GradientColorKey(Color.white, 0.5f),
-                new GradientColorKey(_edgeColor, 1f),
-            },
-            new[]
-            {
-                new GradientAlphaKey(a, 0f),
-                new GradientAlphaKey(a, 0.5f),
-                new GradientAlphaKey(a * 0.6f, 1f),
-            });
+        if (useGradient)
+        {
+            grad.SetKeys(
+                new[]
+                {
+                    new GradientColorKey(_edgeColor, 0f),
+                    new GradientColorKey(Color.white, 0.5f),
+                    new GradientColorKey(_edgeColor, 1f),
+                },
+                new[]
+                {
+                    new GradientAlphaKey(a, 0f),
+                    new GradientAlphaKey(a, 0.5f),
+                    new GradientAlphaKey(a * 0.6f, 1f),
+                });
+        }
+        else
+        {
+            grad.SetKeys(
+                new[]
+                {
+                    new GradientColorKey(_edgeColor, 0f),
+                    new GradientColorKey(_edgeColor, 1f),
+                },
+                new[]
+                {
+                    new GradientAlphaKey(a, 0f),
+                    new GradientAlphaKey(a, 1f),
+                });
+        }
         _lr.colorGradient = grad;
     }
 

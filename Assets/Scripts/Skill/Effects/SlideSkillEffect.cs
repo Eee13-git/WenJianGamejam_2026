@@ -52,6 +52,10 @@ public class SlideSkillEffect : SkillEffectBase
     [Tooltip("冲刺撞墙结束时播放的音效名称（如 \"muscle_burst_wall\"），空=不播放")]
     [SerializeField] private string _wallSoundName;
 
+    [Header("命中特效（可选）")]
+    [Tooltip("命中敌人时的闪光材质（如 DarkDaggerTrail），null=无命中特效")]
+    [SerializeField] private Material _hitFlashMaterial;
+
     public override void Execute(ISkillCaster caster, Vector2 direction,
                                   float damageMultiplier, Projectile.OwnerType ownerType)
     {
@@ -76,6 +80,10 @@ public class SlideSkillEffect : SkillEffectBase
             slide.EnableCarrying(_carryRadius, _carryDamage * damageMultiplier,
                 _wallDamage, _carriedInvincible, ownerType);
         }
+
+        // 命中闪光特效（暗仪刺刀等强化）
+        if (_hitFlashMaterial != null)
+            slide.SetHitFlashMaterial(_hitFlashMaterial);
 
         // 爆发冲击配置（自动锁敌 + 命中释放气浪）
         if (_autoAimNearest || _burstOnHit)

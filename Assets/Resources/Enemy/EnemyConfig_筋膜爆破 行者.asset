@@ -13,15 +13,21 @@ MonoBehaviour:
   m_Name: "EnemyConfig_\u7B4B\u819C\u7206\u7834 \u884C\u8005"
   m_EditorClassIdentifier: 
   displayName: "\u7B4B\u819C\u7206\u7834 \u884C\u8005"
-  maxHealth: 30
-  contactDamage: 10
+  maxHealth: 200
+  contactDamage: 12
   contactDamageCooldown: 1
   patrolSpeed: 1
-  chaseSpeed: 2.5
-  detectionRange: 5
-  attackRange: 1.2
-  skillLibrary: {fileID: 11400000, guid: cc88abea7715f7d4fab56ea5a0594ded, type: 2}
-  fixedSkillIds: []
+  chaseSpeed: 2.8
+  detectionRange: 10
+  attackRange: 1.5
+  skillLibrary: {fileID: 11400000, guid: ba163a81a88bf594380737c10351e48d, type: 2}
+  fixedSkillIds:
+  - summon_fascia_minions
+  - dark_arts_dagger
   useAxialSpray: 0
   axialAlignThreshold: 0.6
+  useRandomSkill: 1
+  useBossLunge: 0
+  idleWaitTimeRange: {x: 1, y: 3}
+  idleWanderDistanceRange: {x: 2, y: 4}
   patrolPoints: []

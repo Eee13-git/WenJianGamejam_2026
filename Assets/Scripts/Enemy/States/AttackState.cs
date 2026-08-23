@@ -52,9 +52,9 @@ public class AttackState : EnemyStateBase
         // 释放技能：支持随机选择就绪技能（多技能敌人概率发动）
         if (Core.SkillManager != null && Core.SkillManager.SkillInstances.Count > 0)
         {
-            // Boss 张嘴冲刺型：lunge 由 BossLungeState 管理，AttackState 不施放技能
-            // （BossCore.Update 负责施放非 lunge 技能如召唤）
-            if (Core.config != null && Core.config.useBossLunge)
+            // Boss 的技能由 BossCore.Update 统一调度（含洪流/召唤等），AttackState 不重复施放
+            // （巨噬细胞Boss 的 lunge 由 BossLungeState 管理，同样走此分支跳过）
+            if (Core.GetComponent<BossCore>() != null)
                 return;
 
             if (Core.config != null && Core.config.useRandomSkill)

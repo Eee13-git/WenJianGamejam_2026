@@ -404,6 +404,8 @@ public class WaveRuntime : MonoBehaviour
         {
             var enemy = target.GetComponent<EnemyCore>();
             if (enemy == null || enemy.IsDead) return;
+            // Boss 站桩阶段不可被击退
+            if (!enemy.CanBeKnockedBack) return;
             // 已被冻结则跳过击退，避免与冻结逻辑冲突
             if (_frozenEnemies.Contains(enemy)) return;
             if (_knockbackedEnemies.Contains(enemy)) return;

@@ -38,6 +38,10 @@ public class PlayerStats : MonoBehaviour, IDamageable, IHealable
     [Tooltip("随从全属性增幅 = 随从自身属性 × (-倾向值) × 此值")]
     [SerializeField] private float _evolveFollowerBuffFactor = 0.01f;
 
+    [Header("受击无敌帧")]
+    [Tooltip("受击后无敌时长（秒）：期间免疫所有伤害并闪烁。0=关闭")]
+    [SerializeField] private float _hitInvincibleDuration = 0.5f;
+
     private bool _isDead = false;
 
     /// <summary>是否免疫碰撞伤害（道具效果）</summary>
@@ -111,6 +115,15 @@ public class PlayerStats : MonoBehaviour, IDamageable, IHealable
 
         health -= damage;
         health = Mathf.Max(health, 0);
+
+        // 标准受击无敌帧：实际扣血后授予短暂免疫（可配置时长，0=关闭）
+        if (damage > 0f && _hitInvincibleDuration > 0f)
+        {
+            var inv = GetComponent<DamageImmunity>();
+            if (inv == null)
+                inv = gameObject.AddComponent<DamageImmunity>();
+            inv.GrantImmunity(_hitInvincibleDuration);
+        }
 
         // 弹出伤害数字（玩家受伤用红色）
         DamagePopup.Spawn(transform.position, damage, isPlayerDamage: true);

@@ -32,6 +32,13 @@ public class SummonSkillEffect : SkillEffectBase
     [Tooltip("落在敌方坐标的概率（0~1，默认 0.9）")]
     [Range(0f, 1f)] public float enemySpawnChance = 0.9f;
 
+    [Header("召唤上限")]
+    [Tooltip("场上同时存活的本技能召唤物上限（0=无限制）。达到上限后停止召唤，等场上减少后再补")]
+    [Min(0)] public int maxActiveCount = 0;
+
+    /// <summary>本技能已召唤且仍存活的单位（运行时追踪，死亡/同化自动移除）</summary>
+    private readonly List<GameObject> _activeMinions = new List<GameObject>();
+
     public override void Execute(ISkillCaster caster, Vector2 direction,
                                   float damageMultiplier, Projectile.OwnerType ownerType)
     {
@@ -60,6 +67,14 @@ public class SummonSkillEffect : SkillEffectBase
 
         for (int i = 0; i < count; i++)
         {
+            // 召唤上限：清理已销毁引用后，若达到上限则停止本次召唤
+            _activeMinions.RemoveAll(m => m == null);
+            if (maxActiveCount > 0 && _activeMinions.Count >= maxActiveCount)
+            {
+                Debug.Log($"SummonSkillEffect: 场上召唤物已达上限 {maxActiveCount}，停止召唤");
+                yield break;
+            }
+
             // 生成位置：高优先级判定 → 极高概率在敌方单位坐标
             Vector2 spawnPos;
             if (preferEnemySpawn && Random.value < enemySpawnChance)
@@ -103,7 +118,22 @@ public class SummonSkillEffect : SkillEffectBase
                 : null;
             room?.RegisterEnemy(go);
 
+            // 登记到上限追踪（死亡/同化时自动移除）
+            TrackMinion(go);
+
             yield return new WaitForSeconds(spawnInterval);
+        }
+    }
+
+    /// <summary>登记召唤物到存活列表，死亡/同化后自动移除</summary>
+    private void TrackMinion(GameObject go)
+    {
+        _activeMinions.Add(go);
+        var core = go.GetComponent<EnemyCore>();
+        if (core != null)
+        {
+            core.OnDied += () => _activeMinions.Remove(go);
+            core.OnAssimilated += (_) => _activeMinions.Remove(go);
         }
     }
 

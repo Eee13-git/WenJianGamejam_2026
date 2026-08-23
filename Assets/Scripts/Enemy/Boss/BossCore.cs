@@ -28,9 +28,13 @@ public class BossCore : MonoBehaviour
     private EnemyStats _health;
     private EnemyMovement _movement;
     private EnemySkillManager _skillManager;
+    private Animator _animator;
     private SkillLibrary _skillLibrary;
     private BossPhaseData CurrentPhase => _phases != null && _currentPhaseIndex < _phases.Length
         ? _phases[_currentPhaseIndex] : null;
+
+    /// <summary>当前阶段是否站桩（moveSpeedMult<=0）：站桩期间不可转向、不可被击退</summary>
+    public bool IsStationary => CurrentPhase != null && CurrentPhase.moveSpeedMult <= 0f;
 
     private void Awake()
     {
@@ -38,6 +42,7 @@ public class BossCore : MonoBehaviour
         _health = GetComponent<EnemyStats>();
         _movement = GetComponent<EnemyMovement>();
         _skillManager = GetComponent<EnemySkillManager>();
+        _animator = GetComponent<Animator>();
 
         if (_phases == null || _phases.Length == 0)
         {
@@ -53,6 +58,14 @@ public class BossCore : MonoBehaviour
             Debug.LogWarning("BossCore: EnemyConfig.skillLibrary 未配置");
 
         LoadPhaseSkills(0);
+
+        // 应用初始阶段的速度（如 Phase1 站桩 moveSpeedMult=0 → 完全不动）
+        var phase0 = CurrentPhase;
+        if (phase0 != null)
+        {
+            ApplyPhaseSpeed(phase0);
+            ApplyStationaryState();
+        }
 
         // 确保Boss血条存在：若场景中无 BossHealthBar.Instance，自动从 prefab 实例化
         if (BossHealthBar.Instance == null && _bossHealthBarPrefab != null)
@@ -131,14 +144,40 @@ public class BossCore : MonoBehaviour
         Debug.Log($"BossCore: 进入 {newPhase.phaseName}");
 
         LoadPhaseSkills(phaseIndex);
-
-        if (_health != null)
-        {
-            float baseSpeed = _health.ChaseSpeed;
-            _health.ChaseSpeed = baseSpeed * newPhase.moveSpeedMult;
-        }
+        ApplyPhaseSpeed(newPhase);
+        ApplyStationaryState();
 
         _nextSkillTime = Time.time + 0.5f;
+    }
+
+    /// <summary>
+    /// 站桩阶段同步 EnemyCore：不可转向（锁定朝向）+ 不可被击退（免疫气浪/爆发外力）。
+    /// </summary>
+    private void ApplyStationaryState()
+    {
+        if (_enemyCore == null) return;
+        bool stationary = IsStationary;
+        _enemyCore.CanTurn = !stationary;
+        _enemyCore.CanBeKnockedBack = !stationary;
+
+        // 二阶段空闲动画：Phase2 参数切换 Idle(静态)/Idle2(施法7-9帧)，阶段驱动
+        if (_animator != null && System.Array.Find(_animator.parameters, p => p.name == "Phase2") != null)
+            _animator.SetBool("Phase2", !stationary);
+    }
+
+    /// <summary>
+    /// 按阶段配置应用移动速度（Patrol/Chase 同时设置）。
+    /// moveSpeedMult=0 → 完全站桩不动；=1 → 恢复 config 基础速度。
+    /// 基准取 EnemyConfig 原始值（避免多阶段连乘导致无法恢复）。
+    /// </summary>
+    private void ApplyPhaseSpeed(BossPhaseData phase)
+    {
+        if (_health == null) return;
+        float basePatrol = _enemyCore != null && _enemyCore.config != null ? _enemyCore.config.patrolSpeed : 1f;
+        float baseChase = _enemyCore != null && _enemyCore.config != null ? _enemyCore.config.chaseSpeed : 2f;
+        _health.PatrolSpeed = basePatrol * phase.moveSpeedMult;
+        _health.ChaseSpeed = baseChase * phase.moveSpeedMult;
+        Debug.Log($"BossCore: 阶段移速 Patrol={_health.PatrolSpeed} Chase={_health.ChaseSpeed}");
     }
 
     // ==================== 技能管理（通过 EnemySkillManager） ====================

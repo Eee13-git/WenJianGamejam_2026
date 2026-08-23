@@ -30,6 +30,12 @@ public class EnemyCore : MonoBehaviour, IEnemy
     public Transform EnemyTransform => transform;
     public bool IsDead => Health != null && Health.IsDead;
     public bool IsAssimilated { get; private set; }
+
+    /// <summary>是否可转向（跟随玩家翻转朝向）。Boss 站桩阶段为 false</summary>
+    public bool CanTurn { get; set; } = true;
+    /// <summary>是否可被击退（气浪/爆发等外力推动）。Boss 站桩阶段为 false</summary>
+    public bool CanBeKnockedBack { get; set; } = true;
+
     public IReadOnlyList<SkillInstance> SkillInstances =>
         SkillManager != null ? SkillManager.SkillInstances : new List<SkillInstance>();
     public event Action OnDied;
@@ -93,8 +99,11 @@ public class EnemyCore : MonoBehaviour, IEnemy
         // 技能释放 → 触发释放动画
         if (SkillManager != null)
         {
-            SkillManager.OnSkillCast += (_, _) =>
+            SkillManager.OnSkillCast += (_, data) =>
             {
+                // 技能配置了不播施法动画（如 Boss 站桩召唤）→ 跳过
+                if (data != null && !data.playCastAnimation) return;
+
                 if (_animator != null && HasAnimatorParameter("IsCasting"))
                 {
                     _animator.SetBool("IsCasting", true);
@@ -261,6 +270,8 @@ public class EnemyCore : MonoBehaviour, IEnemy
     private void LateUpdate()
     {
         if (IsDead || _spriteRenderer == null || PlayerTarget == null) return;
+        // Boss 站桩阶段不可转向（保持朝固定方向）
+        if (!CanTurn) return;
 
         // 施法期间也允许翻转，始终跟随玩家方向
         float dx = PlayerTarget.position.x - transform.position.x;

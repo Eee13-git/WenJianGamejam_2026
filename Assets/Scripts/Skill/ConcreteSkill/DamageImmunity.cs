@@ -37,6 +37,16 @@ public class DamageImmunity : MonoBehaviour
         _remainingTime = Mathf.Max(_remainingTime, duration);
     }
 
+    /// <summary>
+    /// 立即结束无敌并恢复精灵基础色（潜行/冲刺等结束时清除 999s 长无敌，避免持续白闪）。
+    /// </summary>
+    public void ClearImmunity()
+    {
+        _remainingTime = 0f;
+        if (_sr != null)
+            _sr.color = _baseColor;
+    }
+
     private void Update()
     {
         if (_remainingTime > 0f)

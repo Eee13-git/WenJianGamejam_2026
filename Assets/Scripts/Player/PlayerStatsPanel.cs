@@ -11,6 +11,10 @@ using TMPro;
 /// </summary>
 public class PlayerStatsPanel : MonoBehaviour
 {
+    [Header("血条")]
+    [Tooltip("血条填充 Image（Filled/Horizontal/Left），使用 血条.png")]
+    [SerializeField] private Image _healthBarFill;
+
     [Header("属性行文本")]
     [SerializeField] private TMP_Text _healthText;
     [SerializeField] private TMP_Text _speedText;
@@ -66,7 +70,7 @@ public class PlayerStatsPanel : MonoBehaviour
         if (_evolveBar != null)
         {
             _evolveBar.fillAmount = _fillTarget;
-            _evolveBar.color = GetEvolveColor(_stats.EvolutionTendency);
+            // 使用贴图本色，不着色
         }
         RefreshEvolveText();
     }
@@ -104,6 +108,8 @@ public class PlayerStatsPanel : MonoBehaviour
     {
         if (_healthText != null)
             _healthText.text = $"{_stats.CurrentHealth:F0} / {_stats.MaxHealth:F0}";
+        if (_healthBarFill != null)
+            _healthBarFill.fillAmount = Mathf.Clamp01(_stats.CurrentHealth / Mathf.Max(_stats.MaxHealth, 1f));
     }
 
     private void RefreshEvolve()
@@ -115,9 +121,7 @@ public class PlayerStatsPanel : MonoBehaviour
         {
             _evolveBar.fillAmount = Mathf.MoveTowards(
                 _evolveBar.fillAmount, _fillTarget, _evolveAnimSpeed * Time.deltaTime);
-
-            // 颜色按正负切换
-            _evolveBar.color = GetEvolveColor(_stats.EvolutionTendency);
+            // 使用贴图本色，不着色
         }
 
         RefreshEvolveText();
@@ -144,10 +148,19 @@ public class PlayerStatsPanel : MonoBehaviour
 
         float val = _stats.EvolutionTendency;
         if (val > 0.01f)
+        {
             _evolveValueText.text = $"宿主 +{val:F0}";
+            _evolveValueText.color = _hostColor;
+        }
         else if (val < -0.01f)
+        {
             _evolveValueText.text = $"独特 {val:F0}";
+            _evolveValueText.color = _uniqueColor;
+        }
         else
+        {
             _evolveValueText.text = "平衡 0";
+            _evolveValueText.color = _zeroColor;
+        }
     }
 }

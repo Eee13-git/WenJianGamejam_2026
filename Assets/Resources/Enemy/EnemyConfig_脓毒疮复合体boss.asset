@@ -13,15 +13,20 @@ MonoBehaviour:
   m_Name: "EnemyConfig_\u8113\u6BD2\u75AE\u590D\u5408\u4F53boss"
   m_EditorClassIdentifier: 
   displayName: "\u8113\u6BD2\u75AE\u590D\u5408\u4F53boss"
-  maxHealth: 30
-  contactDamage: 10
+  maxHealth: 400
+  contactDamage: 15
   contactDamageCooldown: 1
   patrolSpeed: 1
-  chaseSpeed: 2.5
-  detectionRange: 5
-  attackRange: 1.2
-  skillLibrary: {fileID: 11400000, guid: cc88abea7715f7d4fab56ea5a0594ded, type: 2}
-  fixedSkillIds: []
+  chaseSpeed: 2.6
+  detectionRange: 12
+  attackRange: 1.5
+  skillLibrary: {fileID: 11400000, guid: c1f32aab3e4c7124284e84e9800cfd2a, type: 2}
+  fixedSkillIds:
+  - pustule_torrent
   useAxialSpray: 0
   axialAlignThreshold: 0.6
+  useRandomSkill: 0
+  useBossLunge: 0
+  idleWaitTimeRange: {x: 1, y: 3}
+  idleWanderDistanceRange: {x: 2, y: 4}
   patrolPoints: []

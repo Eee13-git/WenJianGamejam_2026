@@ -23,6 +23,9 @@ public class SkillData : ScriptableObject
     [Tooltip("被动技能：装配后自动执行一次效果（通常为永久 buff 光环），不进入冷却、不触发施法动画")]
     public bool passive = false;
 
+    [Tooltip("施放时是否播放敌人施法动画（false 用于站桩召唤等无需动画的技能）")]
+    public bool playCastAnimation = true;
+
     [Header("效果策略")]
     public SkillEffectBase skillEffect;   // 拖入具体效果资产，如 ProjectileSkillEffect
 }

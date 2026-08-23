@@ -171,9 +171,13 @@ public class EnemySkillManager : MonoBehaviour
         skill.StartCooldown();
         OnSkillCast?.Invoke(index, skill.Data);
 
-        // 延迟执行技能效果（等待 cast 动画到达效果帧）
-        if (_castDelay > 0f)
-            StartCoroutine(DelayedExecute(skill, caster, dir));
+        // 延迟执行技能效果：优先使用技能效果的"施法动画帧同步"延迟（特效出现帧），否则用 _castDelay
+        float delay = _castDelay;
+        if (skill.Data != null && skill.Data.skillEffect is ICastAnimationSync sync)
+            delay = sync.EffectStartDelay;
+
+        if (delay > 0f)
+            StartCoroutine(DelayedExecute(skill, caster, dir, delay));
         else
         {
             PlayCastSound(skill);
@@ -183,9 +187,9 @@ public class EnemySkillManager : MonoBehaviour
         return true;
     }
 
-    private IEnumerator DelayedExecute(SkillInstance skill, ISkillCaster caster, Vector2 dir)
+    private IEnumerator DelayedExecute(SkillInstance skill, ISkillCaster caster, Vector2 dir, float delay)
     {
-        yield return new WaitForSeconds(_castDelay);
+        yield return new WaitForSeconds(delay);
         PlayCastSound(skill);
         skill.ExecuteEffect(caster, dir);
     }

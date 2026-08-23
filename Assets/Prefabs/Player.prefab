@@ -204,6 +204,7 @@ MonoBehaviour:
   evolutionTendency: 0
   _evolveSkillDamageFactor: 0.025
   _evolveFollowerBuffFactor: 0.01
+  _hitInvincibleDuration: 0.3
 --- !u!114 &6977921527657197634
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -225,11 +226,15 @@ MonoBehaviour:
     isUnlocked: 1
   - keyBinding: 120
     isUnlocked: 1
+  - keyBinding: 120
+    isUnlocked: 1
+  - keyBinding: 120
+    isUnlocked: 1
   _skillLibrary: {fileID: 11400000, guid: 25b940d240ce07f4dbf92087a21c017a, type: 2}
   _initialSkillId0: erode
   _initialSkillId1: capsular_burst
-  _initialSkillId2: keratin_shield
-  _initialSkillId3: photon_radiance
+  _initialSkillId2: dark_arts_dagger
+  _initialSkillId3: pustule_torrent
   _skillDamageMultiplier: 1
 --- !u!114 &5167232238786414711
 MonoBehaviour:

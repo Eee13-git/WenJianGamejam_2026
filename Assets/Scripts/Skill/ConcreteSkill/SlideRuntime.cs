@@ -37,6 +37,9 @@ public class SlideRuntime : MonoBehaviour
     private string _endSoundName;      // 自然结束（到达终点/命中）音效
     private string _wallSoundName;     // 撞墙结束音效
 
+    // ── 命中闪光（暗仪刺刀等强化特效）──
+    private Material _hitFlashMaterial;
+
     // ── 运行时状态 ──
     private Vector2 _direction;
     private Vector2 _forcedDirection;   // 外部强制方向（Boss 轴向冲刺等），为零则内部计算
@@ -178,6 +181,60 @@ public class SlideRuntime : MonoBehaviour
         _ownerType = ownerType;
     }
 
+    /// <summary>设置命中闪光材质（卷起命中时爆闪，null=无特效）</summary>
+    public void SetHitFlashMaterial(Material mat)
+    {
+        _hitFlashMaterial = mat;
+    }
+
+    /// <summary>命中闪光：命中点生成小型暗紫扩散闪光（强化暗仪刺刀等特效）</summary>
+    private void SpawnHitFlash(Vector2 pos)
+    {
+        if (_hitFlashMaterial == null) return;
+        var go = new GameObject("DaggerHitFlash");
+        go.transform.position = pos;
+        var sr = go.AddComponent<SpriteRenderer>();
+        sr.material = new Material(_hitFlashMaterial);
+        sr.sprite = CreateWhiteSprite();
+        sr.sortingOrder = 60;
+        go.AddComponent<HitFlashAnim>().Init(0.22f, 1.4f, _hitFlashMaterial);
+    }
+
+    /// <summary>命中闪光动画：扩散 + 淡出</summary>
+    private class HitFlashAnim : MonoBehaviour
+    {
+        private float _timer;
+        private float _duration;
+        private float _maxScale;
+        private Material _mat;
+        private SpriteRenderer _sr;
+
+        public void Init(float duration, float maxScale, Material mat)
+        {
+            _duration = duration;
+            _maxScale = maxScale;
+            _mat = mat;
+            _sr = GetComponent<SpriteRenderer>();
+            transform.localScale = Vector3.one * 0.3f;
+        }
+
+        private void Update()
+        {
+            _timer += Time.deltaTime;
+            float t = Mathf.Clamp01(_timer / _duration);
+            float scale = Mathf.Lerp(0.3f, _maxScale, t);
+            transform.localScale = new Vector3(scale, scale, 1f);
+            if (_sr != null)
+            {
+                var c = _sr.color;
+                c.a = Mathf.Lerp(0.9f, 0f, t);
+                _sr.color = c;
+            }
+            if (t >= 1f)
+                Destroy(gameObject);
+        }
+    }
+
     /// <summary>启用爆发冲击能力（包膜爆发冲击等）：自动锁敌 + 命中释放气浪</summary>
     public void EnableBurst(bool autoAimNearest, bool burstOnHit, float burstRadius,
         float burstPushForce, Material burstWaveMaterial, Projectile.OwnerType ownerType)
@@ -240,7 +297,7 @@ public class SlideRuntime : MonoBehaviour
         _trailTimer -= Time.deltaTime;
         if (_trailTimer <= 0f && _casterSprite != null && _trailMaterial != null)
         {
-            _trailTimer = 0.03f;
+            _trailTimer = 0.02f;
             SpawnTrail();
         }
 
@@ -344,6 +401,7 @@ public class SlideRuntime : MonoBehaviour
 
             // 卷起：造成命中伤害 + 吸附
             enemy.Health?.TakeDamage(_carryDamage);
+            SpawnHitFlash(hit.transform.position);   // 命中闪光（暗仪刺刀等强化特效）
 
             var carried = new CarriedEnemy
             {
@@ -388,6 +446,15 @@ public class SlideRuntime : MonoBehaviour
             var c = _carried[i];
             if (c.enemy == null || c.enemy.IsDead)
             {
+                // 关键修复：卷起期间禁用了 StateMachine/Movement，死亡后 DeadState 永不执行 → 尸体残留。
+                // 死亡时恢复正常组件，让 DeadState 延迟销毁 GameObject（贴图消失）。
+                if (c.enemy != null)
+                {
+                    if (c.enemy.StateMachine != null) c.enemy.StateMachine.enabled = true;
+                    if (c.enemy.Movement != null) c.enemy.Movement.enabled = true;
+                    if (c.col != null) c.col.enabled = true;
+                    if (c.rb != null) c.rb.simulated = true;
+                }
                 _carried.RemoveAt(i);
                 continue;
             }
@@ -471,6 +538,8 @@ public class SlideRuntime : MonoBehaviour
             var rb = hit.GetComponent<Rigidbody2D>();
             if (enemyComp != null)
             {
+                // Boss 站桩阶段不可被击退
+                if (!enemyComp.CanBeKnockedBack) continue;
                 // 已有的击退组件则刷新（不叠加多个）
                 var push = hit.GetComponent<BurstPushComponent>();
                 if (push == null)
@@ -567,7 +636,7 @@ public class SlideRuntime : MonoBehaviour
         sr.sortingOrder = _casterSprite.sortingOrder - 1;
 
         var fade = go.AddComponent<TrailFade>();
-        fade.Init(0.25f);
+        fade.Init(0.35f);   // 拖影停留更久，残影更浓
     }
 
     private void EndSlide(bool hitWall = false)
@@ -663,7 +732,7 @@ public class SlideRuntime : MonoBehaviour
             if (_sr != null)
             {
                 var c = _sr.color;
-                c.a = Mathf.Lerp(0.6f, 0f, t);
+                c.a = Mathf.Lerp(0.8f, 0f, t);   // 残影更亮
                 _sr.color = c;
             }
 

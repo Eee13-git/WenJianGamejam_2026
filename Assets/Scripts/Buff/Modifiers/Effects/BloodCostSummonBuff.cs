@@ -31,6 +31,13 @@ public class BloodCostSummonBuff : BuffEffectBase
     [Tooltip("血量最低时的召唤间隔（秒）")]
     public float minInterval = 2f;
 
+    [Header("召唤上限")]
+    [Tooltip("场上同时存活的本技能召唤物上限（0=无限制）。达到上限后跳过召唤，等场上减少后再补")]
+    [Min(0)] public int maxActiveCount = 0;
+
+    /// <summary>本技能已召唤且仍存活的单位（死亡/同化自动移除）</summary>
+    private readonly List<GameObject> _activeMinions = new List<GameObject>();
+
     private static readonly Dictionary<BuffInstance, float> _timers = new Dictionary<BuffInstance, float>();
 
     public override void OnApply(GameObject target, BuffInstance buff)
@@ -63,7 +70,13 @@ public class BloodCostSummonBuff : BuffEffectBase
         if (damageable != null)
             damageable.TakeDamage(healthCost);
 
-        // 召唤随从
+        // 召唤随从（先检查上限：已达上限则本次不召唤）
+        _activeMinions.RemoveAll(m => m == null);
+        if (maxActiveCount > 0 && _activeMinions.Count >= maxActiveCount)
+        {
+            Debug.Log($"BloodCostSummon: 场上召唤物已达上限 {maxActiveCount}，跳过召唤");
+            return;
+        }
         SummonMinions(target);
     }
 
@@ -106,6 +119,11 @@ public class BloodCostSummonBuff : BuffEffectBase
 
         for (int i = 0; i < count; i++)
         {
+            // 上限检查（单次多只时逐只判断）
+            _activeMinions.RemoveAll(m => m == null);
+            if (maxActiveCount > 0 && _activeMinions.Count >= maxActiveCount)
+                break;
+
             var prefab = pool[Random.Range(0, pool.Length)];
             if (prefab == null) continue;
 
@@ -139,6 +157,14 @@ public class BloodCostSummonBuff : BuffEffectBase
             {
                 room?.RegisterEnemy(go);
                 spawner?.RegisterEnemy(go);
+            }
+
+            // 登记到上限追踪（死亡/同化自动移除）
+            _activeMinions.Add(go);
+            if (core != null)
+            {
+                core.OnDied += () => _activeMinions.Remove(go);
+                core.OnAssimilated += (_) => _activeMinions.Remove(go);
             }
         }
 
