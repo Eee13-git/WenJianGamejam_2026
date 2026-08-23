@@ -250,6 +250,9 @@ public class MapManager : MonoBehaviour
         var newMgr = targetRoom.GetComponent<RoomManager>();
         newMgr?.OnPlayerEnter();
 
+        // 更新随从寻路网格（OnPlayerEnter 已构建网格，此时可用）
+        UpdateFollowerGrids(targetRoom);
+
         // 更新状态
         _currentRoom = targetRoom;
         _currentRoomId = targetRoomId;
@@ -380,6 +383,17 @@ public class MapManager : MonoBehaviour
     }
 
     // ==================== 查询 API ====================
+
+    /// <summary>更新所有活跃随从的寻路网格（房间切换后调用）</summary>
+    private static void UpdateFollowerGrids(RoomRoot room)
+    {
+        if (room == null || room.PathGrid == null) return;
+        foreach (var f in EnemyFollower.ActiveFollowers)
+        {
+            if (f != null && f.Movement != null)
+                f.Movement.SetRoomGrid(room.PathGrid);
+        }
+    }
 
     /// <summary>根据 ID 获取房间</summary>
     public RoomRoot GetRoom(int roomId)

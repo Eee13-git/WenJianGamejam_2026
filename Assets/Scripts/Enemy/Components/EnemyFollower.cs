@@ -36,6 +36,8 @@ public class EnemyFollower : MonoBehaviour
     private bool _isActive;
     private bool _isReviving;
     private bool _isPaused;
+    private float _pauseStartTime;
+    private const float MaxPauseDuration = 5f;
     private FollowerStateMachine _followerSM;
 
     // 进化倾向 buff：记录原始属性，动态刷新时从原始值重算
@@ -88,7 +90,11 @@ public class EnemyFollower : MonoBehaviour
     public void SetPaused(bool paused)
     {
         _isPaused = paused;
-        if (paused) _movement?.Stop();
+        if (paused)
+        {
+            _pauseStartTime = Time.time;
+            _movement?.Stop();
+        }
     }
 
     private void OnEnable()
@@ -204,8 +210,14 @@ public class EnemyFollower : MonoBehaviour
 
     private void Update()
     {
-        if (!_isActive || _isPaused || _player == null) return;
+        if (!_isActive || _player == null) return;
         if (_core.Health != null && _core.Health.IsDead) return;
+
+        // 安全超时：被陷阱暂停过久（协程被中断等）自动恢复
+        if (_isPaused && Time.time - _pauseStartTime > MaxPauseDuration)
+            SetPaused(false);
+
+        if (_isPaused) return;
 
         // 离玩家过远 → 直接传送到身边，防止掉队或被卡住
         float sqrDistToPlayer = ((Vector2)transform.position - (Vector2)_player.position).sqrMagnitude;
@@ -243,7 +255,9 @@ public class EnemyFollower : MonoBehaviour
 
     private void OnRoomSwitchStarted(int fromRoomId, int toRoomId)
     {
-        // 随从传送由 MapManager.TeleportFollowers 统一处理（在玩家传送到新房间之后）
+        // 房间切换时恢复被陷阱暂停的随从（HoleTrap 协程已被中断，unlock 不会执行）
+        if (_isPaused)
+            SetPaused(false);
     }
 
     private void HandleDeath()
@@ -308,6 +322,14 @@ public class EnemyFollower : MonoBehaviour
             _player = PlayerManager.Instance.CurrentPlayer.transform;
         else
             _player = GameObject.FindGameObjectWithTag("Player")?.transform;
+
+        // 更新寻路网格（场景重载后旧网格失效）
+        if (_movement != null)
+        {
+            var roomMgr = UnityEngine.Object.FindObjectOfType<RoomManager>();
+            if (roomMgr != null && roomMgr.roomRoot != null && roomMgr.roomRoot.PathGrid != null)
+                _movement.SetRoomGrid(roomMgr.roomRoot.PathGrid);
+        }
 
         // 传送到玩家身边（防止随从出现在旧位置）
         if (_player != null && _movement != null && !_isReviving)

@@ -30,6 +30,7 @@ public class NerveSpike : MonoBehaviour
     private float _timer;
     private SpriteRenderer _sr;
     private float _lastDamageTime;
+    private bool _paused;
 
     private void Awake()
     {
@@ -45,6 +46,8 @@ public class NerveSpike : MonoBehaviour
 
     private void Update()
     {
+        if (_paused) return;
+
         _timer += Time.deltaTime;
 
         switch (_state)
@@ -125,5 +128,18 @@ public class NerveSpike : MonoBehaviour
     {
         _damageRatio = damageRatio;
         _damageCooldown = damageCooldown;
+    }
+
+    /// <summary>暂停刺陷阱（房间已清理时调用，固定状态0=State1）</summary>
+    public void Pause()
+    {
+        _paused = true;
+        SetState(SpikeState.State1);
+    }
+
+    /// <summary>恢复刺陷阱（玩家进入房间时调用）</summary>
+    public void Resume()
+    {
+        _paused = false;
     }
 }

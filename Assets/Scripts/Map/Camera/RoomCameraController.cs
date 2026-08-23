@@ -93,8 +93,8 @@ public class RoomCameraController : MonoBehaviour
     private float CalculateOrthoSize(RoomRoot room)
     {
         // 含墙壁的完整视觉尺寸
-        float visualW = room.roomSize.x + 1f;
-        float visualH = room.roomSize.y + 1f;
+        float visualW = room.roomSize.x + 3f;
+        float visualH = room.roomSize.y + 3f;
 
         // Orthographic Size = half height → 纵向覆盖需要 visualH/2
         float sizeFromHeight = visualH * 0.5f * sizeScale;
