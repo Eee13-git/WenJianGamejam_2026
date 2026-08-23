@@ -1,4 +1,5 @@
 using UnityEngine;
+using TMPro;
 
 /// <summary>
 /// 道具拾取物 — 场景中可拾取的道具 GameObject。
@@ -67,6 +68,28 @@ public class ItemPickup : MonoBehaviour
 
             if (itemData != null && itemData.icon != null)
                 _spriteRenderer.sprite = itemData.icon;
+        }
+
+        // 如果道具有帧动画，添加动画组件 + 名称标签
+        if (itemData != null && itemData.animationFrames != null && itemData.animationFrames.Length > 0)
+        {
+            var animator = gameObject.AddComponent<ItemIconAnimator>();
+            animator.Initialize(itemData.animationFrames, itemData.animationFPS, false);
+
+            // DNA 类道具：在图标下方显示道具名
+            var labelGO = new GameObject("ItemNameLabel");
+            labelGO.transform.SetParent(transform, false);
+            labelGO.transform.localPosition = new Vector3(0f, -0.7f, 0f);
+
+            var tmp = labelGO.AddComponent<TextMeshPro>();
+            tmp.text = itemData.itemName;
+            tmp.fontSize = 1.7f;
+            tmp.alignment = TextAlignmentOptions.Center;
+            tmp.color = new Color(0.85f, 0.92f, 1f);
+            tmp.outlineWidth = 0.15f;
+            tmp.outlineColor = new Color32(0, 0, 0, 200);
+            tmp.sortingOrder = 10;
+            tmp.raycastTarget = false;
         }
     }
 

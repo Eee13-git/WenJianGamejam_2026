@@ -44,6 +44,9 @@ public class RoomManager : MonoBehaviour
 
     public event System.Action OnRoomCleared;
 
+    private float _nextGhostCleanupTime;
+    private const float GhostCleanupInterval = 2f;
+
     private void Awake()
     {
         if (roomRoot == null)
@@ -58,6 +61,44 @@ public class RoomManager : MonoBehaviour
         // 确保每次实例化都是首次进入状态 (防止序列化残留)
         _isFirstEnter = true;
         _isCleared = roomRoot.config.maxEnemies == 0? true : false;
+    }
+
+    private void Update()
+    {
+        if (_isCleared) return;
+        if (Time.time >= _nextGhostCleanupTime)
+        {
+            _nextGhostCleanupTime = Time.time + GhostCleanupInterval;
+            CleanupGhostEntries();
+        }
+    }
+
+    /// <summary>
+    /// 清理 _aliveEnemies 中的幽灵条目（被销毁但未触发事件的敌人）
+    /// 和已死亡/已同化但仍残留在列表中的敌人。
+    /// </summary>
+    private void CleanupGhostEntries()
+    {
+        bool removed = false;
+        for (int i = _aliveEnemies.Count - 1; i >= 0; i--)
+        {
+            if (_aliveEnemies[i] == null)
+            {
+                _aliveEnemies.RemoveAt(i);
+                removed = true;
+                continue;
+            }
+            var core = _aliveEnemies[i].GetComponent<EnemyCore>();
+            if (core != null && (core.IsDead || core.IsAssimilated))
+            {
+                _aliveEnemies.RemoveAt(i);
+                removed = true;
+            }
+        }
+        if (removed && _aliveEnemies.Count == 0 && !_isCleared)
+        {
+            OnAllEnemiesDefeated();
+        }
     }
 
     /// <summary>玩家进入房间时调用</summary>
@@ -87,6 +128,10 @@ public class RoomManager : MonoBehaviour
         }
 
         Debug.Log($"[RoomManager] Room{roomRoot.roomId} OnPlayerEnter: _isFirstEnter={_isFirstEnter}, enemyPool={roomRoot.config.enemyPool?.Count}, minEnemies={roomRoot.config.minEnemies}");
+
+        // 玩家进入时恢复刺陷阱（如果不是已清理状态）
+        if (!_isCleared)
+            SetSpikesPaused(false);
 
         if (_isFirstEnter)
         {
@@ -141,6 +186,18 @@ public class RoomManager : MonoBehaviour
         {
             if (portal != null && portal.HiddenWallHP <= 0)
                 portal.SetLocked(false);
+        }
+    }
+
+    /// <summary>暂停/恢复所有刺陷阱（房间已清理时暂停，玩家进入时恢复）</summary>
+    private void SetSpikesPaused(bool paused)
+    {
+        var spikes = GetComponentsInChildren<NerveSpike>(true);
+        foreach (var s in spikes)
+        {
+            if (s == null) continue;
+            if (paused) s.Pause();
+            else s.Resume();
         }
     }
 
@@ -289,6 +346,8 @@ public class RoomManager : MonoBehaviour
         UnlockDoors();
         // 激活相邻隐藏房的门 (变为可破坏状态)
         ActivateHiddenWalls();
+        // 暂停所有刺陷阱（固定状态0）
+        SetSpikesPaused(true);
 
         // 共享生成点列表：道具先生成占点，血量回复物后生成用剩余点
         var availablePoints = new List<Transform>();
