@@ -49,8 +49,20 @@ public class SkillUIController : MonoBehaviour
     {
         if (_skillManager == null) return;
 
+        int slotCount = _skillManager.SlotCount;
+
+        // 槽位可能在运行时被扩展（ExpandSlots），先确保数据数组与 UI 视图就绪，避免越界
+        if (slotCount > _previousData.Length)
+        {
+            int oldLen = _previousData.Length;
+            System.Array.Resize(ref _previousData, slotCount);
+            for (int i = oldLen; i < slotCount; i++)
+                _previousData[i] = default;
+            _panel.EnsureSlotCount(slotCount);
+        }
+
         // 每帧同步冷却变化（冷却值通过 SkillInstance 的公开属性读取）
-        for (int i = 0; i < _skillManager.SlotCount; i++)
+        for (int i = 0; i < slotCount; i++)
             SyncSlot(i);
     }
 
@@ -103,6 +115,10 @@ public class SkillUIController : MonoBehaviour
             data.IsCoolingDown = skill.IsCoolingDown;
             data.CooldownPercent = skill.CooldownPercent;
             data.CooldownRemaining = skill.CooldownRemaining;
+
+            // 悬停 tooltip 数据
+            data.SkillName = def.skillName;
+            data.Description = def.description;
         }
 
         return data;

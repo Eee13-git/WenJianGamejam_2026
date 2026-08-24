@@ -1,12 +1,13 @@
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.EventSystems;
 using TMPro;
 
 /// <summary>
 /// 技能槽位 View —— 纯渲染，不引用任何游戏逻辑。
-/// 由 Controller 调用 Refresh() 更新显示。
+/// 由 Controller 调用 Refresh() 更新显示。鼠标悬停时弹出技能详情 tooltip。
 /// </summary>
-public class SkillSlotView : MonoBehaviour
+public class SkillSlotView : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
 {
     [Header("图标与文本")]
     [SerializeField] private Image _icon;
@@ -24,9 +25,18 @@ public class SkillSlotView : MonoBehaviour
     [Header("交互")]
     [SerializeField] private Button _upgradeButton;
 
+    /// <summary>悬停 tooltip 显示的技能名</summary>
+    public string SkillName { get; private set; }
+    /// <summary>悬停 tooltip 显示的技能描述</summary>
+    public string SkillDescription { get; private set; }
+
     /// <summary>Controller 调用，传入数据刷新 UI</summary>
     public void Refresh(in SkillViewData data)
     {
+        // 缓存悬停数据
+        SkillName = data.SkillName;
+        SkillDescription = data.Description;
+
         // 图标
         if (_icon != null)
         {
@@ -70,5 +80,17 @@ public class SkillSlotView : MonoBehaviour
         // 升级按钮 — 未装备或满级时隐藏
         if (_upgradeButton != null)
             _upgradeButton.gameObject.SetActive(data.IsEquipped && data.Level < data.MaxLevel);
+    }
+
+    // ==================== 鼠标悬停 ====================
+
+    public void OnPointerEnter(PointerEventData eventData)
+    {
+        SkillUIPanel.Instance?.ShowHoverTooltip(this);
+    }
+
+    public void OnPointerExit(PointerEventData eventData)
+    {
+        SkillUIPanel.Instance?.HideHoverTooltip();
     }
 }

@@ -106,17 +106,18 @@ public class ErodeChoicePopupManager : MonoBehaviour
             _devourText.text = hasSkills ? "吞噬" : "吞噬（无技能）";
         }
 
-        // 同化按钮
+        // 同化按钮（Boss 不可同化）
+        bool isBoss = _targetEnemy != null && _targetEnemy.GetComponent<BossCore>() != null;
         if (_assimilateButton != null)
         {
             _assimilateButton.onClick.RemoveAllListeners();
             _assimilateButton.onClick.AddListener(OnAssimilate);
-            _assimilateButton.interactable = !_targetEnemy.IsDead;
+            _assimilateButton.interactable = !_targetEnemy.IsDead && !isBoss;
         }
         if (_assimilateText != null)
         {
             _assimilateText.font = _runtimeFont;
-            _assimilateText.text = "同化";
+            _assimilateText.text = isBoss ? "同化（Boss不可同化）" : "同化";
         }
 
         // 取消按钮
