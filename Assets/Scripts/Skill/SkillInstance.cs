@@ -40,11 +40,11 @@ public class SkillInstance
         }
     }
 
-    /// <summary>当前等级冷却时间（每级减少10%，再乘全局CD乘区和实例CD乘区）</summary>
-    public float CurrentCooldown => Data.cooldown * (1f - (Level - 1) * 0.1f) * CooldownMultiplier * CooldownFactor;
+    /// <summary>当前等级冷却时间（每级按 SkillData.cooldownReductionPerLevel 缩减，再乘全局CD乘区和实例CD乘区）</summary>
+    public float CurrentCooldown => Data.cooldown * (1f - (Level - 1) * Data.cooldownReductionPerLevel) * CooldownMultiplier * CooldownFactor;
 
-    /// <summary>当前等级伤害系数</summary>
-    public float CurrentDamageMultiplier => Data.damageMultiplier * (1f + (Level - 1) * 0.15f);
+    /// <summary>当前等级伤害系数（每级按 SkillData.damageGrowthPerLevel 成长）</summary>
+    public float CurrentDamageMultiplier => Data.damageMultiplier * (1f + (Level - 1) * Data.damageGrowthPerLevel);
 
     /// <summary>技能执行委托：参数为 (施法者, 目标方向)</summary>
     public event Action<ISkillCaster, Vector2> OnExecute;

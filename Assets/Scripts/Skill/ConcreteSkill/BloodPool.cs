@@ -30,6 +30,14 @@ public class BloodPool : MonoBehaviour
     [SerializeField] private float _refreshInterval = 0.25f;
     [Tooltip("给目标挂的血色腐蚀 debuff")]
     [SerializeField] private BuffData _debuffData;
+    [Tooltip("DOT 每 tick 伤害倍率（×施法者攻击力 × 技能倍率）")]
+    [SerializeField] private float _tickDamageMultiplier = 1f;
+
+    [Header("──── 机制成长（升级可选）────")]
+    [Tooltip("每级额外血池半径（0=不成长）")]
+    [SerializeField] private float _radiusPerLevel = 0f;
+    [Tooltip("每级额外持续时间（秒，0=不成长）")]
+    [SerializeField] private float _durationPerLevel = 0f;
 
     // ── 运行时状态 ──
     private Projectile.OwnerType _ownerType;
@@ -37,26 +45,47 @@ public class BloodPool : MonoBehaviour
     private float _timer;
     private float _nextRefreshTime;
     private bool _initialized;
+    private float _attackStrength = 0f;
+    private float _skillDamageMultiplier = 1f;
+    private float _tickDamageOverride = -1f;
 
     // ── 视觉引用 ──
     private SpriteRenderer _sr;
     private Material _matInstance;
 
-    /// <summary>初始化血池（由 PhotonBeam.SpawnRadiancePool 调用）</summary>
+    /// <summary>初始化血池（由 PhotonBeam.SpawnRadiancePool 调用）；level 供机制成长</summary>
     public void Initialize(Projectile.OwnerType ownerType, GameObject caster,
-        float radius, float duration)
+        float radius, float duration, int level = 1)
     {
         _ownerType = ownerType;
         _casterGO = caster;
         _radius = radius;
         _duration = duration;
+        ApplyLevel(level);
         _initialized = true;
+    }
+
+    /// <summary>按技能等级成长血池半径/持续时间（level<=1 时无变化）</summary>
+    public void ApplyLevel(int level)
+    {
+        if (level <= 1) return;
+        if (_radiusPerLevel > 0f) _radius = _radius + (level - 1) * _radiusPerLevel;
+        if (_durationPerLevel > 0f) _duration = _duration + (level - 1) * _durationPerLevel;
     }
 
     /// <summary>设置血色腐蚀 debuff</summary>
     public void SetDebuff(BuffData debuffData)
     {
         _debuffData = debuffData;
+    }
+
+    /// <summary>设置伤害参数：施法者攻击力 + 技能倍率，DOT = 攻击力 × 倍率 × 效果倍率</summary>
+    public void SetDamageParams(float attackStrength, float damageMultiplier = 1f)
+    {
+        _attackStrength = attackStrength;
+        _skillDamageMultiplier = damageMultiplier;
+        if (_tickDamageMultiplier > 0f && _attackStrength > 0f)
+            _tickDamageOverride = _attackStrength * _skillDamageMultiplier * _tickDamageMultiplier;
     }
 
     private void Start()
@@ -125,7 +154,10 @@ public class BloodPool : MonoBehaviour
             var buffMgr = hit.GetComponent<BuffManager>();
             if (buffMgr == null) continue;
 
-            buffMgr.ApplyBuff(_debuffData, _casterGO);
+            var buff = buffMgr.ApplyBuff(_debuffData, _casterGO);
+            // 按施法者攻击力覆盖 DOT 每 tick 伤害
+            if (buff != null && _tickDamageOverride > 0f)
+                buff.TickDamageOverride = _tickDamageOverride;
         }
     }
 

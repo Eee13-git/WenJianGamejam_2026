@@ -27,10 +27,10 @@ public class SlideSkillEffect : SkillEffectBase
     [SerializeField] private bool _carryEnemies = false;
     [Tooltip("卷起检测半径")]
     [SerializeField] private float _carryRadius = 1f;
-    [Tooltip("卷起时对敌人造成的伤害")]
-    [SerializeField] private float _carryDamage = 20f;
-    [Tooltip("卷起的敌人撞墙后的二次伤害")]
-    [SerializeField] private float _wallDamage = 30f;
+    [Tooltip("卷起命中伤害倍率（×施法者攻击力 × 等级倍率）")]
+    [SerializeField] private float _carryDamageMultiplier = 1f;
+    [Tooltip("卷起的敌人撞墙后的二次伤害倍率（×施法者攻击力 × 等级倍率）")]
+    [SerializeField] private float _wallDamageMultiplier = 0f;
     [Tooltip("卷起的敌人是否无敌于其他伤害（跟随期间）")]
     [SerializeField] private bool _carriedInvincible = true;
 
@@ -46,6 +46,14 @@ public class SlideSkillEffect : SkillEffectBase
     [Tooltip("气浪视觉材质（可复用扩散波/气浪 shader 材质）")]
     [SerializeField] private Material _burstWaveMaterial;
 
+    [Header("机制成长（升级可选）")]
+    [Tooltip("每级额外冲刺距离（0=不成长）")]
+    public float distancePerLevel = 0f;
+    [Tooltip("每级额外卷起检测半径（0=不成长）")]
+    public float carryRadiusPerLevel = 0f;
+    [Tooltip("每级额外气浪半径（0=不成长）")]
+    public float burstRadiusPerLevel = 0f;
+
     [Header("音效（可选）")]
     [Tooltip("冲刺自然结束（到达终点/命中敌人）时播放的音效名称，空=不播放")]
     [SerializeField] private string _endSoundName;
@@ -57,7 +65,7 @@ public class SlideSkillEffect : SkillEffectBase
     [SerializeField] private Material _hitFlashMaterial;
 
     public override void Execute(ISkillCaster caster, Vector2 direction,
-                                  float damageMultiplier, Projectile.OwnerType ownerType)
+                                  float damageMultiplier, Projectile.OwnerType ownerType, int level)
     {
         // 已有滑移在进行中则不重复触发
         var existing = caster.CasterTransform.GetComponent<SlideRuntime>();
@@ -72,13 +80,25 @@ public class SlideSkillEffect : SkillEffectBase
         if (ownerType == Projectile.OwnerType.Enemy && direction.sqrMagnitude > 0.01f)
             slide.SetForcedDirection(direction);
 
-        slide.Activate(caster, _distance, _speed, _immuneDuration, _trailMaterial);
+        // 机制成长：冲刺距离/卷起半径/气浪半径随等级提升
+        float actualDistance = _distance + (level - 1) * distancePerLevel;
+        float actualCarryRadius = _carryRadius + (level - 1) * carryRadiusPerLevel;
+        float actualBurstRadius = _burstRadius + (level - 1) * burstRadiusPerLevel;
 
-        // 卷起能力配置
+        slide.Activate(caster, actualDistance, _speed, _immuneDuration, _trailMaterial);
+
+        // 卷起能力配置：伤害 = 施法者攻击力 × 等级倍率 × 效果倍率
         if (_carryEnemies)
         {
-            slide.EnableCarrying(_carryRadius, _carryDamage * damageMultiplier,
-                _wallDamage, _carriedInvincible, ownerType);
+            float carryDmg = _carryDamageMultiplier > 0f
+                ? caster.GetAttackStrength() * damageMultiplier * _carryDamageMultiplier
+                : 0f;
+            float wallDmg = _wallDamageMultiplier > 0f
+                ? caster.GetAttackStrength() * damageMultiplier * _wallDamageMultiplier
+                : 0f;
+
+            slide.EnableCarrying(actualCarryRadius, carryDmg,
+                wallDmg, _carriedInvincible, ownerType);
         }
 
         // 命中闪光特效（暗仪刺刀等强化）
@@ -88,7 +108,7 @@ public class SlideSkillEffect : SkillEffectBase
         // 爆发冲击配置（自动锁敌 + 命中释放气浪）
         if (_autoAimNearest || _burstOnHit)
         {
-            slide.EnableBurst(_autoAimNearest, _burstOnHit, _burstRadius,
+            slide.EnableBurst(_autoAimNearest, _burstOnHit, actualBurstRadius,
                 _burstPushForce, _burstWaveMaterial, ownerType);
         }
     }

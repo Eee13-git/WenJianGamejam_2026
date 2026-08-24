@@ -36,18 +36,23 @@ public class SummonSkillEffect : SkillEffectBase
     [Tooltip("场上同时存活的本技能召唤物上限（0=无限制）。达到上限后停止召唤，等场上减少后再补")]
     [Min(0)] public int maxActiveCount = 0;
 
+    [Header("机制成长（升级可选）")]
+    [Tooltip("每级额外召唤数量（0=不成长）")]
+    public int countPerLevel = 0;
+
     /// <summary>本技能已召唤且仍存活的单位（运行时追踪，死亡/同化自动移除）</summary>
     private readonly List<GameObject> _activeMinions = new List<GameObject>();
 
     public override void Execute(ISkillCaster caster, Vector2 direction,
-                                  float damageMultiplier, Projectile.OwnerType ownerType)
+                                  float damageMultiplier, Projectile.OwnerType ownerType, int level)
     {
         MonoBehaviour mono = caster.CasterTransform.GetComponent<MonoBehaviour>();
         if (mono == null) return;
-        mono.StartCoroutine(SummonRoutine(caster, ownerType));
+        mono.StartCoroutine(SummonRoutine(caster, ownerType, damageMultiplier, level));
     }
 
-    private System.Collections.IEnumerator SummonRoutine(ISkillCaster caster, Projectile.OwnerType ownerType)
+    private System.Collections.IEnumerator SummonRoutine(ISkillCaster caster, Projectile.OwnerType ownerType,
+        float damageMultiplier = 1f, int level = 1)
     {
         GameObject[] pool = ownerType == Projectile.OwnerType.Player
             ? playerMinionPrefabs
@@ -62,10 +67,13 @@ public class SummonSkillEffect : SkillEffectBase
         string targetTag = ownerType == Projectile.OwnerType.Player ? "Enemy" : "Player";
         string selfTag   = ownerType == Projectile.OwnerType.Player ? "Player" : "Enemy";
 
+        // 机制成长：召唤数量随等级提升
+        int actualCount = Mathf.Max(1, count + (level - 1) * countPerLevel);
+
         Vector2 center = caster.CasterTransform.position;
         Transform parent = caster.CasterTransform.parent;
 
-        for (int i = 0; i < count; i++)
+        for (int i = 0; i < actualCount; i++)
         {
             // 召唤上限：清理已销毁引用后，若达到上限则停止本次召唤
             _activeMinions.RemoveAll(m => m == null);
@@ -98,10 +106,10 @@ public class SummonSkillEffect : SkillEffectBase
             // 阵营标记
             go.tag = selfTag;
 
-            // 光子光柱：初始化伤害参数
+            // 光子光柱：初始化伤害参数（攻击力 + 技能倍率 + 技能等级）
             var beam = go.GetComponent<PhotonBeam>();
             if (beam != null)
-                beam.Initialize(ownerType, caster.GetAttackStrength());
+                beam.Initialize(ownerType, caster.GetAttackStrength(), damageMultiplier, level);
 
             // 设置敌人 Core 的初始目标
             var core = go.GetComponent<EnemyCore>();

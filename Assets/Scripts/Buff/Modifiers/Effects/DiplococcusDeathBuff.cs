@@ -71,7 +71,7 @@ public class DiplococcusDeathBuff : BuffEffectBase
         Vector2 pos = caster.transform.position;
 
         SpawnCocci(caster);
-        SpawnPoisonGas(pos);
+        SpawnPoisonGas(pos, caster);
     }
 
     /// <summary>爆出单球菌（继承敌方阵营，攻击玩家），并计入房间敌人计数</summary>
@@ -103,7 +103,7 @@ public class DiplococcusDeathBuff : BuffEffectBase
     }
 
     /// <summary>生成毒气团（敌方阵营，伤害玩家）</summary>
-    private void SpawnPoisonGas(Vector2 pos)
+    private void SpawnPoisonGas(Vector2 pos, GameObject caster)
     {
         if (poisonGasPrefab == null) return;
 
@@ -112,6 +112,14 @@ public class DiplococcusDeathBuff : BuffEffectBase
 
         var zone = go.GetComponent<PoisonGasZone>();
         if (zone != null)
-            zone.Initialize(Projectile.OwnerType.Enemy, poisonRadius, poisonDuration, poisonDebuff);
+        {
+            // 毒气 DOT 伤害 = 死亡者攻击力 × 技能倍率(亡语无等级=1) × 毒气倍率，随攻击力成长
+            float attackStrength = caster != null
+                ? (caster.GetComponent<EnemyCore>()?.GetAttackStrength() ?? 0f)
+                : 0f;
+
+            zone.Initialize(Projectile.OwnerType.Enemy, poisonRadius, poisonDuration, poisonDebuff,
+                attackStrength, 1f);
+        }
     }
 }

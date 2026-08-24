@@ -17,8 +17,8 @@ public class TorrentSkillEffect : SkillEffectBase, ICastAnimationSync
     [SerializeField] private float _range = 8f;
     [Tooltip("扇形扩散角度（度）")]
     [SerializeField] private float _spreadAngle = 60f;
-    [Tooltip("每秒伤害")]
-    [SerializeField] private float _damagePerSecond = 20f;
+    [Tooltip("每秒伤害倍率（×施法者攻击力 × 等级倍率）")]
+    [SerializeField] private float _damagePerSecondMultiplier = 1f;
     [Tooltip("伤害结算间隔（秒），越小越平滑")]
     [SerializeField] private float _damageInterval = 0.2f;
 
@@ -35,6 +35,12 @@ public class TorrentSkillEffect : SkillEffectBase, ICastAnimationSync
     [SerializeField] private Sprite[] _animationSprites;
     [Tooltip("帧动画播放速率（帧/秒）")]
     [SerializeField] private float _animationFps = 8f;
+
+    [Header("机制成长（升级可选）")]
+    [Tooltip("每级额外喷射持续时间（秒，0=不成长）")]
+    public float durationPerLevel = 0f;
+    [Tooltip("每级额外射程（0=不成长）")]
+    public float rangePerLevel = 0f;
 
     [Header("方向锁定与喷射原点")]
     [Tooltip("锁定水平方向（左右喷射，忽略垂直分量）。用于 Boss 水平型洪流")]
@@ -60,7 +66,7 @@ public class TorrentSkillEffect : SkillEffectBase, ICastAnimationSync
     public float EffectStartDelay => (_effectStartFrame - 1) / Mathf.Max(_castAnimationFps, 1f);
 
     public override void Execute(ISkillCaster caster, Vector2 direction,
-                                  float damageMultiplier, Projectile.OwnerType ownerType)
+                                  float damageMultiplier, Projectile.OwnerType ownerType, int level)
     {
         // 已有同类效果在进行中则不重复触发
         var existing = FindObjectOfType<TorrentRuntime>();
@@ -76,14 +82,22 @@ public class TorrentSkillEffect : SkillEffectBase, ICastAnimationSync
         float duration = _effectEndFrame > _effectStartFrame
             ? Mathf.Max(endTime - startTime, 0.1f)
             : _duration;
+        // 机制成长：持续时长/射程随等级提升（帧同步技能时长由动画帧决定，不叠加成长）
+        if (_effectEndFrame <= _effectStartFrame)
+            duration += (level - 1) * durationPerLevel;
+        float actualRange = _range + (level - 1) * rangePerLevel;
+
         float animFps = _animationSprites != null && _animationSprites.Length > 0
             ? _animationSprites.Length * Mathf.Max(_animationLoops, 1) / duration
             : _animationFps;
 
+        // 每秒伤害 = 施法者攻击力 × 等级倍率 × 效果倍率
+        float dps = caster.GetAttackStrength() * damageMultiplier * _damagePerSecondMultiplier;
+
         runtime.Initialize(
             caster, direction,
-            duration, _range, _spreadAngle,
-            _damagePerSecond, _damageInterval,
+            duration, actualRange, _spreadAngle,
+            dps, _damageInterval,
             _knockbackSpeed,
             _torrentMaterial,
             _animationSprites, animFps,

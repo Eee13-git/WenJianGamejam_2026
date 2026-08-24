@@ -18,11 +18,17 @@ MonoBehaviour:
   _trailMaterial: {fileID: 2100000, guid: 7e49bf04f17d121468dd81c70210ac03, type: 2}
   _carryEnemies: 1
   _carryRadius: 1.2
-  _carryDamage: 30
-  _wallDamage: 0
+  _carryDamageMultiplier: 3
+  _wallDamageMultiplier: 0
   _carriedInvincible: 0
   _autoAimNearest: 1
   _burstOnHit: 1
   _burstRadius: 0
   _burstPushForce: 0
   _burstWaveMaterial: {fileID: 0}
+  distancePerLevel: 0.5
+  carryRadiusPerLevel: 0.1
+  burstRadiusPerLevel: 0
+  _endSoundName: 
+  _wallSoundName: 
+  _hitFlashMaterial: {fileID: 0}

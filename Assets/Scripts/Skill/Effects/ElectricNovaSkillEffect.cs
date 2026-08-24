@@ -14,6 +14,10 @@ public class ElectricNovaSkillEffect : SkillEffectBase
     [Tooltip("电击伤害半径")]
     public float radius = 3f;
 
+    [Header("机制成长（升级可选）")]
+    [Tooltip("每级额外电击半径（0=不成长）")]
+    public float radiusPerLevel = 0f;
+
     [Header("闪电弧视觉")]
     [Tooltip("闪电弧材质（加法混合发光）")]
     public Material arcMaterial;
@@ -41,15 +45,18 @@ public class ElectricNovaSkillEffect : SkillEffectBase
     public float hitGlowDuration = 0.25f;
 
     public override void Execute(ISkillCaster caster, Vector2 direction,
-                                  float damageMultiplier, Projectile.OwnerType ownerType)
+                                  float damageMultiplier, Projectile.OwnerType ownerType, int level)
     {
         if (caster == null || caster.CasterTransform == null) return;
+
+        // 机制成长：电击半径随等级提升
+        float actualRadius = radius + (level - 1) * radiusPerLevel;
 
         Vector3 center = caster.CasterTransform.position;
         float damage = caster.GetAttackStrength() * damageMultiplier;
         string targetTag = ownerType == Projectile.OwnerType.Player ? "Enemy" : "Player";
 
-        Collider2D[] hits = Physics2D.OverlapCircleAll(center, radius);
+        Collider2D[] hits = Physics2D.OverlapCircleAll(center, actualRadius);
 
         bool hitAny = false;
         foreach (var hit in hits)
@@ -71,7 +78,7 @@ public class ElectricNovaSkillEffect : SkillEffectBase
 
         // 无目标时向施法方向空放一道闪电（视觉反馈）
         if (!hitAny)
-            SpawnArc(center, center + (Vector3)(direction.normalized * radius));
+            SpawnArc(center, center + (Vector3)(direction.normalized * actualRadius));
     }
 
     /// <summary>生成锯齿状闪电弧（复用泛用运行时组件）</summary>

@@ -23,6 +23,10 @@ public class PeriodicShieldBuff : BuffEffectBase
     [Tooltip("护盾生成间隔（秒，护盾消失/破碎后多久重新生成）")]
     public float regenInterval = 3f;
 
+    [Header("机制成长（升级可选）")]
+    [Tooltip("每级护盾量比例倍率成长（0=不成长）。实际比例 = shieldRatio × (1 + (来源技能等级-1) × 此值)")]
+    public float shieldRatioPerLevel = 0f;
+
     [Header("破碎僵直")]
     [Tooltip("护盾被击碎时的僵直时间（秒）")]
     public float stunDuration = 3f;
@@ -91,7 +95,9 @@ public class PeriodicShieldBuff : BuffEffectBase
             if (playerStats != null) maxHP = playerStats.MaxHealth;
         }
 
-        float shieldHP = maxHP * shieldRatio;
+        // 机制成长：护盾量比例随来源技能等级提升
+        float actualRatio = shieldRatio * (1f + (buff.SourceLevel - 1) * shieldRatioPerLevel);
+        float shieldHP = maxHP * actualRatio;
 
         Debug.Log($"[PeriodicShield] CreateShield: target={target.name}, maxHP={maxHP}, shieldHP={shieldHP}, shieldMat={shieldMaterial?.name}");
 

@@ -24,6 +24,14 @@ public class ChainLightningSkillEffect : SkillEffectBase
     [Tooltip("每跳间隔秒数（越小越迅捷）")]
     public float jumpDelay = 0.06f;
 
+    [Header("机制成长（升级可选）")]
+    [Tooltip("每级额外最大命中目标数（0=不成长）")]
+    public int maxTargetsPerLevel = 0;
+    [Tooltip("每级额外初始搜索半径（0=不成长）")]
+    public float searchRadiusPerLevel = 0f;
+    [Tooltip("每级额外每跳搜索半径（0=不成长）")]
+    public float jumpRadiusPerLevel = 0f;
+
     [Header("闪电弧视觉")]
     [Tooltip("闪电弧材质（加法混合发光）")]
     public Material arcMaterial;
@@ -60,7 +68,7 @@ public class ChainLightningSkillEffect : SkillEffectBase
     public float hitGlowDuration = 0.25f;
 
     public override void Execute(ISkillCaster caster, Vector2 direction,
-                                  float damageMultiplier, Projectile.OwnerType ownerType)
+                                  float damageMultiplier, Projectile.OwnerType ownerType, int level)
     {
         if (caster == null || caster.CasterTransform == null) return;
 
@@ -71,12 +79,17 @@ public class ChainLightningSkillEffect : SkillEffectBase
             return;
         }
 
-        runner.StartCoroutine(ChainRoutine(caster, direction, damageMultiplier, ownerType));
+        runner.StartCoroutine(ChainRoutine(caster, direction, damageMultiplier, ownerType, level));
     }
 
     private IEnumerator ChainRoutine(ISkillCaster caster, Vector2 direction,
-        float damageMultiplier, Projectile.OwnerType ownerType)
+        float damageMultiplier, Projectile.OwnerType ownerType, int level)
     {
+        // 机制成长：目标数/搜索半径随等级提升
+        int actualMaxTargets = Mathf.Max(1, maxTargets + (level - 1) * maxTargetsPerLevel);
+        float actualSearchRadius = searchRadius + (level - 1) * searchRadiusPerLevel;
+        float actualJumpRadius = jumpRadius + (level - 1) * jumpRadiusPerLevel;
+
         float damage = caster.GetAttackStrength() * damageMultiplier;
         string targetTag = ownerType == Projectile.OwnerType.Player ? "Enemy" : "Player";
 
@@ -86,7 +99,7 @@ public class ChainLightningSkillEffect : SkillEffectBase
         HashSet<Collider2D> hitSet = new HashSet<Collider2D>();
 
         // 当前起点
-        Transform current = FindNearestTarget(origin, targetTag, searchRadius, hitSet);
+        Transform current = FindNearestTarget(origin, targetTag, actualSearchRadius, hitSet);
         if (current == null)
         {
             // 无目标时从施法者向施法方向空放一道闪电（视觉反馈）
@@ -97,7 +110,7 @@ public class ChainLightningSkillEffect : SkillEffectBase
 
         Vector3 previousPos = origin;
 
-        for (int i = 0; i < maxTargets; i++)
+        for (int i = 0; i < actualMaxTargets; i++)
         {
             if (current == null) break;
 
@@ -116,10 +129,10 @@ public class ChainLightningSkillEffect : SkillEffectBase
             previousPos = current.position;
 
             // 链接下一个最近的目标（跳过已命中）
-            if (i < maxTargets - 1)
+            if (i < actualMaxTargets - 1)
             {
                 yield return new WaitForSeconds(jumpDelay);
-                current = FindNearestTarget(current.position, targetTag, jumpRadius, hitSet);
+                current = FindNearestTarget(current.position, targetTag, actualJumpRadius, hitSet);
             }
         }
     }

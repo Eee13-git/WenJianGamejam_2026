@@ -18,7 +18,7 @@ public class HealSkillEffect : SkillEffectBase
     public GameObject healVfx;
 
     public override void Execute(ISkillCaster caster, Vector2 direction,
-                                  float damageMultiplier, Projectile.OwnerType ownerType)
+                                  float damageMultiplier, Projectile.OwnerType ownerType, int level)
     {
         float healAmount = scaleWithAttack
             ? baseHealAmount + caster.GetAttackStrength() * damageMultiplier * 0.5f

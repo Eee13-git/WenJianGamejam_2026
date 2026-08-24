@@ -17,6 +17,14 @@ public class GroundSolutionZone : MonoBehaviour
     [SerializeField] private float _refreshInterval = 0.25f;
     [Tooltip("给目标挂的持续伤害 debuff（DamageOverTimeBuff，Refresh 行为）")]
     [SerializeField] private BuffData _debuffData;
+    [Tooltip("DOT 每 tick 伤害倍率（×投射物伤害，投射物伤害已含施法者攻击力×等级倍率）")]
+    [SerializeField] private float _damageMultiplier = 1f;
+
+    [Header("机制成长（升级可选）")]
+    [Tooltip("每级额外作用半径（0=不成长）")]
+    [SerializeField] private float _radiusPerLevel = 0f;
+    [Tooltip("每级额外持续时间（秒，0=不成长）")]
+    [SerializeField] private float _durationPerLevel = 0f;
 
     // ── 运行时状态 ──
     private Projectile.OwnerType _owner;
@@ -24,6 +32,7 @@ public class GroundSolutionZone : MonoBehaviour
     private float _timer;
     private float _nextRefreshTime;
     private bool _initialized;
+    private float _tickDamageOverride = -1f;
 
     /// <summary>初始化（可选外部调用覆盖 Inspector 参数；不调用则用 Inspector 值）</summary>
     public void Initialize(float radius, float duration, BuffData debuffData)
@@ -43,6 +52,14 @@ public class GroundSolutionZone : MonoBehaviour
             proj.enabled = false;
     }
 
+    /// <summary>按技能等级成长作用半径/持续时间（level<=1 时无变化）</summary>
+    public void ApplyLevel(int level)
+    {
+        if (level <= 1) return;
+        if (_radiusPerLevel > 0f) _radius = _radius + (level - 1) * _radiusPerLevel;
+        if (_durationPerLevel > 0f) _duration = _duration + (level - 1) * _durationPerLevel;
+    }
+
     private void Start()
     {
         var proj = GetComponent<Projectile>();
@@ -52,6 +69,13 @@ public class GroundSolutionZone : MonoBehaviour
             proj.CancelInvoke("ReturnToPool");
             _owner = proj.Owner;
             _casterGO = proj.Caster;
+
+            // DOT 伤害 = 投射物伤害 × 倍率（投射物伤害 = 施法者攻击力 × 等级倍率，随攻击力成长）
+            if (_damageMultiplier > 0f)
+                _tickDamageOverride = proj.Damage * _damageMultiplier;
+
+            // 机制成长：作用半径/持续时间随技能等级提升
+            ApplyLevel(proj.Level);
         }
         else
         {
@@ -105,7 +129,10 @@ public class GroundSolutionZone : MonoBehaviour
             var buffMgr = hit.GetComponent<BuffManager>();
             if (buffMgr == null) continue;
 
-            buffMgr.ApplyBuff(_debuffData, _casterGO);
+            var buff = buffMgr.ApplyBuff(_debuffData, _casterGO);
+            // 按施法者攻击力覆盖 DOT 每 tick 伤害（区域持续期间随 debuff 刷新保持）
+            if (buff != null && _tickDamageOverride > 0f)
+                buff.TickDamageOverride = _tickDamageOverride;
         }
     }
 

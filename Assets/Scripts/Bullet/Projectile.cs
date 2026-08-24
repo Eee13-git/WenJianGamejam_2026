@@ -40,6 +40,12 @@ public class Projectile : MonoBehaviour
     /// <summary>投射物阵营（公开只读，供地面区域等组件读取）</summary>
     public OwnerType Owner => _owner;
 
+    /// <summary>投射物当前伤害（公开只读，供地面区域按施法者攻击力缩放 DOT 等使用）</summary>
+    public float Damage => damage;
+
+    /// <summary>投射物所属技能等级（默认1；供区域/触发体组件按等级成长半径/时长等机制参数）</summary>
+    public int Level { get; private set; } = 1;
+
     private Vector2 _direction;
     private OwnerType _owner;
     private bool _isInitialized;
@@ -51,13 +57,15 @@ public class Projectile : MonoBehaviour
     private float _frozenLifetimeRemain;
 
     /// <param name="caster">投射物所有者GameObject，可选</param>
-    public void Initialize(Vector2 dir, float spd, float dmg, OwnerType owner, GameObject caster = null)
+    /// <param name="level">技能等级（默认1），供区域/触发体组件机制成长使用</param>
+    public void Initialize(Vector2 dir, float spd, float dmg, OwnerType owner, GameObject caster = null, int level = 1)
     {
         _direction = dir.normalized;
         speed = spd;
         damage = dmg;
         _owner = owner;
         Caster = caster ?? gameObject;
+        Level = level;
         _isInitialized = true;
         IsFrozen = false;
         _spawnPos = transform.position;
@@ -93,6 +101,7 @@ public class Projectile : MonoBehaviour
         _isInitialized = false;
         _direction = Vector2.zero;
         Caster = null;
+        Level = 1;
         transform.localScale = _baseScale;
         CancelInvoke(nameof(ReturnToPool));
     }

@@ -21,8 +21,14 @@ public class HomingProjectileSkillEffect : SkillEffectBase
     [Tooltip("敌人搜索半径")]
     public float searchRadius = 10f;
 
+    [Header("机制成长（升级可选）")]
+    [Tooltip("每级额外发射数量（0=不成长）")]
+    public int projectileCountPerLevel = 0;
+    [Tooltip("每级额外搜索半径（0=不成长）")]
+    public float searchRadiusPerLevel = 0f;
+
     public override void Execute(ISkillCaster caster, Vector2 direction,
-                                  float damageMultiplier, Projectile.OwnerType ownerType)
+                                  float damageMultiplier, Projectile.OwnerType ownerType, int level)
     {
         if (homingProjectilePrefab == null)
         {
@@ -34,11 +40,15 @@ public class HomingProjectileSkillEffect : SkillEffectBase
         if (BacteriophageProjectile.S_PhagePrefab == null)
             BacteriophageProjectile.S_PhagePrefab = homingProjectilePrefab;
 
+        // 机制成长：发射数量/搜索半径随等级提升
+        int actualCount = Mathf.Max(1, projectileCount + (level - 1) * projectileCountPerLevel);
+        float actualRadius = searchRadius + (level - 1) * searchRadiusPerLevel;
+
         Vector3 origin = caster.CasterTransform.position;
         float casterAttack = caster.GetAttackStrength();
         float totalDamage = casterAttack * damageMultiplier;
 
-        var enemies = FindNearestEnemies(origin, searchRadius, projectileCount);
+        var enemies = FindNearestEnemies(origin, actualRadius, actualCount);
 
         if (enemies.Count == 0)
         {

@@ -19,6 +19,12 @@ public class SkillData : ScriptableObject
     public float damageMultiplier = 1.5f; // 伤害系数（乘以施法者攻击力）
     public int maxLevel = 5;              // 最大升级等级
 
+    [Header("升级成长（每个技能可定制）")]
+    [Tooltip("每级伤害倍率成长：升级后伤害系数 = 基础 × (1 + (等级-1) × 此值)。0.15 = 每级+15%")]
+    public float damageGrowthPerLevel = 0.15f;
+    [Tooltip("每级冷却缩减：升级后冷却 = 基础 × (1 - (等级-1) × 此值)。0.1 = 每级-10%")]
+    public float cooldownReductionPerLevel = 0.1f;
+
     [Header("被动")]
     [Tooltip("被动技能：装配后自动执行一次效果（通常为永久 buff 光环），不进入冷却、不触发施法动画")]
     public bool passive = false;
