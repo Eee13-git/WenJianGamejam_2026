@@ -35,8 +35,10 @@ public class SkillStealPopupManager : MonoBehaviour
         else
             Destroy(gameObject);
 
-        // 动态字体无法被预制体序列化，运行时创建
-        _runtimeFont = Font.CreateDynamicFontFromOSFont("Arial", 16);
+        // 动态字体无法被预制体序列化，运行时创建（全局像素字体）
+        _runtimeFont = Resources.Load<Font>("Fonts/ark-pixel-12px-monospaced-zh_cn");
+        if (_runtimeFont == null)
+            _runtimeFont = Font.CreateDynamicFontFromOSFont("Arial", 16);
 
         if (_backdrop != null)
             _backdrop.SetActive(false);
