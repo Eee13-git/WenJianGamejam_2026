@@ -18,6 +18,21 @@ public class DamagePopup : MonoBehaviour
     /// <summary>在指定世界坐标生成伤害数字</summary>
     public static void Spawn(Vector3 worldPosition, float damage, bool isPlayerDamage = false)
     {
+        string text = Mathf.Abs(Mathf.RoundToInt(damage)).ToString();
+        Color color = isPlayerDamage ? new Color(1f, 0.2f, 0.2f, 1f) : new Color(1f, 0.85f, 0.25f, 1f);
+        SpawnInternal(worldPosition, text, color);
+    }
+
+    /// <summary>在指定世界坐标生成治疗数字（绿色，带 + 号）</summary>
+    public static void SpawnHeal(Vector3 worldPosition, float amount)
+    {
+        string text = "+" + Mathf.RoundToInt(amount);
+        SpawnInternal(worldPosition, text, new Color(0.3f, 0.9f, 0.3f, 1f));
+    }
+
+    /// <summary>公共生成逻辑：创建 GO + TMP 并应用上浮渐隐动画</summary>
+    private static void SpawnInternal(Vector3 worldPosition, string text, Color color)
+    {
         var go = new GameObject("DamagePopup", typeof(DamagePopup));
         go.transform.position = worldPosition + (Vector3)(Random.insideUnitCircle * 0.3f);
 
@@ -25,11 +40,11 @@ public class DamagePopup : MonoBehaviour
         var popup = go.GetComponent<DamagePopup>();
         popup._text = tmp;
 
-        tmp.text = Mathf.Abs(Mathf.RoundToInt(damage)).ToString();
+        tmp.text = text;
         tmp.fontSize = 8f;
         tmp.alignment = TextAlignmentOptions.Center;
         tmp.fontStyle = FontStyles.Bold;
-        tmp.color = isPlayerDamage ? new Color(1f, 0.2f, 0.2f, 1f) : new Color(1f, 0.85f, 0.25f, 1f);
+        tmp.color = color;
         tmp.sortingOrder = 100;
         tmp.raycastTarget = false;
 

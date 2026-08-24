@@ -158,7 +158,12 @@ public class PlayerStats : MonoBehaviour, IDamageable, IHealable
     {
         if (_isDead) return;
 
-        health = Mathf.Min(health + amount, maxHealth);
+        float actual = Mathf.Min(health + amount, maxHealth) - health;
+        health += actual;
+
+        // 实际回血 > 0 时弹绿色治疗数字
+        if (actual > 0f)
+            DamagePopup.SpawnHeal(transform.position, actual);
 
 #if UNITY_EDITOR
         Debug.Log($"玩家治疗！当前生命：{health}");

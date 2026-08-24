@@ -147,7 +147,14 @@ public class EnemyStats : MonoBehaviour, IDamageable, IHealable
     public void Heal(float amount)
     {
         if (_isDead) return;
-        _health = Mathf.Min(_health + amount, MaxHealth);
+
+        float actual = Mathf.Min(_health + amount, MaxHealth) - _health;
+        _health += actual;
+
+        // 实际回血 > 0 时弹绿色治疗数字
+        if (actual > 0f)
+            DamagePopup.SpawnHeal(transform.position, actual);
+
         OnHealthChanged?.Invoke(_health, MaxHealth);
     }
 

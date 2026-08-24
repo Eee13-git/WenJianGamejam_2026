@@ -35,9 +35,6 @@ public class ResultSceneController : MonoBehaviour
     [SerializeField] private TMP_Text _panelScoreText;
     [SerializeField] private TMP_Text _panelDetailText;
 
-    [Header("弹窗背景颜色")]
-    [SerializeField] private Color _panelBackgroundColor = Color.black;
-
     [Header("科技点")]
     [Tooltip("分数 ÷ 此值 = 获得的科技点")]
     [SerializeField] private int _techPointDivisor = 1000;
@@ -100,10 +97,6 @@ public class ResultSceneController : MonoBehaviour
         _settlementPanel.SetActive(true);
         if (_settlementOverlay != null)
             _settlementOverlay.SetActive(true);
-
-        var img = _settlementPanel.GetComponent<Image>();
-        if (img != null)
-            img.color = _panelBackgroundColor;
 
         // 首次打开时发放科技点
         if (!_techPointsAwarded)
@@ -184,12 +177,7 @@ public class ResultSceneController : MonoBehaviour
         if (_titleText != null)
         {
             var stats = GameStatistics.Instance;
-            if (stats == null)
-            {
-                _titleText.text = "无统计数据";
-                return;
-            }
-            _titleText.text = "<size=100>结算</size>\n<size=36>点击「查看结算」按钮查看本局详细数据</size>";
+            _titleText.text = "<size=100>结算</size>";
         }
     }
 
@@ -203,10 +191,10 @@ public class ResultSceneController : MonoBehaviour
             : default;
 
         // ── 道具 ──
-        sb.AppendLine("<size=30><color=#FFD700>━━━━ 获得的道具 ━━━━</color></size>");
+        sb.AppendLine("<size=30><color=#8A5A00>━━━━ 获得的道具 ━━━━</color></size>");
         if (stats.AcquiredItems.Count == 0)
         {
-            sb.AppendLine("  <color=#888888>· 无</color>");
+            sb.AppendLine("  <color=#4A5E6B>· 无</color>");
         }
         else
         {
@@ -216,44 +204,44 @@ public class ResultSceneController : MonoBehaviour
                 int count = kvp.Value.count;
                 string qualityColor = item.quality switch
                 {
-                    ItemQuality.Legendary => "#FF8C00",
-                    ItemQuality.Rare => "#4169E1",
-                    ItemQuality.Uncommon => "#32CD32",
-                    _ => "#CCCCCC"
+                    ItemQuality.Legendary => "#B25E00",
+                    ItemQuality.Rare => "#2C4F9E",
+                    ItemQuality.Uncommon => "#1E7A1E",
+                    _ => "#4A5E6B"
                 };
-                string countStr = count > 1 ? $"  ×<color=#FFD700>{count}</color>" : "";
+                string countStr = count > 1 ? $"  ×<color=#8A5A00>{count}</color>" : "";
                 int totalPrice = item.price * count;
                 string priceStr = count > 1
-                    ? $"<color=#FFD700>{totalPrice} ATP</color> <color=#888888>({item.price}×{count})</color>"
-                    : $"<color=#FFD700>{item.price} ATP</color>";
+                    ? $"<color=#8A5A00>{totalPrice} ATP</color> <color=#4A5E6B>({item.price}×{count})</color>"
+                    : $"<color=#8A5A00>{item.price} ATP</color>";
                 sb.AppendLine($"  <color={qualityColor}>{item.itemName}</color>  {priceStr}{countStr}");
             }
         }
 
         // ── 金钱 ──
         sb.AppendLine();
-        sb.AppendLine("<size=30><color=#FFD700>━━━━ 金 钱 ━━━━</color></size>");
-        sb.AppendLine($"  总收入:  <color=#7FFF00>+{stats.TotalCurrencyEarned} ATP</color>");
-        sb.AppendLine($"  总支出:  <color=#FF6347>-{stats.TotalCurrencySpent} ATP</color>");
+        sb.AppendLine("<size=30><color=#8A5A00>━━━━ 金 钱 ━━━━</color></size>");
+        sb.AppendLine($"  总收入:  <color=#1E7A1E>+{stats.TotalCurrencyEarned} ATP</color>");
+        sb.AppendLine($"  总支出:  <color=#B22222>-{stats.TotalCurrencySpent} ATP</color>");
 
         int net = stats.TotalCurrencyEarned - stats.TotalCurrencySpent;
-        string netColor = net >= 0 ? "#7FFF00" : "#FF6347";
+        string netColor = net >= 0 ? "#1E7A1E" : "#B22222";
         string netSign = net >= 0 ? "+" : "";
         sb.AppendLine($"  净收入:  <color={netColor}>{netSign}{net} ATP</color>");
 
         // ── 探索 ──
         sb.AppendLine();
-        sb.AppendLine("<size=30><color=#FFD700>━━━━ 探 索 ━━━━</color></size>");
+        sb.AppendLine("<size=30><color=#8A5A00>━━━━ 探 索 ━━━━</color></size>");
         AppendRoomTypeStats(sb, stats);
         sb.AppendLine($"  ── 合计 ──");
-        sb.AppendLine($"  进入  <color=#87CEEB>{stats.RoomsVisited}</color> 间  |  清空  <color=#FFD700>{stats.RoomsCleared}</color> 间");
+        sb.AppendLine($"  进入  <color=#0E6B9E>{stats.RoomsVisited}</color> 间  |  清空  <color=#8A5A00>{stats.RoomsCleared}</color> 间");
 
         // ── 击杀 ──
         sb.AppendLine();
-        sb.AppendLine("<size=30><color=#FFD700>━━━━ 击 杀 ━━━━</color></size>");
+        sb.AppendLine("<size=30><color=#8A5A00>━━━━ 击 杀 ━━━━</color></size>");
         if (stats.EnemiesKilled.Count == 0)
         {
-            sb.AppendLine("  <color=#888888>· 无</color>");
+            sb.AppendLine("  <color=#4A5E6B>· 无</color>");
         }
         else
         {
@@ -261,44 +249,44 @@ public class ResultSceneController : MonoBehaviour
             {
                 bool isBoss = kvp.Key.Contains("Boss") || kvp.Key.Contains("boss");
                 string enemyLabel = isBoss
-                    ? $"  <color=#FF4500>[Boss] {kvp.Key}</color>"
-                    : $"  <color=#AAA>·</color> {kvp.Key}";
-                sb.AppendLine($"{enemyLabel}  ×<color=#FFD700>{kvp.Value}</color>");
+                    ? $"  <color=#C0392B>[Boss] {kvp.Key}</color>"
+                    : $"  <color=#4A5E6B>·</color> {kvp.Key}";
+                sb.AppendLine($"{enemyLabel}  ×<color=#8A5A00>{kvp.Value}</color>");
             }
         }
 
         // ── 评分明细 ──
         sb.AppendLine();
-        sb.AppendLine("<size=30><color=#FFD700>━━━━ 评分明细 ━━━━</color></size>");
+        sb.AppendLine("<size=30><color=#8A5A00>━━━━ 评分明细 ━━━━</color></size>");
 
         if (_scoreCalculator != null)
         {
-            sb.AppendLine($"  道具分:  <color=#32CD32>+{bd.itemScore:F0}</color>  ({bd.itemCount} 件 × {bd.itemPriceMultiplier})");
-            sb.AppendLine($"  击杀分:  <color=#FF8C00>+{bd.killScore:F0}</color>  ({bd.totalKills} 个敌人)");
-            sb.AppendLine($"  金钱分:  <color=#FFD700>+{bd.currencyScore:F0}</color>  (收入 {bd.currencyEarned} × {bd.currencyEarnedMultiplier})");
+            sb.AppendLine($"  道具分:  <color=#1E7A1E>+{bd.itemScore:F0}</color>  ({bd.itemCount} 件 × {bd.itemPriceMultiplier})");
+            sb.AppendLine($"  击杀分:  <color=#B25E00>+{bd.killScore:F0}</color>  ({bd.totalKills} 个敌人)");
+            sb.AppendLine($"  金钱分:  <color=#8A5A00>+{bd.currencyScore:F0}</color>  (收入 {bd.currencyEarned} × {bd.currencyEarnedMultiplier})");
             if (bd.roomScore > 0)
-                sb.AppendLine($"  探索分:  <color=#87CEEB>+{bd.roomScore:F0}</color>  (进入 {bd.roomsVisited}×{bd.roomVisitedScore} + 清空 {bd.roomsCleared}×{bd.roomClearedBonus})");
+                sb.AppendLine($"  探索分:  <color=#0E6B9E>+{bd.roomScore:F0}</color>  (进入 {bd.roomsVisited}×{bd.roomVisitedScore} + 清空 {bd.roomsCleared}×{bd.roomClearedBonus})");
             if (bd.currencyPenalty > 0)
-                sb.AppendLine($"  消费罚分:  <color=#FF6347>-{bd.currencyPenalty:F0}</color>  (支出 {bd.currencySpent} × {bd.currencySpentPenalty})");
+                sb.AppendLine($"  消费罚分:  <color=#B22222>-{bd.currencyPenalty:F0}</color>  (支出 {bd.currencySpent} × {bd.currencySpentPenalty})");
         }
 
         // ── 科技点 ──
         sb.AppendLine();
-        sb.AppendLine("<size=30><color=#FFD700>━━━━ 科技点 ━━━━</color></size>");
+        sb.AppendLine("<size=30><color=#8A5A00>━━━━ 科技点 ━━━━</color></size>");
         if (_lastEarnedTechPoints > 0)
         {
-            sb.AppendLine($"  本局获得:  <color=#7FFF00>+{_lastEarnedTechPoints}</color>  (总分 {score} ÷ {_techPointDivisor})");
+            sb.AppendLine($"  本局获得:  <color=#1E7A1E>+{_lastEarnedTechPoints}</color>  (总分 {score} ÷ {_techPointDivisor})");
             int total = TechTreeManager.Instance != null ? TechTreeManager.Instance.TechPoints : 0;
-            sb.AppendLine($"  当前总计:  <color=#FFD700>{total}</color>");
+            sb.AppendLine($"  当前总计:  <color=#8A5A00>{total}</color>");
         }
         else
         {
-            sb.AppendLine($"  <color=#888888>本局分数不足，未获得科技点 (需 {_techPointDivisor} 分)</color>");
+            sb.AppendLine($"  <color=#4A5E6B>本局分数不足，未获得科技点 (需 {_techPointDivisor} 分)</color>");
         }
 
         // ── 总分 ──
         sb.AppendLine();
-        sb.AppendLine($"<size=36><color=#FFD700>══════ 总 分: {score} ══════</color></size>");
+        sb.AppendLine($"<size=36><color=#8A5A00>══════ 总 分: {score} ══════</color></size>");
 
         return sb.ToString();
     }
@@ -316,7 +304,7 @@ public class ResultSceneController : MonoBehaviour
             stats.RoomsVisitedByType.TryGetValue(roomType, out int visited);
             stats.RoomsClearedByType.TryGetValue(roomType, out int cleared);
             string typeName = RoomTypeToString(roomType);
-            sb.AppendLine($"  {typeName}  进入 <color=#87CEEB>{visited}</color>  清空 <color=#FFD700>{cleared}</color>");
+            sb.AppendLine($"  {typeName}  进入 <color=#0E6B9E>{visited}</color>  清空 <color=#8A5A00>{cleared}</color>");
         }
     }
 

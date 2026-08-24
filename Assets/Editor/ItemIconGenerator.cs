@@ -7,8 +7,7 @@ using System.IO;
 /// <summary>
 /// 道具图标生成器 — 在背景精灵上叠加文字，生成新的道具图标纹理。
 /// 菜单: Tools/道具图标生成器
-/// 用于"藏品背景"类道具图标（非化学物质道具）：背景图 + 道具名文字 → 新 PNG 资产。
-/// 支持：实时预览、手动换行（TextArea）、自动换行（每 N 字符断行）。
+/// 支持：背景缩放模式（独立/等比/原始）、文字偏移、自动换行、实时预览。
 /// </summary>
 public class ItemIconGenerator : EditorWindow
 {
@@ -17,6 +16,13 @@ public class ItemIconGenerator : EditorWindow
         Size128 = 128,
         Size256 = 256,
         Size512 = 512
+    }
+
+    private enum BackgroundScaleMode
+    {
+        Custom,   // 独立 X/Y 缩放
+        Uniform,  // 等比缩放（单个缩放值）
+        Original  // 原始像素尺寸（真实世界大小）
     }
 
     [Header("输入")]
@@ -28,9 +34,20 @@ public class ItemIconGenerator : EditorWindow
     [SerializeField] private bool _autoFitFontSize = true;
     [SerializeField] private int _maxCharsPerLine = 0;
 
+    [Header("背景缩放")]
+    [SerializeField] private BackgroundScaleMode _bgScaleMode = BackgroundScaleMode.Custom;
+    [SerializeField] private float _iconScaleX = 1.0f;
+    [SerializeField] private float _iconScaleY = 1.0f;
+    [SerializeField] private float _uniformScale = 1.0f;
+
+    [Header("文字偏移（像素）")]
+    [SerializeField] private float _textOffsetX = 0f;
+    [SerializeField] private float _textOffsetY = 0f;
+
     [Header("输出")]
     [SerializeField] private string _outputFolder = "Assets/Textures/ItemsIcons/Generated";
     [SerializeField] private string _outputFileName = "icon_new";
+    [SerializeField] private float _pixelsPerUnit = 128f;
 
     // TMP 字体缓存
     private TMP_FontAsset _tmpFont;
@@ -56,8 +73,20 @@ public class ItemIconGenerator : EditorWindow
         _resolution = (OutputResolution)EditorPrefs.GetInt(PrefsPrefix + "resolution", (int)OutputResolution.Size128);
         _autoFitFontSize = EditorPrefs.GetBool(PrefsPrefix + "autoFit", true);
         _maxCharsPerLine = EditorPrefs.GetInt(PrefsPrefix + "maxCharsPerLine", 0);
+
+        // 缩放模式相关
+        _bgScaleMode = (BackgroundScaleMode)EditorPrefs.GetInt(PrefsPrefix + "bgScaleMode", (int)BackgroundScaleMode.Custom);
+        _iconScaleX = EditorPrefs.GetFloat(PrefsPrefix + "iconScaleX", 1.0f);
+        _iconScaleY = EditorPrefs.GetFloat(PrefsPrefix + "iconScaleY", 1.0f);
+        _uniformScale = EditorPrefs.GetFloat(PrefsPrefix + "uniformScale", 1.0f);
+
+        // 文字偏移
+        _textOffsetX = EditorPrefs.GetFloat(PrefsPrefix + "textOffsetX", 0f);
+        _textOffsetY = EditorPrefs.GetFloat(PrefsPrefix + "textOffsetY", 0f);
+
         _outputFolder = EditorPrefs.GetString(PrefsPrefix + "outputFolder", "Assets/Textures/ItemsIcons/Generated");
         _outputFileName = EditorPrefs.GetString(PrefsPrefix + "outputFileName", "icon_new");
+        _pixelsPerUnit = EditorPrefs.GetFloat(PrefsPrefix + "pixelsPerUnit", 128f);
 
         // 对象引用通过 GUID 恢复
         _backgroundSprite = LoadAssetByGuid<Sprite>("bgSprite");
@@ -89,8 +118,19 @@ public class ItemIconGenerator : EditorWindow
         EditorPrefs.SetInt(PrefsPrefix + "resolution", (int)_resolution);
         EditorPrefs.SetBool(PrefsPrefix + "autoFit", _autoFitFontSize);
         EditorPrefs.SetInt(PrefsPrefix + "maxCharsPerLine", _maxCharsPerLine);
+
+        EditorPrefs.SetInt(PrefsPrefix + "bgScaleMode", (int)_bgScaleMode);
+        EditorPrefs.SetFloat(PrefsPrefix + "iconScaleX", _iconScaleX);
+        EditorPrefs.SetFloat(PrefsPrefix + "iconScaleY", _iconScaleY);
+        EditorPrefs.SetFloat(PrefsPrefix + "uniformScale", _uniformScale);
+
+        EditorPrefs.SetFloat(PrefsPrefix + "textOffsetX", _textOffsetX);
+        EditorPrefs.SetFloat(PrefsPrefix + "textOffsetY", _textOffsetY);
+
         EditorPrefs.SetString(PrefsPrefix + "outputFolder", _outputFolder);
         EditorPrefs.SetString(PrefsPrefix + "outputFileName", _outputFileName);
+        EditorPrefs.SetFloat(PrefsPrefix + "pixelsPerUnit", _pixelsPerUnit);
+
         SaveAssetGuid("bgSprite", _backgroundSprite);
         SaveAssetGuid("tmpFont", _tmpFont);
     }
@@ -152,9 +192,33 @@ public class ItemIconGenerator : EditorWindow
             _maxCharsPerLine);
 
         EditorGUILayout.Space();
+        EditorGUILayout.LabelField("背景缩放", EditorStyles.boldLabel);
+        _bgScaleMode = (BackgroundScaleMode)EditorGUILayout.EnumPopup("缩放模式", _bgScaleMode);
+
+        switch (_bgScaleMode)
+        {
+            case BackgroundScaleMode.Custom:
+                _iconScaleX = EditorGUILayout.Slider("缩放 X", _iconScaleX, 0.1f, 3.0f);
+                _iconScaleY = EditorGUILayout.Slider("缩放 Y", _iconScaleY, 0.1f, 3.0f);
+                break;
+            case BackgroundScaleMode.Uniform:
+                _uniformScale = EditorGUILayout.Slider("等比缩放", _uniformScale, 0.1f, 3.0f);
+                break;
+            case BackgroundScaleMode.Original:
+                EditorGUILayout.HelpBox("将使用背景精灵的原始像素尺寸，忽略缩放值。", MessageType.Info);
+                break;
+        }
+
+        EditorGUILayout.Space();
+        EditorGUILayout.LabelField("文字偏移（像素）", EditorStyles.boldLabel);
+        _textOffsetX = EditorGUILayout.Slider("水平偏移 X", _textOffsetX, -100f, 100f);
+        _textOffsetY = EditorGUILayout.Slider("垂直偏移 Y", _textOffsetY, -100f, 100f);
+
+        EditorGUILayout.Space();
         EditorGUILayout.LabelField("输出", EditorStyles.boldLabel);
         _outputFolder = EditorGUILayout.TextField("输出文件夹", _outputFolder);
         _outputFileName = EditorGUILayout.TextField("输出文件名", _outputFileName);
+        _pixelsPerUnit = EditorGUILayout.FloatField("每单位像素数 (Pixels Per Unit)", _pixelsPerUnit);
 
         EditorGUILayout.Space();
         if (_tmpFont == null)
@@ -176,7 +240,6 @@ public class ItemIconGenerator : EditorWindow
 
         if (_previewTexture != null)
         {
-            // 在窗口中显示预览图（放大到 256×256 方便查看）
             GUILayout.Label(_previewTexture, GUILayout.Width(256), GUILayout.Height(256));
         }
         else
@@ -190,7 +253,7 @@ public class ItemIconGenerator : EditorWindow
             GenerateIcon();
         }
 
-        // 自动刷新预览（当任意字段变化时）
+        // 自动刷新预览
         if (GUI.changed)
         {
             RefreshPreview();
@@ -204,12 +267,10 @@ public class ItemIconGenerator : EditorWindow
     {
         if (maxCharsPerLine <= 0) return text;
 
-        // 已经有手动换行的，不自动处理
         if (text.Contains("\n")) return text;
 
         if (text.Length <= maxCharsPerLine) return text;
 
-        // 按最大字符数分割
         var sb = new System.Text.StringBuilder();
         for (int i = 0; i < text.Length; i++)
         {
@@ -227,7 +288,6 @@ public class ItemIconGenerator : EditorWindow
     {
         if (!_autoFitFontSize) return baseFontSize;
 
-        // 按行分割，取最长行估算
         string[] lines = text.Split('\n');
         int maxLineLen = 0;
         foreach (var line in lines)
@@ -295,7 +355,6 @@ public class ItemIconGenerator : EditorWindow
             AssetDatabase.CreateFolder(parent, folderName);
         }
 
-        // 渲染图标
         Texture2D result = RenderIconToTexture(_backgroundSprite, processedText, actualFontSize, _textColor, size);
         if (result == null)
         {
@@ -303,18 +362,16 @@ public class ItemIconGenerator : EditorWindow
             return;
         }
 
-        // 保存 PNG
         string outputPath = $"{_outputFolder}/{_outputFileName}.png";
         File.WriteAllBytes(outputPath, result.EncodeToPNG());
 
-        // 导入设置
         AssetDatabase.ImportAsset(outputPath, ImportAssetOptions.ForceUpdate);
         var importer = AssetImporter.GetAtPath(outputPath) as TextureImporter;
         if (importer != null)
         {
             importer.textureType = TextureImporterType.Sprite;
             importer.spriteImportMode = SpriteImportMode.Single;
-            importer.spritePixelsPerUnit = 128;
+            importer.spritePixelsPerUnit = _pixelsPerUnit;
             importer.filterMode = FilterMode.Point;
             importer.textureCompression = TextureImporterCompression.Uncompressed;
             importer.alphaIsTransparency = true;
@@ -322,7 +379,6 @@ public class ItemIconGenerator : EditorWindow
             importer.SaveAndReimport();
         }
 
-        // 选中新创建的资产
         var savedAsset = AssetDatabase.LoadAssetAtPath<Sprite>(outputPath);
         EditorGUIUtility.PingObject(savedAsset);
 
@@ -331,12 +387,11 @@ public class ItemIconGenerator : EditorWindow
     }
 
     /// <summary>
-    /// 用 Camera + Canvas + TMP_Text 渲染文字到背景纹理上。
-    /// 在 Edit 模式下通过 Camera.Render() 渲染到 RenderTexture，再 ReadPixels 读回。
+    /// 渲染图标纹理。背景使用指定的缩放模式，文字使用 TMP 渲染，并应用像素偏移。
     /// </summary>
     private Texture2D RenderIconToTexture(Sprite bgSprite, string text, int fontSize, Color textColor, int size)
     {
-        int tempLayer = 30; // 使用未使用的 layer 索引
+        int tempLayer = 30;
         GameObject camGO = null;
         GameObject canvasGO = null;
         RenderTexture rt = null;
@@ -344,7 +399,7 @@ public class ItemIconGenerator : EditorWindow
 
         try
         {
-            // 创建相机
+            // 相机
             camGO = new GameObject("IconGenCamera");
             camGO.layer = tempLayer;
             var cam = camGO.AddComponent<Camera>();
@@ -359,7 +414,7 @@ public class ItemIconGenerator : EditorWindow
             rt.filterMode = FilterMode.Point;
             cam.targetTexture = rt;
 
-            // 创建 Canvas
+            // Canvas
             canvasGO = new GameObject("IconGenCanvas");
             canvasGO.layer = tempLayer;
             var canvas = canvasGO.AddComponent<Canvas>();
@@ -375,32 +430,52 @@ public class ItemIconGenerator : EditorWindow
 
             canvasGO.AddComponent<GraphicRaycaster>();
 
-            // 背景层
+            // ----- 背景层 -----
             var bgGO = new GameObject("BG");
             bgGO.layer = tempLayer;
             bgGO.transform.SetParent(canvasGO.transform, false);
             var bgRT = bgGO.AddComponent<RectTransform>();
-            bgRT.anchorMin = Vector2.zero;
-            bgRT.anchorMax = Vector2.one;
-            bgRT.offsetMin = Vector2.zero;
-            bgRT.offsetMax = Vector2.zero;
+            bgRT.anchorMin = new Vector2(0.5f, 0.5f);
+            bgRT.anchorMax = new Vector2(0.5f, 0.5f);
             bgRT.pivot = new Vector2(0.5f, 0.5f);
+            bgRT.anchoredPosition = Vector2.zero;
+
+            Vector2 spriteSize = new Vector2(bgSprite.rect.width, bgSprite.rect.height);
+            Vector2 targetSize = spriteSize;
+
+            switch (_bgScaleMode)
+            {
+                case BackgroundScaleMode.Custom:
+                    targetSize = new Vector2(spriteSize.x * _iconScaleX, spriteSize.y * _iconScaleY);
+                    break;
+                case BackgroundScaleMode.Uniform:
+                    targetSize = spriteSize * _uniformScale;
+                    break;
+                case BackgroundScaleMode.Original:
+                    targetSize = spriteSize;
+                    break;
+            }
+            bgRT.sizeDelta = targetSize;
+
             var bgImage = bgGO.AddComponent<Image>();
             bgImage.sprite = bgSprite;
             bgImage.type = Image.Type.Simple;
             bgImage.color = Color.white;
             bgImage.raycastTarget = false;
+            bgImage.preserveAspect = (_bgScaleMode != BackgroundScaleMode.Custom);
 
-            // 文字层
+            // ----- 文字层 -----
             var textGO = new GameObject("Text");
             textGO.layer = tempLayer;
             textGO.transform.SetParent(canvasGO.transform, false);
             var textRT = textGO.AddComponent<RectTransform>();
+            // 使用全屏拉伸锚点，方便通过 offsetMin/offsetMax 整体偏移
             textRT.anchorMin = Vector2.zero;
             textRT.anchorMax = Vector2.one;
-            textRT.offsetMin = Vector2.zero;
-            textRT.offsetMax = Vector2.zero;
             textRT.pivot = new Vector2(0.5f, 0.5f);
+            // 应用像素偏移：同时修改 offsetMin 和 offsetMax，使整个矩形平移
+            textRT.offsetMin = new Vector2(_textOffsetX, _textOffsetY);
+            textRT.offsetMax = new Vector2(_textOffsetX, _textOffsetY);
 
             var tmp = textGO.AddComponent<TextMeshProUGUI>();
             tmp.text = text;
@@ -410,17 +485,13 @@ public class ItemIconGenerator : EditorWindow
             tmp.color = textColor;
             tmp.raycastTarget = false;
             tmp.enableAutoSizing = false;
-            // 启用自动换行作为保险（手动 \n 优先）
             tmp.enableWordWrapping = true;
 
-            // 强制 Canvas 更新布局
             Canvas.ForceUpdateCanvases();
             UnityEngine.UI.LayoutRebuilder.ForceRebuildLayoutImmediate(canvasGO.GetComponent<RectTransform>());
 
-            // 渲染
             cam.Render();
 
-            // 读回像素
             RenderTexture.active = rt;
             Texture2D result = new Texture2D(size, size, TextureFormat.RGBA32, false);
             result.filterMode = FilterMode.Point;
@@ -436,10 +507,8 @@ public class ItemIconGenerator : EditorWindow
         }
         finally
         {
-            // 恢复 RenderTexture
             RenderTexture.active = prevRT;
 
-            // 清理临时对象
             if (canvasGO != null) DestroyImmediate(canvasGO);
             if (camGO != null) DestroyImmediate(camGO);
             if (rt != null)
