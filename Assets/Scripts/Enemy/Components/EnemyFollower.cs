@@ -63,6 +63,16 @@ public class EnemyFollower : MonoBehaviour
     public static float DamageMultiplier = 1f;
     /// <summary>随从技能冷却乘区（白细胞介素-2 IL-2）</summary>
     public static float FollowerCooldownFactor = 1f;
+
+    // ── 射速联动（进化倾向体系扩展）──
+    // 随从不普攻，玩家的射速对随从无直接收益 → 将射速按比例映射为随从冷却缩短：
+    //   冷却乘区 = 1 - max(0, 射速 - ShotsBasePerMinute) × ShotsToCooldownFactor，下限 MinCooldownFactor
+    /// <summary>射速联动的基准射速（低于此值无冷却加成），默认=玩家初始射速 60/分</summary>
+    public static float ShotsBasePerMinute = 60f;
+    /// <summary>每单位射速的随从冷却乘区缩减（0.002 = 射速每 +50 → 随从冷却 -10%）</summary>
+    public static float ShotsToCooldownFactor = 0.002f;
+    /// <summary>随从冷却乘区下限（0.5 = 最多缩短 50%）</summary>
+    public static float MinCooldownFactor = 0.5f;
     /// <summary>随从攻击是否附带减速（干扰素）</summary>
     public static bool ApplySlow = false;
     /// <summary>减速比例（干扰素），0.8 = 减速20%</summary>
@@ -165,7 +175,18 @@ public class EnemyFollower : MonoBehaviour
         _followerSM.ChangeState(new FollowerIdleState(this));
     }
 
-    /// <summary>根据玩家进化倾向刷新随从全属性增幅（叠加道具乘区）</summary>
+    /// <summary>
+    /// 射速→随从冷却乘区：1 - max(0, 射速-基准) × 系数，clamp 到 [MinCooldownFactor, 1]。
+    /// 玩家射速对随从无直接收益（随从不普攻），映射为随从技能冷却缩短。
+    /// </summary>
+    public static float GetShotsCooldownFactor(PlayerStats ps)
+    {
+        if (ps == null) return 1f;
+        float factor = 1f - Mathf.Max(0f, ps.ShotsPerMinute - ShotsBasePerMinute) * ShotsToCooldownFactor;
+        return Mathf.Clamp(factor, MinCooldownFactor, 1f);
+    }
+
+    /// <summary>根据玩家进化倾向刷新随从全属性增幅（叠加道具乘区 + 射速冷却联动）</summary>
     public void ApplyEvolutionBuff()
     {
         if (_core?.Health == null || !_isActive) return;
@@ -186,11 +207,12 @@ public class EnemyFollower : MonoBehaviour
         _core.Health.ContactDamage = _origContactDamage * mult * DamageMultiplier;
         _core.Health.ContactDamageCooldown = _origContactDamageCooldown * mult;
 
-        // 应用随从技能冷却乘区
+        // 随从技能冷却乘区 = 道具 IL-2 乘区 × 射速联动（玩家射速越高随从冷却越短）
         if (_skillManager != null)
         {
+            float cooldownFactor = FollowerCooldownFactor * GetShotsCooldownFactor(playerStats);
             foreach (var s in _skillManager.SkillInstances)
-                s.CooldownFactor = FollowerCooldownFactor;
+                s.CooldownFactor = cooldownFactor;
         }
     }
 

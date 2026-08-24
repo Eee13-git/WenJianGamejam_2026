@@ -14,6 +14,14 @@ public class PoisonGasZone : MonoBehaviour
     [SerializeField] private BuffData _debuffData;
     [Tooltip("毒气阵营：Enemy=伤害玩家，Player=伤害敌人")]
     [SerializeField] private Projectile.OwnerType _owner = Projectile.OwnerType.Enemy;
+    [Tooltip("DOT 每 tick 伤害倍率（×施法者攻击力 × 技能倍率）")]
+    [SerializeField] private float _damageMultiplier = 1f;
+
+    [Header("机制成长（升级可选）")]
+    [Tooltip("每级额外作用半径（0=不成长）")]
+    [SerializeField] private float _radiusPerLevel = 0f;
+    [Tooltip("每级额外持续时间（秒，0=不成长）")]
+    [SerializeField] private float _durationPerLevel = 0f;
 
     // ── 运行时状态 ──
     private float _timer;
@@ -22,15 +30,37 @@ public class PoisonGasZone : MonoBehaviour
     private Material _mat;
     private float _baseOpacity = 0.55f;
     private bool _initialized;
+    private float _attackStrength = 0f;
+    private float _skillDamageMultiplier = 1f;
+    private float _tickDamageOverride = -1f;
 
-    /// <summary>初始化（外部调用覆盖 Inspector 参数）</summary>
-    public void Initialize(Projectile.OwnerType owner, float radius, float duration, BuffData debuff)
+    /// <summary>初始化（外部调用覆盖 Inspector 参数）；attackStrength=施法者攻击力，damageMultiplier=技能倍率，level=技能等级</summary>
+    public void Initialize(Projectile.OwnerType owner, float radius, float duration, BuffData debuff,
+        float attackStrength = 0f, float damageMultiplier = 1f, int level = 1)
     {
         _owner = owner;
         _radius = radius;
         _duration = duration;
         _debuffData = debuff;
+        _attackStrength = attackStrength;
+        _skillDamageMultiplier = damageMultiplier;
+
+        // 机制成长：作用半径/持续时间随技能等级提升
+        ApplyLevel(level);
+
+        // DOT 伤害 = 施法者攻击力 × 技能倍率 × 效果倍率（随攻击力成长）
+        if (_damageMultiplier > 0f && _attackStrength > 0f)
+            _tickDamageOverride = _attackStrength * _skillDamageMultiplier * _damageMultiplier;
+
         _initialized = true;
+    }
+
+    /// <summary>按技能等级成长作用半径/持续时间（level<=1 时无变化）</summary>
+    public void ApplyLevel(int level)
+    {
+        if (level <= 1) return;
+        if (_radiusPerLevel > 0f) _radius = _radius + (level - 1) * _radiusPerLevel;
+        if (_durationPerLevel > 0f) _duration = _duration + (level - 1) * _durationPerLevel;
     }
 
     private void Start()
@@ -96,7 +126,10 @@ public class PoisonGasZone : MonoBehaviour
             var buffMgr = hit.GetComponent<BuffManager>();
             if (buffMgr == null) continue;
 
-            buffMgr.ApplyBuff(_debuffData, null);
+            var buff = buffMgr.ApplyBuff(_debuffData, null);
+            // 按施法者攻击力覆盖 DOT 每 tick 伤害
+            if (buff != null && _tickDamageOverride > 0f)
+                buff.TickDamageOverride = _tickDamageOverride;
         }
     }
 

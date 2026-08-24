@@ -20,6 +20,8 @@ GameObject:
   - component: {fileID: 4915933017335464749}
   - component: {fileID: 9198677811324839689}
   - component: {fileID: 892591079521295444}
+  - component: {fileID: 2163824155870405305}
+  - component: {fileID: 7517786651752223074}
   m_Layer: 0
   m_Name: Player
   m_TagString: Player
@@ -84,8 +86,8 @@ SpriteRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 2
-  m_Sprite: {fileID: -2413806693520163455, guid: a86470a33a6bf42c4b3595704624658b, type: 3}
-  m_Color: {r: 0.7610062, g: 0.12204804, b: 0.12204804, a: 1}
+  m_Sprite: {fileID: -1932186540790404769, guid: eb3bb14f837c5904f9132285deb41236, type: 3}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_FlipX: 0
   m_FlipY: 0
   m_DrawMode: 0
@@ -197,9 +199,9 @@ MonoBehaviour:
   maxHealth: 100
   health: 100
   moveSpeed: 5
-  attackStrength: 1000
+  attackStrength: 20
   bulletSpeed: 10
-  shotsPerMinute: 90
+  shotsPerMinute: 60
   attackStrengthMultiplier: 1
   evolutionTendency: 0
   _evolveSkillDamageFactor: 0.025
@@ -278,6 +280,7 @@ MonoBehaviour:
   _scanInterval: 0.1
   _interactKey: 102
   _detailPopup: {fileID: 0}
+  _detailPopupPrefab: {fileID: 2874441340111618522, guid: aa0ab8a285c902241a49ad395fe8852b, type: 3}
   _shopPurchasePopup: {fileID: 0}
   _itemManager: {fileID: 0}
   _currencyManager: {fileID: 0}
@@ -294,6 +297,41 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   _atp: 0
+--- !u!95 &2163824155870405305
+Animator:
+  serializedVersion: 5
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1667234661070689864}
+  m_Enabled: 1
+  m_Avatar: {fileID: 0}
+  m_Controller: {fileID: 9100000, guid: 3a636a97f6221e749931f21863faed77, type: 2}
+  m_CullingMode: 0
+  m_UpdateMode: 0
+  m_ApplyRootMotion: 0
+  m_LinearVelocityBlending: 0
+  m_StabilizeFeet: 0
+  m_WarningMessage: 
+  m_HasTransformHierarchy: 1
+  m_AllowConstantClipSamplingOptimization: 1
+  m_KeepAnimatorStateOnDisable: 0
+  m_WriteDefaultValuesOnDisable: 0
+--- !u!114 &7517786651752223074
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1667234661070689864}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: cdc863abb4d86ff468afe17d7f970582, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _uniqueThreshold: -30
+  _hostThreshold: 30
 --- !u!1 &3760389097896276485
 GameObject:
   m_ObjectHideFlags: 0

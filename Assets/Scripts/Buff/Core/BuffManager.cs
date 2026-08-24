@@ -34,7 +34,10 @@ public class BuffManager : MonoBehaviour
     /// 应用 Buff。如果同 ID Buff 已存在且可叠加，则尝试叠加；
     /// 否则创建新 BuffInstance。
     /// </summary>
-    public BuffInstance ApplyBuff(BuffData data, GameObject caster = null)
+    /// <param name="data">Buff 数据</param>
+    /// <param name="caster">施放者（伤害归属等）</param>
+    /// <param name="level">来源技能等级（默认1，供 Buff 效果机制成长）</param>
+    public BuffInstance ApplyBuff(BuffData data, GameObject caster = null, int level = 1)
     {
         if (data == null) return null;
 
@@ -75,7 +78,7 @@ public class BuffManager : MonoBehaviour
             return existing;
         }
 
-        var buff = new BuffInstance(data, gameObject, caster);
+        var buff = new BuffInstance(data, gameObject, caster, level);
         _activeBuffs.Add(buff);
 
         if (!_buffDict.ContainsKey(data.buffId))

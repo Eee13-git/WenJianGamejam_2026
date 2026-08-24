@@ -35,17 +35,43 @@ public class BuffInstance
     /// <summary>不可清除标记（藏品/道具等来源的 buff，净化类技能不可清除）</summary>
     public bool Indestructible { get; set; }
 
+    /// <summary>
+    /// 每 tick 伤害覆盖值（用于技能区域按施法者攻击力缩放 DOT），-1 = 使用 BuffData 资产中的 damagePerTick。
+    /// 由区域组件（GroundSolutionZone/PoisonGasZone/BloodPool 等）在 ApplyBuff 后设置。
+    /// </summary>
+    public float TickDamageOverride { get; set; } = -1f;
+
+    /// <summary>
+    /// 持续时间覆盖值（用于技能升级延长 buff 时长），-1 = 使用 BuffData 资产中的 duration。
+    /// 设置后 RefreshDuration / 叠加刷新都使用覆盖值，保证升级时长在区域停留刷新后仍然生效。
+    /// </summary>
+    public float DurationOverride { get; private set; } = -1f;
+
+    /// <summary>来源技能等级（默认1；供 Buff 效果按等级成长机制参数，如护盾量比例）</summary>
+    public int SourceLevel { get; set; } = 1;
+
     /// <summary>独立计时模式下每个堆叠的剩余时间</summary>
     private readonly List<float> _stackTimers = new List<float>();
 
-    public BuffInstance(BuffData data, GameObject owner, GameObject caster)
+    public BuffInstance(BuffData data, GameObject owner, GameObject caster, int level = 1)
     {
         Data = data;
         Owner = owner;
         Caster = caster;
+        SourceLevel = level;
         RemainingDuration = data.duration;
         _stackTimers.Add(data.duration);
     }
+
+    /// <summary>设置持续时间覆盖值（同时立即应用到当前剩余时长），-1 = 恢复用资产值</summary>
+    public void SetDurationOverride(float duration)
+    {
+        DurationOverride = duration >= 0f ? duration : -1f;
+        RemainingDuration = DurationOverride >= 0f ? DurationOverride : Data.duration;
+    }
+
+    /// <summary>当前生效的持续时间（覆盖值或资产值）</summary>
+    private float EffectiveDuration => DurationOverride >= 0f ? DurationOverride : Data.duration;
 
     /// <summary>添加堆叠</summary>
     public void AddStack()
@@ -56,13 +82,13 @@ public class BuffInstance
         switch (Data.stackBehavior)
         {
             case StackBehavior.Refresh:
-                RemainingDuration = Data.duration;
+                RemainingDuration = EffectiveDuration;
                 break;
             case StackBehavior.Independent:
-                _stackTimers.Add(Data.duration);
+                _stackTimers.Add(EffectiveDuration);
                 break;
             case StackBehavior.ExtendDuration:
-                RemainingDuration += Data.duration;
+                RemainingDuration += EffectiveDuration;
                 break;
         }
         CurrentStacks++;
@@ -71,7 +97,7 @@ public class BuffInstance
     /// <summary>刷新持续时间到初始值（Refresh 行为；供"在圈内停留持续刷新 debuff"场景使用）</summary>
     public void RefreshDuration()
     {
-        RemainingDuration = Data.duration;
+        RemainingDuration = EffectiveDuration;
     }
 
     /// <summary>延长持续时间（ExtendDuration 行为）</summary>

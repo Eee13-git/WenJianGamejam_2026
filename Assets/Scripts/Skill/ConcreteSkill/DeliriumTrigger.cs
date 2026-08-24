@@ -23,8 +23,25 @@ public class DeliriumTrigger : MonoBehaviour
     [Tooltip("玩家锁定时长（秒）")]
     [SerializeField] private float _playerLockDuration = 3f;
 
+    [Header("机制成长（升级可选）")]
+    [Tooltip("每级额外玩家锁定时长（秒，0=不成长）")]
+    [SerializeField] private float _playerLockDurationPerLevel = 0f;
+    [Tooltip("每级额外混乱 debuff 时长（秒，0=不成长）")]
+    [SerializeField] private float _buffDurationPerLevel = 0f;
+
     private SpriteRenderer _sr;
     private Material _matInstance;
+    private float _debuffDurationOverride = -1f;
+
+    /// <summary>按技能等级成长玩家锁定时长/混乱 buff 时长（level<=1 时无变化）</summary>
+    public void ApplyLevel(int level)
+    {
+        if (level <= 1) return;
+        if (_playerLockDurationPerLevel > 0f)
+            _playerLockDuration = _playerLockDuration + (level - 1) * _playerLockDurationPerLevel;
+        if (_buffDurationPerLevel > 0f && _deliriumDebuff != null)
+            _debuffDurationOverride = _deliriumDebuff.duration + (level - 1) * _buffDurationPerLevel;
+    }
 
     private void Awake()
     {
@@ -47,6 +64,10 @@ public class DeliriumTrigger : MonoBehaviour
     {
         var proj = GetComponent<Projectile>();
         GameObject casterGO = proj != null ? proj.Caster : null;
+
+        // 机制成长：玩家锁定时长/混乱 debuff 时长随技能等级提升
+        if (proj != null)
+            ApplyLevel(proj.Level);
 
         // 给当前房间所有存活敌人挂 debuff
         ApplyDebuffToRoom(casterGO);
@@ -84,7 +105,10 @@ public class DeliriumTrigger : MonoBehaviour
             var buffMgr = enemy.GetComponent<BuffManager>();
             if (buffMgr == null) continue;
 
-            buffMgr.ApplyBuff(_deliriumDebuff, caster);
+            var buff = buffMgr.ApplyBuff(_deliriumDebuff, caster);
+            // 机制成长：混乱 debuff 时长覆盖（Refresh 叠加时保持升级后时长）
+            if (buff != null && _debuffDurationOverride > 0f)
+                buff.SetDurationOverride(_debuffDurationOverride);
         }
 
         Debug.Log($"[DeliriumTrigger] 已对 {enemies.Length} 个敌人施加混乱 debuff");

@@ -19,6 +19,8 @@ public class ItemInteractionHandler : MonoBehaviour
 
     [Header("UI 引用")]
     [SerializeField] private ItemDetailPopup _detailPopup;
+    [Tooltip("道具详情面板预制体（独立 prefab，找不到场景实例时自动实例化到 Canvas 下）")]
+    [SerializeField] private ItemDetailPopup _detailPopupPrefab;
     [SerializeField] private ShopItemPurchasePopup _shopPurchasePopup;
 
     [Header("引用")]
@@ -39,6 +41,22 @@ public class ItemInteractionHandler : MonoBehaviour
             _currencyManager = GetComponent<CurrencyManager>();
         if (_detailPopup == null)
             _detailPopup = FindObjectOfType<ItemDetailPopup>(true);
+        // 独立预制体懒加载：场景中没有详情面板实例时，从 prefab 实例化到根 UI 画布下
+        if (_detailPopup == null && _detailPopupPrefab != null)
+        {
+            Canvas canvas = null;
+            foreach (var c in FindObjectsOfType<Canvas>())
+            {
+                if (c.isRootCanvas)
+                {
+                    canvas = c;
+                    break;
+                }
+            }
+            var go = Instantiate(_detailPopupPrefab, canvas != null ? canvas.transform : null);
+            go.name = "ItemDetailPopup";
+            _detailPopup = go;
+        }
         if (_shopPurchasePopup == null)
             _shopPurchasePopup = FindObjectOfType<ShopItemPurchasePopup>(true);
     }

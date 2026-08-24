@@ -19,6 +19,12 @@ public class DarkArtsSkillEffect : SkillEffectBase
     [Tooltip("每跳间隔（秒），越小越迅捷")]
     public float jumpDelay = 0.12f;
 
+    [Header("机制成长（升级可选）")]
+    [Tooltip("每级额外追击次数（0=不成长）")]
+    public int maxChainsPerLevel = 0;
+    [Tooltip("每级额外搜索半径（0=不成长）")]
+    public float searchRadiusPerLevel = 0f;
+
     [Header("潜行")]
     [Tooltip("潜行时精灵透明度（0~1，0.35=半透明）")]
     public float stealthAlpha = 0.35f;
@@ -48,16 +54,20 @@ public class DarkArtsSkillEffect : SkillEffectBase
     public float hitGlowDuration = 0.22f;
 
     public override void Execute(ISkillCaster caster, Vector2 direction,
-                                  float damageMultiplier, Projectile.OwnerType ownerType)
+                                  float damageMultiplier, Projectile.OwnerType ownerType, int level)
     {
         if (caster == null || caster.CasterTransform == null) return;
 
         var go = new GameObject("DarkArtsRuntime");
         var runtime = go.AddComponent<DarkArtsRuntime>();
 
+        // 机制成长：追击次数/搜索半径随等级提升
+        int actualMaxChains = Mathf.Max(1, maxChains + (level - 1) * maxChainsPerLevel);
+        float actualSearchRadius = searchRadius + (level - 1) * searchRadiusPerLevel;
+
         runtime.Initialize(
             caster,
-            maxChains, searchRadius, jumpDelay,
+            actualMaxChains, actualSearchRadius, jumpDelay,
             stealthAlpha,
             caster.GetAttackStrength() * damageMultiplier,
             arcMaterial, arcSegments, arcJitter, arcWidth, arcDuration, arcColor,

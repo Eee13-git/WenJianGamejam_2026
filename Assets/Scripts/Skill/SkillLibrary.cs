@@ -60,7 +60,8 @@ public class SkillLibrary : ScriptableObject
             SkillInstance.SkillDamageActive = true;
             try
             {
-                data.skillEffect.Execute(caster, direction, finalMultiplier, ownerType);
+                // level 传给效果：机制参数（数量/半径/时长等）按等级成长
+                data.skillEffect.Execute(caster, direction, finalMultiplier, ownerType, instance.Level);
             }
             finally
             {

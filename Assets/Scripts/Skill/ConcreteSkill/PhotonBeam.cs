@@ -63,12 +63,18 @@ public class PhotonBeam : MonoBehaviour
     [Header("──── 伤害 ────")]
     [Tooltip("伤害判定半径")]
     [SerializeField] private float _radius = 1.2f;
-    [Tooltip("单段基础伤害（再加施法者攻击力）")]
-    [SerializeField] private float _baseDamage = 20f;
+    [Tooltip("落地一次性伤害倍率（×施法者攻击力 × 等级倍率）")]
+    [SerializeField] private float _damageMultiplier = 3f;
+
+    [Header("──── 机制成长（升级可选）────")]
+    [Tooltip("每级额外伤害判定半径（0=不成长）")]
+    [SerializeField] private float _radiusPerLevel = 0f;
 
     // ── 运行时状态 ──
     private Projectile.OwnerType _ownerType;
     private float _attackStrength;
+    private float _skillDamageMultiplier = 1f;
+    private int _level = 1;
 
     // ── 视觉子对象 ──
     private SpriteRenderer _warningRing;
@@ -76,11 +82,13 @@ public class PhotonBeam : MonoBehaviour
     private SpriteRenderer _beamSprite;
     private Material _beamMat;
 
-    /// <summary>初始化光柱</summary>
-    public void Initialize(Projectile.OwnerType ownerType, float attackStrength)
+    /// <summary>初始化光柱（伤害 = 攻击力 × 等级倍率 × 效果倍率；level 供机制成长）</summary>
+    public void Initialize(Projectile.OwnerType ownerType, float attackStrength, float damageMultiplier = 1f, int level = 1)
     {
         _ownerType = ownerType;
         _attackStrength = attackStrength;
+        _skillDamageMultiplier = damageMultiplier;
+        _level = level;
     }
 
     private void Start()
@@ -214,11 +222,12 @@ public class PhotonBeam : MonoBehaviour
         SpawnImpactFlash();
         SpawnRadiancePool();
 
-        // ── 阶段 3：命中伤害 ──
+        // ── 阶段 3：命中伤害（攻击力 × 等级倍率 × 效果倍率；半径随等级成长）──
         string targetTag = _ownerType == Projectile.OwnerType.Player ? "Enemy" : "Player";
-        float damage = _baseDamage + _attackStrength;
+        float damage = _attackStrength * _skillDamageMultiplier * _damageMultiplier;
+        float actualRadius = _radius + (_level - 1) * _radiusPerLevel;
 
-        Collider2D[] hits = Physics2D.OverlapCircleAll(transform.position, _radius, ~0);
+        Collider2D[] hits = Physics2D.OverlapCircleAll(transform.position, actualRadius, ~0);
         foreach (var hit in hits)
         {
             if (hit == null || !hit.CompareTag(targetTag)) continue;
@@ -266,7 +275,8 @@ public class PhotonBeam : MonoBehaviour
         sr.sortingOrder = 30;
 
         var pool = poolGO.AddComponent<BloodPool>();
-        pool.Initialize(_ownerType, gameObject, _poolRadius, _poolDuration);
+        pool.Initialize(_ownerType, gameObject, _poolRadius, _poolDuration, _level);
+        pool.SetDamageParams(_attackStrength, _skillDamageMultiplier);
 
         if (_radianceDebuff != null)
             pool.SetDebuff(_radianceDebuff);

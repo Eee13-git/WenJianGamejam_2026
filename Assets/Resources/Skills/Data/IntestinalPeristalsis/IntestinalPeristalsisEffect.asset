@@ -15,13 +15,17 @@ MonoBehaviour:
   _waveSpeed: 18
   _maxRadius: 4
   _spreadAngle: 360
-  _damage: 0
+  _damageMultiplier: 0
   _freezeDuration: 0
   _freezeProjectiles: 0
   _knockbackForce: 15
   _knockbackDuration: 0.35
+  maxRadiusPerLevel: 0.5
+  freezeDurationPerLevel: 0
+  knockbackForcePerLevel: 1
   _cancelOnAttack: 0
   _cancelOnSkillCast: 0
   _cancelGracePeriod: 0.3
   _waveMaterial: {fileID: 2100000, guid: 77fae1d5d2af52242b8e4c96b82b0e5c, type: 2}
   _overlayMaterial: {fileID: 0}
+  _endSoundName: 

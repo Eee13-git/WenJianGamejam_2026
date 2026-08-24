@@ -20,20 +20,27 @@ public class DashSkillEffect : SkillEffectBase
     [Tooltip("冲刺拖影特效预制体（可选）")]
     public GameObject trailVfx;
 
+    [Header("机制成长（升级可选）")]
+    [Tooltip("每级额外冲刺距离（0=不成长）")]
+    public float distancePerLevel = 0f;
+
     public override void Execute(ISkillCaster caster, Vector2 direction,
-                                  float damageMultiplier, Projectile.OwnerType ownerType)
+                                  float damageMultiplier, Projectile.OwnerType ownerType, int level)
     {
         MonoBehaviour mono = caster.CasterTransform.GetComponent<MonoBehaviour>();
         if (mono == null) return;
 
-        mono.StartCoroutine(DashRoutine(caster, direction));
+        // 机制成长：冲刺距离随等级提升
+        float actualDistance = distance + (level - 1) * distancePerLevel;
+
+        mono.StartCoroutine(DashRoutine(caster, direction, actualDistance));
     }
 
-    private System.Collections.IEnumerator DashRoutine(ISkillCaster caster, Vector2 dir)
+    private System.Collections.IEnumerator DashRoutine(ISkillCaster caster, Vector2 dir, float actualDistance)
     {
         Transform t = caster.CasterTransform;
         Vector3 start = t.position;
-        Vector3 end = start + (Vector3)(dir * distance);
+        Vector3 end = start + (Vector3)(dir * actualDistance);
         float elapsed = 0f;
 
         if (trailVfx != null)

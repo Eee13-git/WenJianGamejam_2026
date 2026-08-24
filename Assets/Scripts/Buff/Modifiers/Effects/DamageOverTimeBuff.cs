@@ -41,7 +41,9 @@ public class DamageOverTimeBuff : BuffEffectBase
 
         // 累积多次 tick（如果帧间隔大于 tickInterval）
         int tickCount = Mathf.FloorToInt(timer / tickInterval);
-        float totalDmg = damagePerTick * buff.CurrentStacks * tickCount;
+        // 每 tick 伤害：优先使用技能区域设置的覆盖值（按施法者攻击力缩放），否则用资产配置值
+        float perTick = buff.TickDamageOverride >= 0f ? buff.TickDamageOverride : damagePerTick;
+        float totalDmg = perTick * buff.CurrentStacks * tickCount;
 
         _tickTimers[buff] = timer - tickInterval * tickCount;
 

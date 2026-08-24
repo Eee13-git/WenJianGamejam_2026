@@ -21,8 +21,8 @@ public class WaveSkillEffect : SkillEffectBase
     [SerializeField] private float _spreadAngle = 360f;
 
     [Header("伤害（可选）")]
-    [Tooltip("波纹命中伤害，0=不造成伤害")]
-    [SerializeField] private float _damage = 0f;
+    [Tooltip("波纹命中伤害倍率（×施法者攻击力 × 等级倍率），0=不造成伤害")]
+    [SerializeField] private float _damageMultiplier = 0f;
 
     [Header("冻结（可选）")]
     [Tooltip("冻结持续时间（秒），0=不冻结")]
@@ -35,6 +35,14 @@ public class WaveSkillEffect : SkillEffectBase
     [SerializeField] private float _knockbackForce = 0f;
     [Tooltip("击退硬直时长（秒），期间目标被推开且暂停移动/AI")]
     [SerializeField] private float _knockbackDuration = 0.3f;
+
+    [Header("机制成长（升级可选）")]
+    [Tooltip("每级额外最大半径（0=不成长）")]
+    public float maxRadiusPerLevel = 0f;
+    [Tooltip("每级额外冻结时长（秒，0=不成长）")]
+    public float freezeDurationPerLevel = 0f;
+    [Tooltip("每级额外击退力度（0=不成长）")]
+    public float knockbackForcePerLevel = 0f;
 
     [Header("取消机制（可选）")]
     [Tooltip("普攻时取消效果")]
@@ -55,7 +63,7 @@ public class WaveSkillEffect : SkillEffectBase
     [SerializeField] private string _endSoundName;
 
     public override void Execute(ISkillCaster caster, Vector2 direction,
-                                  float damageMultiplier, Projectile.OwnerType ownerType)
+                                  float damageMultiplier, Projectile.OwnerType ownerType, int level)
     {
         Vector2 origin = caster.CasterTransform.position;
 
@@ -68,13 +76,23 @@ public class WaveSkillEffect : SkillEffectBase
 
         runtime.SetEndSound(_endSoundName);
 
+        // 机制成长：最大半径/冻结时长/击退力度随等级提升
+        float actualMaxRadius = _maxRadius + (level - 1) * maxRadiusPerLevel;
+        float actualFreeze = _freezeDuration + (level - 1) * freezeDurationPerLevel;
+        float actualKnockback = _knockbackForce + (level - 1) * knockbackForcePerLevel;
+
+        // 伤害 = 施法者攻击力 × 等级倍率 × 效果倍率（0 = 不造成伤害）
+        float waveDamage = _damageMultiplier > 0f
+            ? caster.GetAttackStrength() * damageMultiplier * _damageMultiplier
+            : 0f;
+
         runtime.Initialize(
-            origin, direction, _waveSpeed, _maxRadius, _spreadAngle,
-            _damage * damageMultiplier,
-            _freezeDuration, _freezeProjectiles,
+            origin, direction, _waveSpeed, actualMaxRadius, _spreadAngle,
+            waveDamage,
+            actualFreeze, _freezeProjectiles,
             _cancelOnAttack, _cancelOnSkillCast, _cancelGracePeriod,
             _waveMaterial, _overlayMaterial,
-            _knockbackForce, _knockbackDuration,
+            actualKnockback, _knockbackDuration,
             ownerType
         );
     }

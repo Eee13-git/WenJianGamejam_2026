@@ -18,8 +18,17 @@ MonoBehaviour:
   _trailMaterial: {fileID: 2100000, guid: d1604a15621f2c145805e4b8a492c91e, type: 2}
   _carryEnemies: 1
   _carryRadius: 1
-  _carryDamage: 20
-  _wallDamage: 30
+  _carryDamageMultiplier: 2
+  _wallDamageMultiplier: 3
   _carriedInvincible: 1
+  _autoAimNearest: 0
+  _burstOnHit: 0
+  _burstRadius: 4
+  _burstPushForce: 10
+  _burstWaveMaterial: {fileID: 0}
+  distancePerLevel: 0.5
+  carryRadiusPerLevel: 0.1
+  burstRadiusPerLevel: 0
   _endSoundName: muscle_burst_normal
   _wallSoundName: muscle_burst_wall
+  _hitFlashMaterial: {fileID: 0}

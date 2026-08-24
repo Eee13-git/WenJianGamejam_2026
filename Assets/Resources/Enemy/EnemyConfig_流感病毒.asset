@@ -15,7 +15,7 @@ MonoBehaviour:
   displayName: "\u6D41\u611F\u75C5\u6BD2"
   maxHealth: 12
   contactDamage: 6
-  contactDamageCooldown: 0.3
+  contactDamageCooldown: 0.5
   patrolSpeed: 4
   chaseSpeed: 6
   detectionRange: 10
@@ -25,4 +25,8 @@ MonoBehaviour:
   - influenza_death_wave
   useAxialSpray: 0
   axialAlignThreshold: 0.6
+  useRandomSkill: 0
+  useBossLunge: 0
+  idleWaitTimeRange: {x: 1, y: 3}
+  idleWanderDistanceRange: {x: 2, y: 4}
   patrolPoints: []

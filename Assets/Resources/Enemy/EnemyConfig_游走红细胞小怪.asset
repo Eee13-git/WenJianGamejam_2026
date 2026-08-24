@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: "EnemyConfig_\u6E38\u8D70\u7EA2\u7EC6\u80DE\u5C0F\u602A"
   m_EditorClassIdentifier: 
   displayName: "\u6E38\u8D70\u7EA2\u7EC6\u80DE\u5C0F\u602A"
-  maxHealth: 8
+  maxHealth: 12
   contactDamage: 5
   contactDamageCooldown: 0.3
   patrolSpeed: 3
@@ -24,4 +24,8 @@ MonoBehaviour:
   fixedSkillIds: []
   useAxialSpray: 0
   axialAlignThreshold: 0.6
+  useRandomSkill: 0
+  useBossLunge: 0
+  idleWaitTimeRange: {x: 1, y: 3}
+  idleWanderDistanceRange: {x: 2, y: 4}
   patrolPoints: []

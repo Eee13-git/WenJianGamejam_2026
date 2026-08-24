@@ -24,14 +24,24 @@ public class KeratinShieldSkillEffect : SkillEffectBase
     [Tooltip("护盾视觉材质（null=无视觉）")]
     [SerializeField] private Material _shieldMaterial;
 
+    [Header("机制成长（升级可选）")]
+    [Tooltip("每级额外架盾最长时长（秒，0=不成长）")]
+    public float durationPerLevel = 0f;
+    [Tooltip("每级额外格挡后无敌时长（秒，0=不成长）")]
+    public float immuneDurationPerLevel = 0f;
+
     public override void Execute(ISkillCaster caster, Vector2 direction,
-                                  float damageMultiplier, Projectile.OwnerType ownerType)
+                                  float damageMultiplier, Projectile.OwnerType ownerType, int level)
     {
         // 已有护盾架设中则不重复触发
         var existing = caster.CasterTransform.GetComponent<KeratinShieldRuntime>();
         if (existing != null && existing.IsActive) return;
 
+        // 机制成长：架盾时长/格挡后无敌时长随等级提升
+        float actualDuration = _duration + (level - 1) * durationPerLevel;
+        float actualImmune = _immuneDuration + (level - 1) * immuneDurationPerLevel;
+
         var shield = caster.CasterTransform.gameObject.AddComponent<KeratinShieldRuntime>();
-        shield.Activate(caster, _duration, _slowFactor, _perfectWindow, _immuneDuration, _skillId, _shieldMaterial);
+        shield.Activate(caster, actualDuration, _slowFactor, _perfectWindow, actualImmune, _skillId, _shieldMaterial);
     }
 }
