@@ -67,6 +67,10 @@ public class ShopManager : MonoBehaviour
             return;
         }
 
+        // 新手引导：首次进入商店提示
+        TutorialManager.Instance?.ShowTip("shop_first",
+            "商店：靠近商品查看价格，花费 ATP 购买道具");
+
         var cfg = roomRoot.config;
 
         var library = ItemsLibrary.Instance;

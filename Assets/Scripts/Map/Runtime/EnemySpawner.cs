@@ -61,8 +61,46 @@ public class EnemySpawner : MonoBehaviour
             var point = spawnPoints[indices[i]];
             var enemy = Instantiate(entry.enemyPrefab, point.position, Quaternion.identity, transform);
 
+            // 层主题色调 + 难度缩放（与地图环境相配、逐层增强）
+            int difficulty = roomConfig != null ? roomConfig.difficultyLevel : 1;
+            ApplyLayerTintAndScaling(enemy, difficulty);
+
             RegisterEnemy(enemy);
         }
+    }
+
+    /// <summary>
+    /// 按当前层配置对生成敌人做两件事：
+    /// 1) 层主题色调：SpriteRenderer 叠加 MapConfig.layerTint（敌人与地图环境相配）
+    /// 2) 难度缩放：按 difficultyLevel 提升 HP/伤害/速度（第 1 层=基础值，逐层增强）
+    /// </summary>
+    private static void ApplyLayerTintAndScaling(GameObject enemy, int difficultyLevel)
+    {
+        // 层主题色调
+        var sr = enemy.GetComponent<SpriteRenderer>();
+        if (sr != null)
+        {
+            Color layerTint = Color.white;
+            if (MapManager.Instance != null && MapManager.Instance.MapConfigAsset != null)
+                layerTint = MapManager.Instance.MapConfigAsset.layerTint;
+            // 保留预制体原有 tint 的相对表现，再叠加层色调（乘法）
+            sr.color = sr.color * layerTint;
+        }
+
+        // 难度缩放
+        if (difficultyLevel <= 1) return;
+        float hpMul = 1f + 0.12f * (difficultyLevel - 1);      // 每层 +12% HP
+        float dmgMul = 1f + 0.08f * (difficultyLevel - 1);     // 每层 +8% 伤害
+        float spdMul = 1f + 0.04f * (difficultyLevel - 1);     // 每层 +4% 速度
+
+        var core = enemy.GetComponent<EnemyCore>();
+        if (core == null || core.Health == null) return;
+        var stats = core.Health;
+
+        stats.SetStatValue("MaxHealth", stats.GetStatValue("MaxHealth") * hpMul);
+        stats.SetStatValue("ContactDamage", stats.GetStatValue("ContactDamage") * dmgMul);
+        stats.SetStatValue("ChaseSpeed", stats.GetStatValue("ChaseSpeed") * spdMul);
+        stats.SetStatValue("PatrolSpeed", stats.GetStatValue("PatrolSpeed") * spdMul);
     }
 
     /// <summary>

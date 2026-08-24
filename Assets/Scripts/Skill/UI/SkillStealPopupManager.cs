@@ -22,6 +22,11 @@ public class SkillStealPopupManager : MonoBehaviour
     [SerializeField] private Text _cancelText;
     [SerializeField] private Button _cancelButton;
 
+    [Header("悬停提示（运行时自动创建）")]
+    [SerializeField] private GameObject _hoverTooltip;
+    [SerializeField] private TMPro.TMP_Text _hoverName;
+    [SerializeField] private TMPro.TMP_Text _hoverDesc;
+
     private Font _runtimeFont;
     private IReadOnlyList<SkillInstance> _enemySkills;
     private PlayerSkillManager _playerSkillManager;
@@ -44,6 +49,10 @@ public class SkillStealPopupManager : MonoBehaviour
             _backdrop.SetActive(false);
         if (_popupPanel != null)
             _popupPanel.SetActive(false);
+
+        // 运行时创建悬停 tooltip（弹窗提升为根画布后需独立于 UICanvas 显示）
+        if (_hoverTooltip == null)
+            _hoverTooltip = PopupTooltipBuilder.Create(transform, out _hoverName, out _hoverDesc);
     }
 
     private void OnDestroy()
@@ -89,6 +98,7 @@ public class SkillStealPopupManager : MonoBehaviour
 
             SkillViewData viewData = BuildSlotData(enemySkill);
             slotView.Refresh(viewData);
+            slotView.SetHoverHandler(ShowHoverTooltip, HideHoverTooltip);
 
             // 点击 = 选择该技能
             Button slotBtn = slotView.GetComponent<Button>();
@@ -138,6 +148,30 @@ public class SkillStealPopupManager : MonoBehaviour
         panelRt.sizeDelta = new Vector2(contentW + 160f + slots.Count * 40f, panelRt.sizeDelta.y);
     }
 
+    // ==================== 悬停 tooltip ====================
+
+    private void ShowHoverTooltip(SkillSlotView slot)
+    {
+        if (slot == null || string.IsNullOrEmpty(slot.SkillName)) return;
+
+        if (_hoverName != null) _hoverName.text = slot.SkillName;
+        if (_hoverDesc != null) _hoverDesc.text = slot.SkillDescription;
+
+        if (_hoverTooltip != null)
+        {
+            _hoverTooltip.SetActive(true);
+            var rt = _hoverTooltip.GetComponent<RectTransform>();
+            if (rt != null)
+                rt.position = slot.transform.position + new Vector3(40f, 40f, 0f);
+        }
+    }
+
+    private void HideHoverTooltip()
+    {
+        if (_hoverTooltip != null)
+            _hoverTooltip.SetActive(false);
+    }
+
     private SkillViewData BuildSlotData(SkillInstance skill)
     {
         SkillViewData data = default;
@@ -151,6 +185,10 @@ public class SkillStealPopupManager : MonoBehaviour
         data.IsUnlocked = true;
         data.IsCoolingDown = false;
         data.ShowKeyLabel = false;  // 弹窗中隐藏键位标签
+
+        // 悬停 tooltip 数据
+        data.SkillName = def.skillName;
+        data.Description = def.description;
 
         bool hasSkill = PlayerHasSkill(def.skillId, out int playerLv, out _);
         if (hasSkill)
@@ -224,6 +262,9 @@ public class SkillStealPopupManager : MonoBehaviour
             _backdrop.SetActive(false);
         if (_popupPanel != null)
             _popupPanel.SetActive(false);
+        // 关闭时隐藏悬停 tooltip（避免替换技能后残留显示）
+        if (_hoverTooltip != null)
+            _hoverTooltip.SetActive(false);
     }
 
     public void ClosePopup()

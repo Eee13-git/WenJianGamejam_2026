@@ -32,6 +32,10 @@ public class ErodeProjectile : MonoBehaviour
         ErodeChoicePopupManager popup = ErodeChoicePopupManager.Instance;
         if (popup != null && core != null)
         {
+            // 新手引导：首次侵蚀命中时提示吞噬/同化选择
+            TutorialManager.Instance?.ShowTip("erode_first",
+                "侵蚀成功！吞噬=夺取敌人技能 · 同化=收为随从");
+
             popup.ShowPopup(core, hasSkills, enemySkills, player, () => Time.timeScale = 1f);
         }
         else

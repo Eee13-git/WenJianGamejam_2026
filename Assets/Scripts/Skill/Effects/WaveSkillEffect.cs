@@ -52,6 +52,10 @@ public class WaveSkillEffect : SkillEffectBase
     [Tooltip("取消监听宽限期（秒），技能释放后此时间内不响应取消")]
     [SerializeField] private float _cancelGracePeriod = 0.3f;
 
+    [Header("施法者限制（可选）")]
+    [Tooltip("玩家施放时锁定玩家普攻（不能普攻），但允许释放技能。效果结束时恢复")]
+    [SerializeField] private bool _lockCasterAttack = false;
+
     [Header("视觉材质")]
     [Tooltip("波纹材质（null=无波纹视觉）")]
     [SerializeField] private Material _waveMaterial;
@@ -91,6 +95,7 @@ public class WaveSkillEffect : SkillEffectBase
             waveDamage,
             actualFreeze, _freezeProjectiles,
             _cancelOnAttack, _cancelOnSkillCast, _cancelGracePeriod,
+            _lockCasterAttack,
             _waveMaterial, _overlayMaterial,
             actualKnockback, _knockbackDuration,
             ownerType

@@ -141,6 +141,8 @@ public class ErodeChoicePopupManager : MonoBehaviour
 
         // 吞噬成功 → 进化倾向增加（朝向宿主）
         ApplyEvolutionTendency(_evolveDevourDelta);
+        TutorialManager.Instance?.ShowTip("evolve_devour",
+            "吞噬 → 进化倾向向「宿主」偏移（金色），技能伤害随之提升");
 
         SkillStealPopupManager popup = SkillStealPopupManager.Instance;
         if (popup != null && _enemySkills != null && _enemySkills.Count > 0)
@@ -172,6 +174,8 @@ public class ErodeChoicePopupManager : MonoBehaviour
         }
 
         // 打开随从槽位选择弹窗：槽位操作成功后降低进化倾向（朝向独特）
+        TutorialManager.Instance?.ShowTip("evolve_assimilate",
+            "同化 → 进化倾向向「独特」偏移（紫色），随从属性随之提升");
         FollowerSlotPopupManager popup = FollowerSlotPopupManager.Instance;
         if (popup != null)
         {

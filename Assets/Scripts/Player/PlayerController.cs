@@ -25,6 +25,18 @@ public class PlayerController : MonoBehaviour
     /// <summary>硬直免疫（镇痛阻滞等 buff 期间不受眩晕/硬直）</summary>
     public bool IgnoreStun { get; set; }
 
+    /// <summary>外部注入速度（击退/气浪等）。FixedUpdate 优先使用并按 ExternalVelocityDecay 衰减至零，期间玩家输入被压制</summary>
+    public Vector2 ExternalVelocity { get; set; }
+
+    /// <summary>外部速度每秒衰减量（单位/秒²），击退后逐渐恢复玩家控制</summary>
+    private const float ExternalVelocityDecay = 10f;
+
+    /// <summary>当前是否有外部击退速度（供外部查询/调试）</summary>
+    public bool HasExternalVelocity => ExternalVelocity.sqrMagnitude > 0.01f;
+
+    /// <summary>清除外部速度（击退提前结束）</summary>
+    public void ClearExternalVelocity() => ExternalVelocity = Vector2.zero;
+
     /// <summary>输入延迟（秒），道具效果</summary>
     public static float InputDelay = 0f;
 
@@ -132,6 +144,14 @@ public class PlayerController : MonoBehaviour
         if (InputLocked)
         {
             _rb.velocity = Vector2.zero;
+            return;
+        }
+
+        // 外部击退/气浪速度优先：持续注入并衰减，期间玩家输入被压制（被推开）
+        if (ExternalVelocity.sqrMagnitude > 0.01f)
+        {
+            _rb.velocity = ExternalVelocity;
+            ExternalVelocity = Vector2.MoveTowards(ExternalVelocity, Vector2.zero, ExternalVelocityDecay * Time.fixedDeltaTime);
             return;
         }
 

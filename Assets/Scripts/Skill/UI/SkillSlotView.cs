@@ -30,6 +30,17 @@ public class SkillSlotView : MonoBehaviour, IPointerEnterHandler, IPointerExitHa
     /// <summary>悬停 tooltip 显示的技能描述</summary>
     public string SkillDescription { get; private set; }
 
+    /// <summary>外部 hover 处理器，非空时替代默认 SkillUIPanel 行为（用于独立弹窗）</summary>
+    private System.Action<SkillSlotView> _hoverEnterHandler;
+    private System.Action _hoverExitHandler;
+
+    /// <summary>设置自定义 hover 回调（用于弹窗等非主面板场景）</summary>
+    public void SetHoverHandler(System.Action<SkillSlotView> enterHandler, System.Action exitHandler)
+    {
+        _hoverEnterHandler = enterHandler;
+        _hoverExitHandler = exitHandler;
+    }
+
     /// <summary>Controller 调用，传入数据刷新 UI</summary>
     public void Refresh(in SkillViewData data)
     {
@@ -86,11 +97,17 @@ public class SkillSlotView : MonoBehaviour, IPointerEnterHandler, IPointerExitHa
 
     public void OnPointerEnter(PointerEventData eventData)
     {
-        SkillUIPanel.Instance?.ShowHoverTooltip(this);
+        if (_hoverEnterHandler != null)
+            _hoverEnterHandler(this);
+        else
+            SkillUIPanel.Instance?.ShowHoverTooltip(this);
     }
 
     public void OnPointerExit(PointerEventData eventData)
     {
-        SkillUIPanel.Instance?.HideHoverTooltip();
+        if (_hoverExitHandler != null)
+            _hoverExitHandler();
+        else
+            SkillUIPanel.Instance?.HideHoverTooltip();
     }
 }

@@ -22,6 +22,11 @@ public class SkillEquipSlotPopupManager : MonoBehaviour
     [SerializeField] private Text _cancelText;
     [SerializeField] private Button _cancelButton;
 
+    [Header("悬停提示（运行时自动创建）")]
+    [SerializeField] private GameObject _hoverTooltip;
+    [SerializeField] private TMPro.TMP_Text _hoverName;
+    [SerializeField] private TMPro.TMP_Text _hoverDesc;
+
     private Font _runtimeFont;
 
     private SkillData _skillData;
@@ -45,6 +50,10 @@ public class SkillEquipSlotPopupManager : MonoBehaviour
             _backdrop.SetActive(false);
         if (_popupPanel != null)
             _popupPanel.SetActive(false);
+
+        // 运行时创建悬停 tooltip（弹窗提升为根画布后需独立于 UICanvas 显示）
+        if (_hoverTooltip == null)
+            _hoverTooltip = PopupTooltipBuilder.Create(transform, out _hoverName, out _hoverDesc);
     }
 
     private void OnDestroy()
@@ -112,6 +121,7 @@ public class SkillEquipSlotPopupManager : MonoBehaviour
 
             SkillEquipSlotView slotView = Instantiate(_slotPrefab, _slotContainer);
             slotView.Refresh(captured, keyLabel, current, _skillData.skillId);
+            slotView.SetHoverHandler(ShowHoverTooltip, HideHoverTooltip);
             createdSlots.Add(slotView.transform as RectTransform);
 
             Button slotBtn = slotView.GetComponent<Button>();
@@ -164,6 +174,30 @@ public class SkillEquipSlotPopupManager : MonoBehaviour
         panelRt.sizeDelta = new Vector2(panelRt.sizeDelta.x, contentH + 220f + slots.Count * 30f);
     }
 
+    // ==================== 悬停 tooltip ====================
+
+    private void ShowHoverTooltip(SkillEquipSlotView slot)
+    {
+        if (slot == null) return;
+
+        if (_hoverName != null) _hoverName.text = slot.DisplayName;
+        if (_hoverDesc != null) _hoverDesc.text = slot.DisplayDesc;
+
+        if (_hoverTooltip != null)
+        {
+            _hoverTooltip.SetActive(true);
+            var rt = _hoverTooltip.GetComponent<RectTransform>();
+            if (rt != null)
+                rt.position = slot.transform.position + new Vector3(40f, 40f, 0f);
+        }
+    }
+
+    private void HideHoverTooltip()
+    {
+        if (_hoverTooltip != null)
+            _hoverTooltip.SetActive(false);
+    }
+
     private void OnSlotSelected(int index)
     {
         if (_playerSkillManager == null || _skillData == null) return;
@@ -194,6 +228,9 @@ public class SkillEquipSlotPopupManager : MonoBehaviour
             _backdrop.SetActive(false);
         if (_popupPanel != null)
             _popupPanel.SetActive(false);
+        // 关闭时隐藏悬停 tooltip（避免替换技能后残留显示）
+        if (_hoverTooltip != null)
+            _hoverTooltip.SetActive(false);
 
         _onClose?.Invoke();
         _onClose = null;
