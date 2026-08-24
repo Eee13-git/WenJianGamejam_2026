@@ -1,0 +1,44 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3a796d72d30aed34981304b44ac28461, type: 3}
+  m_Name: Lesion_MapConfig
+  m_EditorClassIdentifier: 
+  useRandomSeed: 1
+  seed: 0
+  normalRoomCount: 4
+  treasureRoomCount: 1
+  shopRoomCount: 1
+  hasBoss: 1
+  bossRoomCount: 1
+  normalRoomPool:
+  - {fileID: 11400000, guid: 651b84dc0b22d04448f779c0acb275cc, type: 2}
+  - {fileID: 11400000, guid: 5ff44fab19e4b7b478807cdfcc6268b5, type: 2}
+  - {fileID: 11400000, guid: c6dee5b557fcf924b96f6bd2dc0197e0, type: 2}
+  - {fileID: 11400000, guid: 4dce6e5ed6affa84db4c41bb700d405a, type: 2}
+  - {fileID: 11400000, guid: f6c7142f8220fcb408eff42088380562, type: 2}
+  - {fileID: 11400000, guid: 68574d913a3f70e4ea807c22b1b8f301, type: 2}
+  treasureRoomPool:
+  - {fileID: 11400000, guid: 26699d9045128f94f81c8081f2a16050, type: 2}
+  bossRoomPool:
+  - {fileID: 11400000, guid: 8c9ea80211efa104bbcdb9daa0636fb0, type: 2}
+  shopRoomPool:
+  - {fileID: 11400000, guid: ffb231dc2bfca2849bbdae7daad8f25e, type: 2}
+  hiddenRoomPool:
+  - {fileID: 11400000, guid: c9796411ab04df44986da281c918f0ec, type: 2}
+  - {fileID: 11400000, guid: ec31a61f8abf9e94f8e7f9e46642c52c, type: 2}
+  - {fileID: 11400000, guid: 9170a4d43b434f34eafbf92d464cfbdf, type: 2}
+  - {fileID: 11400000, guid: e2a17f098ed15e746aeef0fe468423e1, type: 2}
+  hiddenRoomCount: 1
+  startRoom: {fileID: 11400000, guid: bb65a10ab4792ed48840576c8c428cf2, type: 2}
+  nextLevelExitPrefab: {fileID: 1545090001272162127, guid: bf432ffeb3edfa24eaf195e5d9916a4c, type: 3}
+  nextSceneName: 
+  roomSpacing: 0.5

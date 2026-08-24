@@ -20,7 +20,7 @@ namespace WenJian.UI
         [SerializeField] private Button _codexButton;
 
         [Header("场景名称")]
-        [SerializeField] private string playSceneName = "yang";
+        [SerializeField] private string playSceneName = "Lymphatic";
 
         private void Start()
         {

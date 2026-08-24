@@ -56,6 +56,18 @@ public class ItemPickup : MonoBehaviour
     private Color _baseColor;
     private Vector3 _baseScale;
 
+    /// <summary>DNA 动态图标道具的背景垫底图（运行时从 Resources 加载一次）</summary>
+    private static Sprite _dnaBackgroundSprite;
+    private static Sprite DnaBackgroundSprite
+    {
+        get
+        {
+            if (_dnaBackgroundSprite == null)
+                _dnaBackgroundSprite = Resources.Load<Sprite>("TestAssets/Icons/藏品背景");
+            return _dnaBackgroundSprite;
+        }
+    }
+
     private void Awake()
     {
         _spriteRenderer = GetComponent<SpriteRenderer>();
@@ -76,10 +88,21 @@ public class ItemPickup : MonoBehaviour
             var animator = gameObject.AddComponent<ItemIconAnimator>();
             animator.Initialize(itemData.animationFrames, itemData.animationFPS, false);
 
-            // DNA 类道具：在图标下方显示道具名
+            // DNA 类道具：垫一个略大的背景（1.1 倍），放在图标下方
+            if (DnaBackgroundSprite != null)
+            {
+                var bgGO = new GameObject("ItemIconBackground");
+                bgGO.transform.SetParent(transform, false);
+                bgGO.transform.localScale = new Vector3(1.1f, 1.1f, 1f);
+                var bgSr = bgGO.AddComponent<SpriteRenderer>();
+                bgSr.sprite = DnaBackgroundSprite;
+                bgSr.sortingOrder = _spriteRenderer != null ? _spriteRenderer.sortingOrder - 1 : -1;
+            }
+
+            // DNA 类道具：在图标中间显示道具名
             var labelGO = new GameObject("ItemNameLabel");
             labelGO.transform.SetParent(transform, false);
-            labelGO.transform.localPosition = new Vector3(0f, -0.7f, 0f);
+            labelGO.transform.localPosition = new Vector3(0f, 0f, 0f);
 
             var tmp = labelGO.AddComponent<TextMeshPro>();
             tmp.text = itemData.itemName;

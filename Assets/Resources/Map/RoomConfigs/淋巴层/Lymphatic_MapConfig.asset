@@ -1,0 +1,44 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3a796d72d30aed34981304b44ac28461, type: 3}
+  m_Name: Lymphatic_MapConfig
+  m_EditorClassIdentifier: 
+  useRandomSeed: 1
+  seed: 0
+  normalRoomCount: 4
+  treasureRoomCount: 1
+  shopRoomCount: 1
+  hasBoss: 1
+  bossRoomCount: 1
+  normalRoomPool:
+  - {fileID: 11400000, guid: 4a73db0748585ea499c25c22106bafc3, type: 2}
+  - {fileID: 11400000, guid: 588fb7bc97184a04b8454695d37dc002, type: 2}
+  - {fileID: 11400000, guid: a93ee4d55c816ce40b1cdfafcc57972e, type: 2}
+  - {fileID: 11400000, guid: bce2066b754160b4f949ef2ca77d8976, type: 2}
+  - {fileID: 11400000, guid: d2ce165809e08b74991af4a7e40335f3, type: 2}
+  - {fileID: 11400000, guid: 1a999394532655847acca01f676531ad, type: 2}
+  treasureRoomPool:
+  - {fileID: 11400000, guid: b5963ab39a1d07149a3a041cf6709283, type: 2}
+  bossRoomPool:
+  - {fileID: 11400000, guid: 745cb43e74325d34fb14deb7e768fcfd, type: 2}
+  shopRoomPool:
+  - {fileID: 11400000, guid: 9e2467631a77cca4ca24295eaf3adbd6, type: 2}
+  hiddenRoomPool:
+  - {fileID: 11400000, guid: 0c14a984952c31149ab06272fee79d66, type: 2}
+  - {fileID: 11400000, guid: 3f1cc1f36d5a3174e876d76fb3b82786, type: 2}
+  - {fileID: 11400000, guid: 955bb7fea54fb3241aaa9b9b01181c00, type: 2}
+  - {fileID: 11400000, guid: 800087dde16e5f448bae5ff27cd05733, type: 2}
+  hiddenRoomCount: 1
+  startRoom: {fileID: 11400000, guid: 6ba29e9a1bd8a7f4d97b4ac04c6c1e89, type: 2}
+  nextLevelExitPrefab: {fileID: 1545090001272162127, guid: a406fdbcb83c908458718ff928f1dbd4, type: 3}
+  nextSceneName: Dermal
+  roomSpacing: 0.5

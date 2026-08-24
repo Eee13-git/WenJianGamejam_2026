@@ -19,6 +19,10 @@ public class RoomManager : MonoBehaviour
     [SerializeField] private bool _isCleared;
     private bool _isFirstEnter = true;
 
+    [Header("出口生成避让")]
+    [Tooltip("玩家与房间中心距离小于此值时，延迟生成下一层出口（0=关闭）")]
+    [SerializeField] private float _exitBlockRadius = 1.5f;
+
     /// <summary>房间是否已清完怪物</summary>
     public bool IsCleared => _isCleared;
 
@@ -375,9 +379,24 @@ public class RoomManager : MonoBehaviour
     private void TrySpawnNextLevelExit()
     {
         if (roomRoot == null || roomRoot.config == null) return;
-        var roomType = roomRoot.config.roomType;
-        if (roomType != RoomType.Boss) return;
+        if (roomRoot.config.roomType != RoomType.Boss) return;
 
+        var mapConfigAsset = MapManager.Instance?.MapConfigAsset;
+        if (mapConfigAsset == null) return;
+
+        // 玩家站在出口区域 → 等玩家离开后再生成
+        if (IsPlayerBlockingExit())
+        {
+            StartCoroutine(WaitForExitSpawn());
+            return;
+        }
+
+        SpawnNextLevelExit();
+    }
+
+    /// <summary>真正实例化下一层出口</summary>
+    private void SpawnNextLevelExit()
+    {
         var mapConfigAsset = MapManager.Instance?.MapConfigAsset;
         if (mapConfigAsset == null) return;
 
@@ -393,6 +412,29 @@ public class RoomManager : MonoBehaviour
         exitComp.nextSceneName = mapConfigAsset.nextSceneName;
 
         Debug.Log($"RoomManager: 房间 {roomRoot.roomId} 生成下一层出口 -> {mapConfigAsset.nextSceneName}");
+    }
+
+    /// <summary>玩家是否占用出口生成区域（房间中心）</summary>
+    private bool IsPlayerBlockingExit()
+    {
+        var player = PlayerManager.Instance?.CurrentPlayer;
+        if (player == null) return false;
+        return Vector2.Distance(player.transform.position, roomRoot.Center) < _exitBlockRadius;
+    }
+
+    /// <summary>轮询等待玩家离开出口区域后生成出口（玩家消失则直接生成）</summary>
+    private System.Collections.IEnumerator WaitForExitSpawn()
+    {
+        while (true)
+        {
+            yield return new WaitForSeconds(0.1f);
+
+            var player = PlayerManager.Instance?.CurrentPlayer;
+            if (player == null) break;   // 玩家不存在，直接生成
+            if (Vector2.Distance(player.transform.position, roomRoot.Center) >= _exitBlockRadius)
+                break;                    // 已离开区域
+        }
+        SpawnNextLevelExit();
     }
 
     /// <summary>激活通往相邻隐藏房的门</summary>

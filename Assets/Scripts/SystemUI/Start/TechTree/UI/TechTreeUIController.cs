@@ -5,7 +5,8 @@ using TMPro;
 
 /// <summary>
 /// 科技树 UI 控制器 (MVC Controller) — 类似 SkillUIController。
-/// 从 TechTreeConfig 的根节点 BFS 遍历，实例化 TechTreeNodeView 预制体。
+/// 面板框架来自 TechTreePanel.prefab（静态），节点和连线动态生成：
+/// 从 TechTreeConfig 的根节点遍历，实例化 TechTreeNodeView 预制体。
 /// 构建 TechTreeNodeViewData 推给 View，处理节点解锁和连线刷新。
 ///
 /// 使用方式:
@@ -35,18 +36,21 @@ public class TechTreeUIController : MonoBehaviour
     private static readonly Color TitleColor = new(1f, 0.85f, 0.2f);
     private static readonly Color InfoColor = new(0.85f, 0.85f, 0.9f);
 
-    // ========== UI 引用 ==========
+    // ========== UI 引用（由 TechTreePanel.prefab 序列化绑定） ==========
 
-    private GameObject _backdrop;
-    private GameObject _panel;
-    private TMP_Text _techPointsText;
-    private TMP_Text _hintText;
+    [SerializeField] private TMP_Text _techPointsText;
+    [SerializeField] private TMP_Text _hintText;
+    [SerializeField] private ScrollRect _scrollRect;
+    [SerializeField] private RectTransform _contentTransform;
+    [SerializeField] private GameObject _lineLayer;
+    [SerializeField] private TechTreeNodeView _nodeViewPrefab;
+    [SerializeField] private Button _closeButton;
+    [SerializeField] private Button _backdropButton;
+
+    // ========== 运行时状态 ==========
+
     private readonly Dictionary<string, TechTreeNodeView> _nodeViews = new();
     private Dictionary<string, Vector2> _nodePositions = new();
-    private GameObject _lineLayer;
-    private RectTransform _contentTransform;
-    private TechTreeNodeView _nodeViewPrefab;
-    private ScrollRect _scrollRect;
 
     // ========== 单例（场景级） ==========
 
@@ -57,10 +61,6 @@ public class TechTreeUIController : MonoBehaviour
         {
             if (_instance != null) return _instance;
             _instance = FindObjectOfType<TechTreeUIController>(true);
-            if (_instance == null)
-            {
-                _instance = CreatePanel();
-            }
             return _instance;
         }
     }
@@ -70,6 +70,7 @@ public class TechTreeUIController : MonoBehaviour
     public static void Show()
     {
         var inst = Instance;
+        if (inst == null) return;
         inst.gameObject.SetActive(true);
         inst.Refresh();
         // 垂直居中显示
@@ -86,6 +87,7 @@ public class TechTreeUIController : MonoBehaviour
     public static void Toggle()
     {
         var inst = Instance;
+        if (inst == null) return;
         if (inst.gameObject.activeSelf)
             Hide();
         else
@@ -97,9 +99,24 @@ public class TechTreeUIController : MonoBehaviour
     private void Awake()
     {
         _instance = this;
-        LoadPrefab();
-        BuildUI();
-        gameObject.SetActive(false);
+
+        // 节点 prefab 未拖引用时回退 Resources.Load
+        if (_nodeViewPrefab == null)
+            _nodeViewPrefab = Resources.Load<TechTreeNodeView>("TechTree/TechTreeNodeView");
+
+        // 关闭事件绑定（prefab 无法序列化运行时 lambda，统一在此绑定）
+        if (_closeButton != null)
+            _closeButton.onClick.AddListener(Hide);
+        if (_backdropButton != null)
+            _backdropButton.onClick.AddListener(Hide);
+
+        // 布局 + 动态生成节点与连线
+        ComputeLayout();
+        if (_lineLayer != null && _contentTransform != null)
+            _lineLayer.GetComponent<RectTransform>().sizeDelta = _contentTransform.sizeDelta;
+        CreateNodes(_contentTransform);
+        if (_lineLayer != null)
+            CreateLines(_lineLayer.transform);
 
         if (TechTreeManager.Instance != null)
         {
@@ -117,209 +134,7 @@ public class TechTreeUIController : MonoBehaviour
         }
     }
 
-    // ========== UI 构建 ==========
-
-    private static TechTreeUIController CreatePanel()
-    {
-        Canvas rootCanvas = FindObjectOfType<Canvas>();
-        if (rootCanvas == null)
-        {
-            var canvasGo = new GameObject("TechTreeCanvas");
-            rootCanvas = canvasGo.AddComponent<Canvas>();
-            rootCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            var scaler = canvasGo.AddComponent<CanvasScaler>();
-            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-            scaler.referenceResolution = new Vector2(1920, 1080);
-            scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.Expand;
-            scaler.matchWidthOrHeight = 0.5f;
-            canvasGo.AddComponent<GraphicRaycaster>();
-        }
-
-        var go = new GameObject("TechTreePanel");
-        go.layer = 5;
-        go.AddComponent<RectTransform>();
-        go.transform.SetParent(rootCanvas.transform, false);
-        var ctrl = go.AddComponent<TechTreeUIController>();
-        return ctrl;
-    }
-
-    private void LoadPrefab()
-    {
-        _nodeViewPrefab = Resources.Load<TechTreeNodeView>("TechTree/TechTreeNodeView");
-    }
-
-    private void BuildUI()
-    {
-        var rootRt = GetComponent<RectTransform>();
-        rootRt.anchorMin = Vector2.zero;
-        rootRt.anchorMax = Vector2.one;
-        rootRt.offsetMin = Vector2.zero;
-        rootRt.offsetMax = Vector2.zero;
-
-        // === 背景遮罩 ===
-        _backdrop = CreateChild("Backdrop", transform);
-        StretchToParent(_backdrop);
-        var backdropImg = _backdrop.AddComponent<Image>();
-        backdropImg.color = new Color(0, 0, 0, 0.6f);
-        var backdropBtn = _backdrop.AddComponent<Button>();
-        backdropBtn.transition = Selectable.Transition.None;
-        backdropBtn.onClick.AddListener(Hide);
-
-        // === 主面板 ===
-        _panel = CreateChild("Panel", transform);
-        var panelRt = _panel.GetComponent<RectTransform>();
-        panelRt.anchorMin = new Vector2(0.05f, 0.05f);
-        panelRt.anchorMax = new Vector2(0.95f, 0.95f);
-        panelRt.offsetMin = Vector2.zero;
-        panelRt.offsetMax = Vector2.zero;
-        var panelImg = _panel.AddComponent<Image>();
-        panelImg.color = PanelBgColor;
-
-        // === 标题栏 ===
-        var header = CreateChild("Header", _panel.transform);
-        var headerRt = header.GetComponent<RectTransform>();
-        headerRt.anchorMin = new Vector2(0, 1);
-        headerRt.anchorMax = new Vector2(1, 1);
-        headerRt.pivot = new Vector2(0.5f, 1);
-        headerRt.sizeDelta = new Vector2(0, 60);
-        headerRt.anchoredPosition = Vector2.zero;
-        var headerImg = header.AddComponent<Image>();
-        headerImg.color = HeaderColor;
-        headerImg.raycastTarget = false;
-
-        // 标题文本
-        var titleGo = CreateChild("TitleText", header.transform);
-        var titleRt = titleGo.GetComponent<RectTransform>();
-        titleRt.anchorMin = new Vector2(0, 0);
-        titleRt.anchorMax = new Vector2(0.5f, 1);
-        titleRt.offsetMin = new Vector2(20, 0);
-        titleRt.offsetMax = Vector2.zero;
-        var titleText = titleGo.AddComponent<TextMeshProUGUI>();
-        titleText.text = "科 技 树";
-        titleText.fontSize = 28;
-        titleText.fontStyle = FontStyles.Bold;
-        titleText.color = TitleColor;
-        titleText.alignment = TextAlignmentOptions.Left;
-        titleText.verticalAlignment = VerticalAlignmentOptions.Middle;
-        titleText.raycastTarget = false;
-
-        // 科技点显示
-        var pointsGo = CreateChild("TechPointsText", header.transform);
-        var pointsRt = pointsGo.GetComponent<RectTransform>();
-        pointsRt.anchorMin = new Vector2(0.55f, 0);
-        pointsRt.anchorMax = new Vector2(1f, 1);
-        pointsRt.offsetMin = new Vector2(0, -3);
-        pointsRt.offsetMax = new Vector2(-70, 0);
-        _techPointsText = pointsGo.AddComponent<TextMeshProUGUI>();
-        _techPointsText.fontSize = 22;
-        _techPointsText.fontStyle = FontStyles.Bold;
-        _techPointsText.color = new Color(0.4f, 1f, 0.4f);
-        _techPointsText.alignment = TextAlignmentOptions.Right;
-        _techPointsText.verticalAlignment = VerticalAlignmentOptions.Middle;
-        _techPointsText.raycastTarget = false;
-
-        // 关闭按钮
-        var closeBtnGo = CreateChild("CloseButton", header.transform);
-        var closeRt = closeBtnGo.GetComponent<RectTransform>();
-        closeRt.anchorMin = new Vector2(1, 0.5f);
-        closeRt.anchorMax = new Vector2(1, 0.5f);
-        closeRt.pivot = new Vector2(1, 0.5f);
-        closeRt.sizeDelta = new Vector2(50, 50);
-        closeRt.anchoredPosition = new Vector2(-10, 0);
-        var closeImg = closeBtnGo.AddComponent<Image>();
-        closeImg.color = new Color(0.6f, 0.2f, 0.2f, 1f);
-        var closeBtn = closeBtnGo.AddComponent<Button>();
-        var closeColors = closeBtn.colors;
-        closeColors.highlightedColor = new Color(0.8f, 0.3f, 0.3f, 1f);
-        closeBtn.colors = closeColors;
-        closeBtn.onClick.AddListener(Hide);
-        var closeTextGo = CreateChild("Text", closeBtnGo.transform);
-        var closeTextRt = closeTextGo.GetComponent<RectTransform>();
-        closeTextRt.anchorMin = Vector2.zero;
-        closeTextRt.anchorMax = Vector2.one;
-        closeTextRt.offsetMin = Vector2.zero;
-        closeTextRt.offsetMax = Vector2.zero;
-        var closeText = closeTextGo.AddComponent<TextMeshProUGUI>();
-        closeText.text = "×";
-        closeText.fontSize = 36;
-        closeText.color = Color.white;
-        closeText.alignment = TextAlignmentOptions.Center;
-        closeText.verticalAlignment = VerticalAlignmentOptions.Middle;
-        closeText.raycastTarget = false;
-
-        // === 提示文本 ===
-        var hintGo = CreateChild("HintText", _panel.transform);
-        var hintRt = hintGo.GetComponent<RectTransform>();
-        hintRt.anchorMin = new Vector2(0, 0);
-        hintRt.anchorMax = new Vector2(1, 0);
-        hintRt.pivot = new Vector2(0.5f, 0);
-        hintRt.sizeDelta = new Vector2(0, 30);
-        hintRt.anchoredPosition = new Vector2(0, 10);
-        _hintText = hintGo.AddComponent<TextMeshProUGUI>();
-        _hintText.fontSize = 14;
-        _hintText.color = InfoColor;
-        _hintText.alignment = TextAlignmentOptions.Center;
-        _hintText.raycastTarget = false;
-
-        // === ScrollView ===
-        var scrollGo = CreateChild("NodeScrollView", _panel.transform);
-        var scrollRt = scrollGo.GetComponent<RectTransform>();
-        scrollRt.anchorMin = new Vector2(0, 0.05f);
-        scrollRt.anchorMax = new Vector2(1, 1);
-        scrollRt.offsetMin = new Vector2(0, 30);
-        scrollRt.offsetMax = new Vector2(0, -60);
-        var scrollRect = scrollGo.AddComponent<ScrollRect>();
-        scrollRect.horizontal = true;
-        scrollRect.vertical = true;
-        _scrollRect = scrollRect;
-
-        var viewportGo = CreateChild("Viewport", scrollGo.transform);
-        var viewportRt = viewportGo.GetComponent<RectTransform>();
-        viewportRt.anchorMin = Vector2.zero;
-        viewportRt.anchorMax = Vector2.one;
-        viewportRt.pivot = new Vector2(0, 1);
-        viewportRt.offsetMin = Vector2.zero;
-        viewportRt.offsetMax = Vector2.zero;
-        viewportGo.AddComponent<RectMask2D>();
-        scrollRect.viewport = viewportRt;
-
-        var contentGo = CreateChild("Content", viewportGo.transform);
-        var contentRt = contentGo.GetComponent<RectTransform>();
-        contentRt.anchorMin = new Vector2(0, 1);
-        contentRt.anchorMax = new Vector2(0, 1);
-        contentRt.pivot = new Vector2(0, 1);
-        contentRt.anchoredPosition = Vector2.zero;
-        scrollRect.content = contentRt;
-        _contentTransform = contentRt;
-
-        // 拖拽面: 透明 Image，raycastTarget=true，使 ScrollRect 可在空白区域接收拖拽
-        var dragSurface = CreateChild("DragSurface", contentGo.transform);
-        StretchToParent(dragSurface);
-        var dragImg = dragSurface.AddComponent<Image>();
-        dragImg.color = Color.clear;
-        dragImg.raycastTarget = true;
-
-        // 连线层: 锚点与 Content 一致 (0,1) 左上角，保证连线坐标与节点坐标同一坐标系
-        _lineLayer = CreateChild("LineLayer", contentGo.transform);
-        var lineLayerRt = _lineLayer.GetComponent<RectTransform>();
-        lineLayerRt.anchorMin = new Vector2(0, 1);
-        lineLayerRt.anchorMax = new Vector2(0, 1);
-        lineLayerRt.pivot = new Vector2(0, 1);
-        lineLayerRt.anchoredPosition = Vector2.zero;
-        _lineLayer.transform.SetAsFirstSibling();
-
-        // 计算布局: 优先使用节点手动配置的 Position，否则用自动布局
-        ComputeLayout();
-
-        // 连线层尺寸跟随 Content
-        if (_lineLayer != null)
-            _lineLayer.GetComponent<RectTransform>().sizeDelta = _contentTransform.sizeDelta;
-
-        // 创建节点
-        CreateNodes(contentGo.transform);
-        // 创建连线
-        CreateLines(_lineLayer.transform);
-    }
+    // ========== 布局计算 ==========
 
     /// <summary>计算所有节点位置。
     /// 优先使用节点 Position(列,行) 字段的手动网格布局；
@@ -612,25 +427,5 @@ public class TechTreeUIController : MonoBehaviour
         {
             mgr.Unlock(nodeId);
         }
-    }
-
-    // ========== 辅助 ==========
-
-    private static GameObject CreateChild(string name, Transform parent)
-    {
-        var go = new GameObject(name);
-        go.transform.SetParent(parent, false);
-        go.layer = 5;
-        go.AddComponent<RectTransform>();
-        return go;
-    }
-
-    private static void StretchToParent(GameObject go)
-    {
-        var rt = go.GetComponent<RectTransform>();
-        rt.anchorMin = Vector2.zero;
-        rt.anchorMax = Vector2.one;
-        rt.offsetMin = Vector2.zero;
-        rt.offsetMax = Vector2.zero;
     }
 }

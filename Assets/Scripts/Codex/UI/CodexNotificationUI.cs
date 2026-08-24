@@ -81,8 +81,16 @@ public class CodexNotificationUI : MonoBehaviour
             var go = Instantiate(prefab);
             go.name = "CodexNotification";
 
-            // 查找场景 Canvas；若无则创建专用 Canvas
-            Canvas rootCanvas = FindObjectOfType<Canvas>();
+            // 查找根 Canvas（避免挂到弹窗的嵌套 Canvas 下）；若无则创建专用 Canvas
+            Canvas rootCanvas = null;
+            foreach (var c in FindObjectsOfType<Canvas>())
+            {
+                if (c.isRootCanvas)
+                {
+                    rootCanvas = c;
+                    break;
+                }
+            }
             if (rootCanvas != null)
             {
                 go.transform.SetParent(rootCanvas.transform, false);
