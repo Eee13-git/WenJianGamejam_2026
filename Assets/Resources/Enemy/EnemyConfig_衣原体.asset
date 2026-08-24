@@ -13,15 +13,19 @@ MonoBehaviour:
   m_Name: "EnemyConfig_\u8863\u539F\u4F53"
   m_EditorClassIdentifier: 
   displayName: "\u8863\u539F\u4F53"
-  maxHealth: 30
-  contactDamage: 10
+  maxHealth: 25
+  contactDamage: 8
   contactDamageCooldown: 1
   patrolSpeed: 1
-  chaseSpeed: 2.5
+  chaseSpeed: 2.8
   detectionRange: 5
   attackRange: 1.2
   skillLibrary: {fileID: 11400000, guid: cc88abea7715f7d4fab56ea5a0594ded, type: 2}
   fixedSkillIds: []
   useAxialSpray: 0
   axialAlignThreshold: 0.6
+  useRandomSkill: 0
+  useBossLunge: 0
+  idleWaitTimeRange: {x: 1, y: 3}
+  idleWanderDistanceRange: {x: 2, y: 4}
   patrolPoints: []

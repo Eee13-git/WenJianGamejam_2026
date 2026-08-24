@@ -22,6 +22,11 @@ public class FollowerSlotPopupManager : MonoBehaviour
     [SerializeField] private Text _cancelText;
     [SerializeField] private Button _cancelButton;
 
+    [Header("悬停提示（运行时自动创建）")]
+    [SerializeField] private GameObject _hoverTooltip;
+    [SerializeField] private TMPro.TMP_Text _hoverName;
+    [SerializeField] private TMPro.TMP_Text _hoverDesc;
+
     private Font _runtimeFont;
 
     private EnemyCore _targetEnemy;
@@ -37,13 +42,19 @@ public class FollowerSlotPopupManager : MonoBehaviour
         else
             Destroy(gameObject);
 
-        // 动态字体无法被预制体序列化，运行时创建
-        _runtimeFont = Font.CreateDynamicFontFromOSFont("Arial", 16);
+        // 动态字体无法被预制体序列化，运行时创建（全局像素字体）
+        _runtimeFont = Resources.Load<Font>("Fonts/ark-pixel-12px-monospaced-zh_cn");
+        if (_runtimeFont == null)
+            _runtimeFont = Font.CreateDynamicFontFromOSFont("Arial", 16);
 
         if (_backdrop != null)
             _backdrop.SetActive(false);
         if (_popupPanel != null)
             _popupPanel.SetActive(false);
+
+        // 运行时创建悬停 tooltip（弹窗提升为根画布后需独立于 UICanvas 显示）
+        if (_hoverTooltip == null)
+            _hoverTooltip = PopupTooltipBuilder.Create(transform, out _hoverName, out _hoverDesc);
     }
 
     private void OnDestroy()
@@ -102,6 +113,7 @@ public class FollowerSlotPopupManager : MonoBehaviour
 
         // 动态生成槽位（MaxFollowerCount 个，空槽为 null）
         var slots = EnemyFollower.GetSlotsInOrder();
+        var createdSlots = new System.Collections.Generic.List<RectTransform>();
         for (int i = 0; i < slots.Count; i++)
         {
             int captured = i;
@@ -111,6 +123,8 @@ public class FollowerSlotPopupManager : MonoBehaviour
 
             FollowerSlotView slotView = Instantiate(_slotPrefab, _slotContainer);
             slotView.Refresh(captured, follower, _targetEnemy);
+            slotView.SetHoverHandler(ShowHoverTooltip, HideHoverTooltip);
+            createdSlots.Add(slotView.transform as RectTransform);
 
             Button slotBtn = slotView.GetComponent<Button>();
             if (slotBtn == null) slotBtn = slotView.gameObject.AddComponent<Button>();
@@ -127,6 +141,60 @@ public class FollowerSlotPopupManager : MonoBehaviour
         if (_backdrop != null)
             _backdrop.SetActive(true);
         _popupPanel.SetActive(true);
+
+        // 根据随从槽位数量自动调整弹窗大小（内容完整容纳 + 上下大量留白）
+        AutoSizePopup(createdSlots);
+    }
+
+    /// <summary>
+    /// 根据本次创建的槽位数量自动调整弹窗面板高度。
+    /// 容器高度 = 实际内容高度；面板高度 = 内容高度 + 上下留白（标题/取消按钮/间距）。
+    /// 只统计本次创建的槽位（避免旧槽位 Destroy 延迟残留导致尺寸误算）。
+    /// </summary>
+    private void AutoSizePopup(System.Collections.Generic.List<RectTransform> slots)
+    {
+        if (_slotContainer == null || _popupPanel == null) return;
+
+        float contentH = 0f;
+        var vlg = _slotContainer.GetComponent<VerticalLayoutGroup>();
+        for (int i = 0; i < slots.Count; i++)
+        {
+            var child = slots[i];
+            if (child == null) continue;
+            contentH += child.rect.height;
+            if (vlg != null && i < slots.Count - 1)
+                contentH += vlg.spacing;
+        }
+
+        var containerRt = _slotContainer as RectTransform;
+        containerRt.sizeDelta = new Vector2(containerRt.sizeDelta.x, contentH);
+        var panelRt = _popupPanel.transform as RectTransform;
+        // 面板高度 = 内容高度 + 留白。留白随槽位数量递增：基准220（顶部65+标题40+底部67+取消36+余量12）+ 每槽30
+        panelRt.sizeDelta = new Vector2(panelRt.sizeDelta.x, contentH + 220f + slots.Count * 30f);
+    }
+
+    // ==================== 悬停 tooltip ====================
+
+    private void ShowHoverTooltip(FollowerSlotView slot)
+    {
+        if (slot == null) return;
+
+        if (_hoverName != null) _hoverName.text = slot.DisplayName;
+        if (_hoverDesc != null) _hoverDesc.text = slot.DisplayDesc;
+
+        if (_hoverTooltip != null)
+        {
+            _hoverTooltip.SetActive(true);
+            var rt = _hoverTooltip.GetComponent<RectTransform>();
+            if (rt != null)
+                rt.position = slot.transform.position + new Vector3(40f, 40f, 0f);
+        }
+    }
+
+    private void HideHoverTooltip()
+    {
+        if (_hoverTooltip != null)
+            _hoverTooltip.SetActive(false);
     }
 
     private void OnSlotSelected(int slotIndex)
@@ -153,6 +221,9 @@ public class FollowerSlotPopupManager : MonoBehaviour
             _backdrop.SetActive(false);
         if (_popupPanel != null)
             _popupPanel.SetActive(false);
+        // 关闭时隐藏悬停 tooltip（避免替换随从后残留显示）
+        if (_hoverTooltip != null)
+            _hoverTooltip.SetActive(false);
 
         _onClose?.Invoke();
         _onClose = null;

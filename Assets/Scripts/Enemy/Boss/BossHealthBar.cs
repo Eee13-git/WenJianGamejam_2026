@@ -15,6 +15,7 @@ public class BossHealthBar : MonoBehaviour
     [SerializeField] private Image _fillImage;
     [SerializeField] private Text _nameText;
 
+    private Font _nameFont;
     private EnemyStats _stats;
     private float _maxHp = 1f;
     private bool _visible;
@@ -22,6 +23,8 @@ public class BossHealthBar : MonoBehaviour
     private void Awake()
     {
         Instance = this;
+        // 全局像素字体（旧版 Text 组件需 Font 资产）
+        _nameFont = Resources.Load<Font>("Fonts/ark-pixel-12px-monospaced-zh_cn");
         SetVisible(false);
     }
 
@@ -35,7 +38,11 @@ public class BossHealthBar : MonoBehaviour
     {
         _stats = stats;
         _maxHp = Mathf.Max(stats != null ? stats.MaxHealth : 1f, 1f);
-        if (_nameText != null) _nameText.text = bossName;
+        if (_nameText != null)
+        {
+            if (_nameFont != null) _nameText.font = _nameFont;
+            _nameText.text = bossName;
+        }
         SetVisible(true);
 
         // 立即同步一次

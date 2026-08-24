@@ -194,13 +194,30 @@ public class PlayerSkillManager : MonoBehaviour, ISkillCaster
     }
 
     // ---------- 槽位管理 ----------
-    /// <summary>拓展技能槽数量</summary>
+    /// <summary>
+    /// 拓展技能槽数量。新增槽位默认绑定数字键，从 1 开始依次递增（1,2,...,9,0）。
+    /// </summary>
     public void ExpandSlots(int additionalSlots)
     {
         for (int i = 0; i < additionalSlots; i++)
         {
-            _slots.Add(new SkillSlot { keyBinding = KeyCode.None, isUnlocked = true });
+            int newIndex = _slots.Count; // 新槽位索引（0-based）
+            _slots.Add(new SkillSlot { keyBinding = GetDefaultKeyForSlot(newIndex), isUnlocked = true });
         }
+    }
+
+    /// <summary>
+    /// 槽位默认键位：前 4 个由 Inspector 配置（Q/E/Z/X），第 5 个及以后的扩展槽位
+    /// 按数字键 1→2→...→9→0 顺序分配。
+    /// </summary>
+    private static KeyCode GetDefaultKeyForSlot(int slotIndex)
+    {
+        if (slotIndex < 4) return KeyCode.None; // 初始槽位由 Inspector 配置
+
+        int digit = slotIndex - 4 + 1; // 第5个槽(索引4)→数字1
+        if (digit <= 9) return KeyCode.Alpha1 + (digit - 1); // Alpha1..Alpha9 连续枚举
+        if (digit == 10) return KeyCode.Alpha0;              // 第14个槽(索引13)→数字0
+        return KeyCode.None;
     }
 
     /// <summary>解锁指定槽位</summary>

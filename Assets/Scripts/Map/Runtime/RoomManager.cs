@@ -111,6 +111,9 @@ public class RoomManager : MonoBehaviour
         if (roomRoot == null) roomRoot = GetComponent<RoomRoot>();
         if (roomRoot == null || roomRoot.config == null) return;
 
+        // 新手引导：按房间类型展示上下文提示（首次进入）
+        ShowTutorialTipsForRoom();
+
         // BGM 切换：Boss 房间 → Boss 战音乐；其他房间 → 日常战斗音乐
         if (BgmManager.Instance != null)
         {
@@ -171,6 +174,39 @@ public class RoomManager : MonoBehaviour
     public void OnPlayerExit()
     {
         // 道具现在是普通 ItemPickup，离开后保留在地图中
+    }
+
+    /// <summary>
+    /// 新手引导：按房间类型展示上下文提示（首次进入才显示）。
+    /// Start 房（无敌人）→ 基础操作；Normal 房 → 战斗规则；Boss 房 → Boss 提示；Shop 房由 ShopManager 负责。
+    /// </summary>
+    private void ShowTutorialTipsForRoom()
+    {
+        if (TutorialManager.Instance == null) return;
+        var roomType = roomRoot.config.roomType;
+
+        switch (roomType)
+        {
+            case RoomType.Start:
+                TutorialManager.Instance.ShowTip("move_attack",
+                    "WASD 移动 · 鼠标左键射击 · Q/E/Z/X 释放技能");
+                break;
+
+            case RoomType.Normal:
+                TutorialManager.Instance.ShowTip("combat_clear",
+                    "击败房间内所有敌人，房门才会开启");
+                break;
+
+            case RoomType.Treasure:
+                TutorialManager.Instance.ShowTip("treasure",
+                    "宝箱房：清空敌人后拾取稀有道具");
+                break;
+
+            case RoomType.Boss:
+                TutorialManager.Instance.ShowTip("boss",
+                    "Boss 房：击败 Boss 即可开启通往下一层的出口");
+                break;
+        }
     }
 
     /// <summary>锁定所有门 (启用阻挡物 + 禁用触发器)</summary>
@@ -280,6 +316,35 @@ public class RoomManager : MonoBehaviour
         return entries[^1];
     }
 
+    /// <summary>清房判定是否已在排队（防多帧重复触发）</summary>
+    private bool _clearCheckPending;
+
+    /// <summary>
+    /// 延迟一帧执行清房判定：等待同一死亡事件链中的亡语生成（如噬菌体/分裂怪）
+    /// 完成 RegisterEnemy，避免"噬菌体还没注册、门已提前开启"。
+    /// </summary>
+    private void ScheduleClearCheck()
+    {
+        if (_clearCheckPending || _isCleared) return;
+        if (_aliveEnemies.Count > 0) return;
+
+        _clearCheckPending = true;
+        StartCoroutine(DeferredClearCheck());
+    }
+
+    private System.Collections.IEnumerator DeferredClearCheck()
+    {
+        // 等一帧，让 OnAnyEnemyDied 订阅者（EnemyDeathSpawner 生成噬菌体等）执行完注册
+        yield return null;
+
+        _clearCheckPending = false;
+
+        // 期间有新敌人注册 → 不清房（RegisterEnemy 不重置 pending，这里直接跳过即可）
+        if (_aliveEnemies.Count > 0 || _isCleared) yield break;
+
+        OnAllEnemiesDefeated();
+    }
+
     /// <summary>敌人死亡回调</summary>
     private void OnEnemyDied(GameObject enemy)
     {
@@ -288,10 +353,7 @@ public class RoomManager : MonoBehaviour
         // 生成货币掉落
         SpawnCurrency(enemy.transform.position, _currencyPerEnemy);
 
-        if (_aliveEnemies.Count == 0)
-        {
-            OnAllEnemiesDefeated();
-        }
+        ScheduleClearCheck();
     }
 
     /// <summary>敌人被同化为随从（不再计入房间清空判定）</summary>
@@ -299,10 +361,7 @@ public class RoomManager : MonoBehaviour
     {
         RemoveAliveEnemy(enemy);
 
-        if (_aliveEnemies.Count == 0)
-        {
-            OnAllEnemiesDefeated();
-        }
+        ScheduleClearCheck();
     }
 
     /// <summary>

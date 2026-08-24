@@ -1,12 +1,13 @@
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.EventSystems;
 using TMPro;
 
 /// <summary>
 /// 装配槽弹窗行项 —— 显示一个玩家技能槽：键位 + 当前技能（图标/名/Lv）+ 徽标（装备/升级/替换/已满）。
-/// 结构由 Editor 构建脚本生成，运行时只填充数据。
+/// 结构由 Editor 构建脚本生成，运行时只填充数据。鼠标悬停时显示技能详情。
 /// </summary>
-public class SkillEquipSlotView : MonoBehaviour
+public class SkillEquipSlotView : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
 {
     [Header("UI 元素")]
     [SerializeField] private TMP_Text _keyText;
@@ -26,6 +27,22 @@ public class SkillEquipSlotView : MonoBehaviour
     /// <summary>技能图标占位圆（无图标技能显示灰色圆点）</summary>
     private Sprite _fallbackIcon;
 
+    /// <summary>悬停 tooltip 显示的标题</summary>
+    public string DisplayName { get; private set; }
+    /// <summary>悬停 tooltip 显示的描述</summary>
+    public string DisplayDesc { get; private set; }
+
+    /// <summary>外部 hover 处理器，非空时替代默认行为</summary>
+    private System.Action<SkillEquipSlotView> _hoverEnterHandler;
+    private System.Action _hoverExitHandler;
+
+    /// <summary>设置自定义 hover 回调（用于弹窗场景）</summary>
+    public void SetHoverHandler(System.Action<SkillEquipSlotView> enterHandler, System.Action exitHandler)
+    {
+        _hoverEnterHandler = enterHandler;
+        _hoverExitHandler = exitHandler;
+    }
+
     private void Awake()
     {
 #if UNITY_EDITOR
@@ -42,6 +59,23 @@ public class SkillEquipSlotView : MonoBehaviour
     {
         SlotIndex = slotIndex;
         CurrentSkill = current;
+
+        // 悬停数据
+        if (current == null)
+        {
+            DisplayName = "空槽位";
+            DisplayDesc = "点击装备新技能";
+        }
+        else if (current.Data != null)
+        {
+            DisplayName = current.Data.skillName;
+            DisplayDesc = current.Data.description;
+        }
+        else
+        {
+            DisplayName = "技能";
+            DisplayDesc = "";
+        }
 
         if (_keyText != null)
             _keyText.text = keyLabel;
@@ -107,5 +141,17 @@ public class SkillEquipSlotView : MonoBehaviour
                 _badgeText.color = new Color(1f, 0.45f, 0.35f, 1f);
             }
         }
+    }
+
+    // ==================== 鼠标悬停 ====================
+
+    public void OnPointerEnter(PointerEventData eventData)
+    {
+        _hoverEnterHandler?.Invoke(this);
+    }
+
+    public void OnPointerExit(PointerEventData eventData)
+    {
+        _hoverExitHandler?.Invoke();
     }
 }

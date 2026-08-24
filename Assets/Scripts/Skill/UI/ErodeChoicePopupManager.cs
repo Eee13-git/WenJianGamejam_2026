@@ -48,7 +48,10 @@ public class ErodeChoicePopupManager : MonoBehaviour
         else
             Destroy(gameObject);
 
-        _runtimeFont = Font.CreateDynamicFontFromOSFont("Arial", 16);
+        // 动态字体无法被预制体序列化，运行时创建（全局像素字体）
+        _runtimeFont = Resources.Load<Font>("Fonts/ark-pixel-12px-monospaced-zh_cn");
+        if (_runtimeFont == null)
+            _runtimeFont = Font.CreateDynamicFontFromOSFont("Arial", 16);
 
         if (_backdrop != null)
             _backdrop.SetActive(false);
@@ -103,17 +106,18 @@ public class ErodeChoicePopupManager : MonoBehaviour
             _devourText.text = hasSkills ? "吞噬" : "吞噬（无技能）";
         }
 
-        // 同化按钮
+        // 同化按钮（Boss 不可同化）
+        bool isBoss = _targetEnemy != null && _targetEnemy.GetComponent<BossCore>() != null;
         if (_assimilateButton != null)
         {
             _assimilateButton.onClick.RemoveAllListeners();
             _assimilateButton.onClick.AddListener(OnAssimilate);
-            _assimilateButton.interactable = !_targetEnemy.IsDead;
+            _assimilateButton.interactable = !_targetEnemy.IsDead && !isBoss;
         }
         if (_assimilateText != null)
         {
             _assimilateText.font = _runtimeFont;
-            _assimilateText.text = "同化";
+            _assimilateText.text = isBoss ? "同化（Boss不可同化）" : "同化";
         }
 
         // 取消按钮
@@ -137,6 +141,8 @@ public class ErodeChoicePopupManager : MonoBehaviour
 
         // 吞噬成功 → 进化倾向增加（朝向宿主）
         ApplyEvolutionTendency(_evolveDevourDelta);
+        TutorialManager.Instance?.ShowTip("evolve_devour",
+            "吞噬 → 进化倾向向「宿主」偏移（金色），技能伤害随之提升");
 
         SkillStealPopupManager popup = SkillStealPopupManager.Instance;
         if (popup != null && _enemySkills != null && _enemySkills.Count > 0)
@@ -168,6 +174,8 @@ public class ErodeChoicePopupManager : MonoBehaviour
         }
 
         // 打开随从槽位选择弹窗：槽位操作成功后降低进化倾向（朝向独特）
+        TutorialManager.Instance?.ShowTip("evolve_assimilate",
+            "同化 → 进化倾向向「独特」偏移（紫色），随从属性随之提升");
         FollowerSlotPopupManager popup = FollowerSlotPopupManager.Instance;
         if (popup != null)
         {

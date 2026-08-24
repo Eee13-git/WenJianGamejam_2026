@@ -18,6 +18,11 @@ public struct SkillViewData : IEquatable<SkillViewData>
     public float CooldownPercent;
     public float CooldownRemaining;
 
+    /// <summary>技能显示名称（悬停 tooltip 使用）</summary>
+    public string SkillName;
+    /// <summary>技能描述（悬停 tooltip 使用）</summary>
+    public string Description;
+
     public bool Equals(SkillViewData other)
     {
         return ReferenceEquals(Icon, other.Icon)
@@ -28,6 +33,8 @@ public struct SkillViewData : IEquatable<SkillViewData>
             && IsUnlocked == other.IsUnlocked
             && IsCoolingDown == other.IsCoolingDown
             && ShowKeyLabel == other.ShowKeyLabel
+            && SkillName == other.SkillName
+            && Description == other.Description
             && Mathf.Approximately(CooldownPercent, other.CooldownPercent)
             && Mathf.Approximately(CooldownRemaining, other.CooldownRemaining);
     }

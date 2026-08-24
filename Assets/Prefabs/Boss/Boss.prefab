@@ -84,7 +84,7 @@ SpriteRenderer:
   m_SortingLayer: 0
   m_SortingOrder: 2
   m_Sprite: {fileID: -2413806693520163455, guid: a86470a33a6bf42c4b3595704624658b, type: 3}
-  m_Color: {r: 0.8867924, g: 0.79737973, b: 0.14222129, a: 1}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_FlipX: 0
   m_FlipY: 0
   m_DrawMode: 0
@@ -169,6 +169,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   config: {fileID: 11400000, guid: 3692451c9118ad940baa6fcbae6ddf72, type: 2}
+  _animatorControllerPath: 
 --- !u!114 &5684893595642856022
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -182,6 +183,12 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   MaxHealth: 30
+  PatrolSpeed: 1
+  ChaseSpeed: 2.5
+  DetectionRange: 5
+  AttackRange: 1.2
+  ContactDamage: 10
+  ContactDamageCooldown: 1
 --- !u!114 &9220474632920854745
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -194,7 +201,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3eccd900d9a8d9242b21aeec5605f086, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  MoveSpeed: 2
 --- !u!114 &-1835988335155249550
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -208,6 +214,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   _manualTick: 1
+  _castDelay: 0
 --- !u!114 &8251191102875698079
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -235,6 +242,8 @@ MonoBehaviour:
   _phases:
   - {fileID: 11400000, guid: 66e5b20416e2f664aadec08e04aba7e8, type: 2}
   - {fileID: 11400000, guid: db1508c9c86d4734e9f8c9b1e94bfb9a, type: 2}
+  _bossHealthBarPrefab: {fileID: 0}
+  _stateManagedSkillIndices: 00000000
   _currentPhaseIndex: 0
   _nextSkillTime: 0
 --- !u!114 &3762337280907644405

@@ -27,6 +27,10 @@ public class SettingsUIController : MonoBehaviour
     [SerializeField] private Button _returnButton;
     [SerializeField] private Button _exitButton;
 
+    [Header("操作说明")]
+    [SerializeField] private Button _tutorialButton;
+    [SerializeField] private GameObject _tutorialPanel;
+
     [Header("场景名称")]
     [SerializeField] private string _startSceneName = "Start";
 
@@ -60,6 +64,9 @@ public class SettingsUIController : MonoBehaviour
         if (_exitButton != null)
             _exitButton.onClick.AddListener(OnExitClicked);
 
+        if (_tutorialButton != null)
+            _tutorialButton.onClick.AddListener(OnTutorialClicked);
+
         Close();
     }
 
@@ -86,7 +93,15 @@ public class SettingsUIController : MonoBehaviour
     {
         _isOpen = false;
         if (_settingsPanel != null) _settingsPanel.SetActive(false);
+        if (_tutorialPanel != null) _tutorialPanel.SetActive(false);
         Time.timeScale = 1f;
+    }
+
+    /// <summary>操作说明手册开关（打开时保持暂停）</summary>
+    private void OnTutorialClicked()
+    {
+        if (_tutorialPanel == null) return;
+        _tutorialPanel.SetActive(!_tutorialPanel.activeSelf);
     }
 
     private void OnVolumeChanged(float value)

@@ -374,9 +374,13 @@ public class EnemyCore : MonoBehaviour, IEnemy
 
     /// <summary>
     /// 同化敌人为随从，并指定随从槽位索引（-1=自动分配）。
+    /// Boss 不可同化。
     /// </summary>
     public void Assimilate(Transform playerTarget, int slotIndex)
     {
+        // Boss 不可同化为随从
+        if (GetComponent<BossCore>() != null) return;
+
         IsAssimilated = true;
 
         if (Health != null)
@@ -404,10 +408,13 @@ public class EnemyCore : MonoBehaviour, IEnemy
 
     /// <summary>
     /// 以"已同化"方式消耗敌人（同种升级场景）：触发 OnAssimilated 供房间计数，
-    /// 但不创建随从，直接销毁该敌人。
+    /// 但不创建随从，直接销毁该敌人。Boss 不可消耗。
     /// </summary>
     public void ConsumeAsAssimilated(Transform playerTarget)
     {
+        // Boss 不可被同化消耗
+        if (GetComponent<BossCore>() != null) return;
+
         IsAssimilated = true;
 
         if (Health != null)

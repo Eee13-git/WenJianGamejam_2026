@@ -1,12 +1,13 @@
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.EventSystems;
 using TMPro;
 
 /// <summary>
 /// 同化槽位弹窗行项 —— 显示一个随从槽位：空槽 / 占用（头像 + 名称 Lv + 升级/替换徽标）。
-/// 结构由 Editor 构建脚本生成，运行时只填充数据。
+/// 结构由 Editor 构建脚本生成，运行时只填充数据。鼠标悬停时显示随从介绍。
 /// </summary>
-public class FollowerSlotView : MonoBehaviour
+public class FollowerSlotView : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
 {
     [Header("UI 元素")]
     [SerializeField] private Image _avatar;
@@ -24,6 +25,22 @@ public class FollowerSlotView : MonoBehaviour
 
     /// <summary>随从头像占位圆（无 sprite 时显示）</summary>
     private Sprite _fallbackIcon;
+
+    /// <summary>悬停 tooltip 显示的标题</summary>
+    public string DisplayName { get; private set; }
+    /// <summary>悬停 tooltip 显示的随从介绍</summary>
+    public string DisplayDesc { get; private set; }
+
+    /// <summary>外部 hover 处理器，非空时替代默认行为</summary>
+    private System.Action<FollowerSlotView> _hoverEnterHandler;
+    private System.Action _hoverExitHandler;
+
+    /// <summary>设置自定义 hover 回调（用于弹窗场景）</summary>
+    public void SetHoverHandler(System.Action<FollowerSlotView> enterHandler, System.Action exitHandler)
+    {
+        _hoverEnterHandler = enterHandler;
+        _hoverExitHandler = exitHandler;
+    }
 
     private void Awake()
     {
@@ -45,6 +62,8 @@ public class FollowerSlotView : MonoBehaviour
         if (follower == null)
         {
             ActionHint = FollowerSlotResult.Placed;
+            DisplayName = "空槽位";
+            DisplayDesc = "点击放置新随从";
             if (_avatar != null)
                 _avatar.enabled = false;
             if (_nameText != null)
@@ -66,6 +85,37 @@ public class FollowerSlotView : MonoBehaviour
         bool dead = core != null && core.Health != null && core.Health.IsDead;
 
         ActionHint = sameType ? FollowerSlotResult.Upgraded : FollowerSlotResult.Replaced;
+
+        // 悬停数据：随从名称 + 等级 + 技能列表
+        string followerName = "随从";
+        if (core != null)
+        {
+            if (core.config != null && !string.IsNullOrEmpty(core.config.displayName))
+                followerName = core.config.displayName;
+            else
+                followerName = core.gameObject.name;
+        }
+        DisplayName = $"{followerName} Lv.{follower.Level}";
+        {
+            var sb = new System.Text.StringBuilder();
+            sb.Append($"等级 {follower.Level}");
+            if (core != null && core.SkillInstances != null && core.SkillInstances.Count > 0)
+            {
+                sb.Append("\n技能：");
+                for (int i = 0; i < core.SkillInstances.Count; i++)
+                {
+                    var s = core.SkillInstances[i];
+                    if (s != null && s.Data != null)
+                    {
+                        if (i > 0) sb.Append("、");
+                        sb.Append(s.Data.skillName);
+                    }
+                }
+            }
+            if (dead)
+                sb.Append("\n（复活中）");
+            DisplayDesc = sb.ToString();
+        }
 
         // 头像
         if (_avatar != null)
@@ -114,5 +164,17 @@ public class FollowerSlotView : MonoBehaviour
                 _badgeText.color = new Color(1f, 0.45f, 0.35f, 1f); // 红色
             }
         }
+    }
+
+    // ==================== 鼠标悬停 ====================
+
+    public void OnPointerEnter(PointerEventData eventData)
+    {
+        _hoverEnterHandler?.Invoke(this);
+    }
+
+    public void OnPointerExit(PointerEventData eventData)
+    {
+        _hoverExitHandler?.Invoke();
     }
 }

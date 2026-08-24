@@ -63,6 +63,13 @@ public class MapConfig : ScriptableObject
     [Tooltip("Boss 房间清空后跳转的场景名")]
     public string nextSceneName;
 
+    [Header("层主题色调")]
+    [Tooltip("本层地图主题色。生成敌人时 SpriteRenderer 叠加该色调，使敌人与地图环境相配")]
+    public Color layerTint = Color.white;
+
+    [Tooltip("本层难度等级 (1 开始)。影响生成敌人的属性缩放")]
+    public int layerDifficulty = 1;
+
     [Header("布局参数")]
     [Tooltip("房间间距 (两房间之间的额外间距)")]
     public float roomSpacing = 0.5f;

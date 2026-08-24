@@ -20,6 +20,7 @@ public class WaveRuntime : MonoBehaviour
     private bool _cancelOnAttack;
     private bool _cancelOnSkillCast;
     private float _cancelGracePeriod;
+    private bool _lockCasterAttack;
     private Material _waveMaterial;
     private Material _overlayMaterial;
     private float _knockbackForce;
@@ -58,6 +59,9 @@ public class WaveRuntime : MonoBehaviour
     private PlayerCombat _playerCombat;
     private PlayerSkillManager _playerSkillManager;
 
+    // 玩家施法者引用（锁普攻后需在结束时恢复）
+    private PlayerController _casterPlayerController;
+
     // 视觉
     private Material _waveMatInstance;
     private Material _overlayMatInstance;
@@ -84,6 +88,7 @@ public class WaveRuntime : MonoBehaviour
         Vector2 origin, Vector2 direction, float waveSpeed, float maxRadius, float spreadAngleDeg,
         float damage, float freezeDuration, bool freezeProjectiles,
         bool cancelOnAttack, bool cancelOnSkillCast, float cancelGracePeriod,
+        bool lockCasterAttack,
         Material waveMaterial, Material overlayMaterial,
         float knockbackForce, float knockbackDuration,
         Projectile.OwnerType ownerType)
@@ -99,6 +104,7 @@ public class WaveRuntime : MonoBehaviour
         _cancelOnAttack = cancelOnAttack;
         _cancelOnSkillCast = cancelOnSkillCast;
         _cancelGracePeriod = cancelGracePeriod;
+        _lockCasterAttack = lockCasterAttack;
         _waveMaterial = waveMaterial;
         _overlayMaterial = overlayMaterial;
         _knockbackForce = knockbackForce;
@@ -130,6 +136,21 @@ public class WaveRuntime : MonoBehaviour
                 _playerSkillManager = playerGO.GetComponent<PlayerSkillManager>();
             }
             StartCoroutine(EnableCancelListeningAfterDelay(_cancelGracePeriod));
+        }
+
+        // 玩家施放时锁定玩家普攻（不能普攻，但允许释放技能），效果结束恢复
+        if (_lockCasterAttack && ownerType == Projectile.OwnerType.Player)
+        {
+            var playerGO = GameObject.FindGameObjectWithTag("Player");
+            if (playerGO != null)
+            {
+                var pc = playerGO.GetComponent<PlayerController>();
+                if (pc != null)
+                {
+                    pc.AttackLocked = true;
+                    _casterPlayerController = pc;
+                }
+            }
         }
     }
 
@@ -253,7 +274,7 @@ public class WaveRuntime : MonoBehaviour
                 processed = true;
             }
 
-            // 子弹（不区分阵营，全部冻结）
+            // 子弹（不区分阵营，全部冻结——玩家施放的气浪同样冻结所有弹幕）
             if (_freezeProjectiles && _freezeDuration > 0f)
             {
                 var proj = hit.GetComponent<Projectile>();
@@ -397,7 +418,8 @@ public class WaveRuntime : MonoBehaviour
         if (pc != null)
         {
             if (_knockbackedPlayers.Contains(pc)) return;
-            pc.InputLocked = true;
+            // 注入外部击退速度（PlayerController.FixedUpdate 优先使用并衰减，不被移动输入覆盖）
+            pc.ExternalVelocity = dir * _knockbackForce;
             _knockbackedPlayers.Add(pc);
         }
         else
@@ -430,7 +452,6 @@ public class WaveRuntime : MonoBehaviour
             var pc = target.GetComponent<PlayerController>();
             if (pc != null)
             {
-                pc.InputLocked = false;
                 _knockbackedPlayers.Remove(pc);
             }
         }
@@ -460,7 +481,8 @@ public class WaveRuntime : MonoBehaviour
         foreach (var pc in _knockbackedPlayers)
         {
             if (pc == null) continue;
-            pc.InputLocked = false;
+            // 立即停止外部击退速度（PlayerController 会自行衰减，这里直接清零让玩家恢复控制）
+            pc.ClearExternalVelocity();
         }
         _knockbackedPlayers.Clear();
     }
@@ -503,6 +525,13 @@ public class WaveRuntime : MonoBehaviour
             _playerCombat.OnShoot -= OnPlayerAttack;
         if (_playerSkillManager != null)
             _playerSkillManager.OnSkillCast -= OnPlayerSkillCast;
+
+        // 恢复玩家普攻锁（玩家施放轴突传导阻滞时锁定，效果结束恢复）
+        if (_casterPlayerController != null)
+        {
+            _casterPlayerController.AttackLocked = false;
+            _casterPlayerController = null;
+        }
 
         _isActive = false;
         _listeningForCancel = false;
@@ -623,6 +652,12 @@ public class WaveRuntime : MonoBehaviour
             if (_playerSkillManager != null)
                 _playerSkillManager.OnSkillCast -= OnPlayerSkillCast;
             UnfreezeAll();
+        }
+        // 对象销毁时兜底恢复玩家普攻锁（防止协程中断导致永久锁定）
+        if (_casterPlayerController != null)
+        {
+            _casterPlayerController.AttackLocked = false;
+            _casterPlayerController = null;
         }
         RestoreAllKnockback();
     }
