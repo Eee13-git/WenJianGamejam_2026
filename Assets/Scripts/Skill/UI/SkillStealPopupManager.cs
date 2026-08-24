@@ -78,12 +78,14 @@ public class SkillStealPopupManager : MonoBehaviour
             Destroy(_slotContainer.GetChild(i).gameObject);
 
         // 动态生成技能槽
+        var createdSlots = new List<RectTransform>();
         for (int i = 0; i < enemySkills.Count; i++)
         {
             int captured = i;
             SkillInstance enemySkill = enemySkills[i];
 
             SkillSlotView slotView = Instantiate(_slotPrefab, _slotContainer);
+            createdSlots.Add(slotView.transform as RectTransform);
 
             SkillViewData viewData = BuildSlotData(enemySkill);
             slotView.Refresh(viewData);
@@ -104,6 +106,36 @@ public class SkillStealPopupManager : MonoBehaviour
         if (_backdrop != null)
             _backdrop.SetActive(true);
         _popupPanel.SetActive(true);
+
+        // 根据技能数量自动调整弹窗大小（横向列表按列数自适应宽度）
+        AutoSizePopup(createdSlots);
+    }
+
+    /// <summary>
+    /// 根据本次创建的技能槽数量自动调整弹窗面板宽度（横向列表）。
+    /// 容器宽度 = 实际内容宽度；面板宽度 = 内容宽度 + 左右留白。
+    /// 只统计本次创建的槽位（避免旧槽位 Destroy 延迟残留导致尺寸误算）。
+    /// </summary>
+    private void AutoSizePopup(List<RectTransform> slots)
+    {
+        if (_slotContainer == null || _popupPanel == null) return;
+
+        float contentW = 0f;
+        var hlg = _slotContainer.GetComponent<HorizontalLayoutGroup>();
+        for (int i = 0; i < slots.Count; i++)
+        {
+            var child = slots[i];
+            if (child == null) continue;
+            contentW += child.rect.width;
+            if (hlg != null && i < slots.Count - 1)
+                contentW += hlg.spacing;
+        }
+
+        var containerRt = _slotContainer as RectTransform;
+        containerRt.sizeDelta = new Vector2(contentW, containerRt.sizeDelta.y);
+        var panelRt = _popupPanel.transform as RectTransform;
+        // 面板宽度 = 内容宽度 + 留白。留白随技能数量递增：基准160（左右各80）+ 每技能40
+        panelRt.sizeDelta = new Vector2(contentW + 160f + slots.Count * 40f, panelRt.sizeDelta.y);
     }
 
     private SkillViewData BuildSlotData(SkillInstance skill)
