@@ -75,20 +75,10 @@ public class PlayerSkillManager : MonoBehaviour, ISkillCaster
 
     private void EquipInitialSkills()
     {
-        // 槽位 0 固定装配侵蚀（核心起始技能）
+        // 玩家初始只装配一个技能：槽位 0 固定侵蚀（核心起始技能）。
+        // 其余技能通过吞噬敌人/升级等玩法获得。
         if (!string.IsNullOrEmpty(_initialSkillId0))
             EquipSkill(0, _initialSkillId0);
-
-        // 槽位 1~3 从技能库随机抽取 3 个不重复技能装配
-        if (_skillLibrary != null)
-        {
-            var randoms = _skillLibrary.GetRandomDistinct(3);
-            for (int i = 0; i < randoms.Count && i < 3; i++)
-            {
-                if (randoms[i] != null)
-                    EquipSkill(1 + i, randoms[i].skillId);
-            }
-        }
     }
 
     void Update()

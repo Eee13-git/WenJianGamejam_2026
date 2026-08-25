@@ -32,21 +32,33 @@ public class TutorialPanelController : MonoBehaviour
         return _instance;
     }
 
-    /// <summary>呼出操作说明面板（进入第一层默认显示）</summary>
+    /// <summary>呼出操作说明面板（进入第一层默认显示）。
+    /// 仅在第一次游玩的第一层自动弹出一次（PlayerPrefs 记录）；之后进入第一层不再自动弹出。
+    /// 玩家仍可通过设置界面"操作说明"按钮手动打开。</summary>
     public static void Open()
     {
+        // 已自动弹出过 → 不再自动弹
+        if (PlayerPrefs.HasKey(FIRST_AUTO_SHOW_KEY))
+            return;
+
+        PlayerPrefs.SetInt(FIRST_AUTO_SHOW_KEY, 1);
+        PlayerPrefs.Save();
+
         var inst = ResolveInstance();
         if (inst != null)
             inst.SetVisible(true);
     }
 
-    /// <summary>切换操作说明面板显隐</summary>
+    /// <summary>切换操作说明面板显隐（手动开关不受首次自动弹出限制）</summary>
     public static void Toggle()
     {
         var inst = ResolveInstance();
         if (inst == null) return;
         inst.SetVisible(!inst._panel.activeSelf);
     }
+
+    /// <summary>首次游玩自动弹出标记（PlayerPrefs，仅首次进第一层自动弹出一次）</summary>
+    private const string FIRST_AUTO_SHOW_KEY = "Tutorial_FirstLayerAutoShown";
 
     private void Awake()
     {
