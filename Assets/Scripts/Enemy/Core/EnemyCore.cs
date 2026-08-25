@@ -417,6 +417,11 @@ public class EnemyCore : MonoBehaviour, IEnemy
 
         gameObject.tag = "Player";
 
+        // 随从使用独立图层（Follower=8）：与角色（Default）不碰撞，物理上互不推挤
+        gameObject.layer = LayerMask.NameToLayer("Follower");
+        foreach (Transform child in transform)
+            child.gameObject.layer = gameObject.layer;
+
         if (StateMachine != null)
         {
             StateMachine.ChangeState(null);

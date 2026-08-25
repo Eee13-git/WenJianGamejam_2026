@@ -174,6 +174,10 @@ public class MapManager : MonoBehaviour
         if (roomMgr == null)
             go.AddComponent<RoomManager>();
 
+        // 确保 Shop 房有 ShopManager（缺失则自动补，防止商店不刷新商品）
+        if (node.config.roomType == RoomType.Shop && go.GetComponent<ShopManager>() == null)
+            go.AddComponent<ShopManager>();
+
         _roomInstances[node.roomId] = root;
     }
 

@@ -87,11 +87,14 @@ public class EnemySpawner : MonoBehaviour
             sr.color = sr.color * layerTint;
         }
 
-        // 难度缩放
+        // 难度缩放（中后期逐层增强；后期层敌人属性显著高于基础）
         if (difficultyLevel <= 1) return;
-        float hpMul = 1f + 0.12f * (difficultyLevel - 1);      // 每层 +12% HP
-        float dmgMul = 1f + 0.08f * (difficultyLevel - 1);     // 每层 +8% 伤害
-        float spdMul = 1f + 0.04f * (difficultyLevel - 1);     // 每层 +4% 速度
+        // 前段缓升、后段加速：difficulty 2~4 用线性，5 起额外叠加后期加成
+        float t = difficultyLevel - 1;
+        float lateBonus = difficultyLevel >= 5 ? (difficultyLevel - 4) * 0.5f : 0f;  // 5层起每层再 +50% 系数
+        float hpMul  = 1f + 0.18f * t + lateBonus;     // 每层 +18% HP + 后期加成
+        float dmgMul = 1f + 0.12f * t + lateBonus;     // 每层 +12% 伤害 + 后期加成
+        float spdMul = 1f + 0.06f * t;                 // 每层 +6% 速度
 
         var core = enemy.GetComponent<EnemyCore>();
         if (core == null || core.Health == null) return;
@@ -101,6 +104,8 @@ public class EnemySpawner : MonoBehaviour
         stats.SetStatValue("ContactDamage", stats.GetStatValue("ContactDamage") * dmgMul);
         stats.SetStatValue("ChaseSpeed", stats.GetStatValue("ChaseSpeed") * spdMul);
         stats.SetStatValue("PatrolSpeed", stats.GetStatValue("PatrolSpeed") * spdMul);
+        // 检测范围也随难度提升（中后期敌人更敏锐）
+        stats.SetStatValue("DetectionRange", stats.GetStatValue("DetectionRange") * spdMul);
     }
 
     /// <summary>

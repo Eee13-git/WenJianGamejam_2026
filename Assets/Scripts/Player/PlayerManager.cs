@@ -154,6 +154,18 @@ public class PlayerManager : MonoBehaviour
         // 绑定 Player 到统计系统
         GameStatistics.Instance?.BindPlayer(CurrentPlayer);
 
+        // 角色使用独立图层（Player=9）：与随从（Follower=8）不碰撞，物理上互不推挤
+        if (CurrentPlayer != null)
+        {
+            int playerLayer = LayerMask.NameToLayer("Player");
+            if (playerLayer >= 0)
+            {
+                CurrentPlayer.layer = playerLayer;
+                foreach (Transform child in CurrentPlayer.transform)
+                    child.gameObject.layer = playerLayer;
+            }
+        }
+
         // 进化倾向头顶指示器：玩家就绪时自动挂载（跨场景复用/重新生成均覆盖）
         if (CurrentPlayer != null && CurrentPlayer.GetComponent<TendencyIndicator>() == null)
             CurrentPlayer.AddComponent<TendencyIndicator>();

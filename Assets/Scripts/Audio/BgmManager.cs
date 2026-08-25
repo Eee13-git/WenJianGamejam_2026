@@ -6,11 +6,12 @@ using UnityEngine.SceneManagement;
 ///
 /// 自动创建（BeforeSceneLoad）+ DontDestroyOnLoad。
 /// 音效键约定（AudioClipLibrary）：
+///   bgm_menu             — 主界面/结算（Start / Result 场景加载时播放）
 ///   bgm_combat_1 / bgm_combat_2 — 日常战斗（进入普通房间时随机一首）
 ///   bgm_boss_1   / bgm_boss_2   — Boss 战（进入 Boss 房间时随机一首）
 ///
 /// 切换时机：
-///   - Start / Result 场景加载 → 停止音乐
+///   - Start / Result 场景加载 → PlayMenu()（主界面音乐）
 ///   - RoomManager.OnPlayerEnter 进入 Boss 房间 → PlayBoss()
 ///   - RoomManager.OnPlayerEnter 进入其他房间 → PlayCombat()
 /// </summary>
@@ -19,6 +20,8 @@ public class BgmManager : MonoBehaviour
     public static BgmManager Instance { get; private set; }
 
     [Header("BGM 音效键")]
+    [Tooltip("主界面音乐（Start/Result 场景播放）")]
+    [SerializeField] private string _menuMusic = "bgm_menu";
     [Tooltip("日常战斗音乐（进入普通房间时随机一首）")]
     [SerializeField] private string _combatMusic1 = "bgm_combat_1";
     [SerializeField] private string _combatMusic2 = "bgm_combat_2";
@@ -27,8 +30,8 @@ public class BgmManager : MonoBehaviour
     [SerializeField] private string _bossMusic2 = "bgm_boss_2";
 
     [Header("场景控制")]
-    [Tooltip("在这些场景加载时停止音乐（主菜单/结算）")]
-    [SerializeField] private string[] _stopMusicScenes = { "Start", "Result" };
+    [Tooltip("在这些场景加载时播放主界面音乐（主菜单/结算）")]
+    [SerializeField] private string[] _menuMusicScenes = { "Start", "Result" };
 
     /// <summary>当前正在播放的音乐键（无则空）</summary>
     public string CurrentPlayingKey { get; private set; } = "";
@@ -75,14 +78,14 @@ public class BgmManager : MonoBehaviour
         HandleSceneMusic(scene.name);
     }
 
-    /// <summary>场景加载时的音乐策略：Stop 场景停止音乐；游戏场景等 RoomManager 触发</summary>
+    /// <summary>场景加载时的音乐策略：菜单/结算场景播放主界面音乐；游戏场景等 RoomManager 触发</summary>
     private void HandleSceneMusic(string sceneName)
     {
-        foreach (var s in _stopMusicScenes)
+        foreach (var s in _menuMusicScenes)
         {
             if (sceneName == s)
             {
-                StopAllMusic();
+                PlayMenu();
                 return;
             }
         }
@@ -90,6 +93,20 @@ public class BgmManager : MonoBehaviour
     }
 
     // ==================== 播放接口 ====================
+
+    /// <summary>播放主界面音乐（Start/Result 场景；若当前已在该音乐则不打断）</summary>
+    public void PlayMenu()
+    {
+        if (AudioManager.Instance == null) return;
+
+        if (CurrentPlayingKey == _menuMusic)
+        {
+            if (AudioManager.Instance.IsMusicPlaying) return;
+        }
+
+        AudioManager.Instance.PlayMusic(_menuMusic);
+        CurrentPlayingKey = _menuMusic;
+    }
 
     /// <summary>播放日常战斗音乐（随机一首；若当前已是战斗音乐则不切歌）</summary>
     public void PlayCombat()
