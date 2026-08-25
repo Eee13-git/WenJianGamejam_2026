@@ -25,27 +25,14 @@ MonoBehaviour:
   bottomDoorOffset: {x: 0, y: -6.5}
   leftDoorOffset: {x: -10.5, y: 0}
   rightDoorOffset: {x: 10.5, y: 0}
-  enemyPool:
-  - enemyPrefab: {fileID: 2800763903024477077, guid: 67adfd3a041fbfa42bdb10ec1bad8d2f, type: 3}
-    minCount: 1
-    maxCount: 3
-    weight: 1
-  - enemyPrefab: {fileID: 3394569538219518364, guid: 19a7e932d6c85e84289cbb55e205b7ce, type: 3}
-    minCount: 1
-    maxCount: 3
-    weight: 1
-  - enemyPrefab: {fileID: 5938946019499785119, guid: 7d35103aa466f4545b1e08a2ee4a646c, type: 3}
-    minCount: 1
-    maxCount: 3
-    weight: 1
+  enemyPool: []
   minEnemies: 3
   maxEnemies: 3
-  itemPool:
-  - {fileID: 1174511386879087513, guid: 86a8ef3a187a782449eba98cafd5f7fd, type: 3}
-  itemSpawnChance: 1
-  itemCountWeights: 010000000300000001000000
+  itemPool: []
+  itemSpawnChance: 0
+  itemCountWeights: 
   qualityWeights: []
-  healthPickupChance: 0.8
-  healthPickupCountWeights: 0200000001000000
+  healthPickupChance: 1
+  healthPickupCountWeights: 01000000
   healthPickupPrefab: {fileID: 5876232037650745459, guid: 6432679e6b1f7cf459ff780d9d459603, type: 3}
   hiddenWallHP: 0

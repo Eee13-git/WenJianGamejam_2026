@@ -37,7 +37,7 @@ public class ResultSceneController : MonoBehaviour
 
     [Header("科技点")]
     [Tooltip("分数 ÷ 此值 = 获得的科技点")]
-    [SerializeField] private int _techPointDivisor = 1000;
+    [SerializeField] private int _techPointDivisor = 10000;
 
     private bool _techPointsAwarded = false;
     private int _lastEarnedTechPoints = 0;
