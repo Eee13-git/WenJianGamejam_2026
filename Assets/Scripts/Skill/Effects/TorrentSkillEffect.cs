@@ -76,15 +76,23 @@ public class TorrentSkillEffect : SkillEffectBase, ICastAnimationSync
         var runtime = go.AddComponent<TorrentRuntime>();
 
         // 自动匹配：特效持续时长 = (消失帧 - 出现帧) / 动画帧率，帧动画 fps = 帧数×轮数 / 持续时长。
-        // 未配置帧同步（结束帧<=开始帧）时回退手动 _duration（兼容溶栓灌注等旧资产）。
-        float startTime = EffectStartDelay;
-        float endTime = (_effectEndFrame - 1) / Mathf.Max(_castAnimationFps, 1f);
-        float duration = _effectEndFrame > _effectStartFrame
-            ? Mathf.Max(endTime - startTime, 0.1f)
-            : _duration;
-        // 机制成长：持续时长/射程随等级提升（帧同步技能时长由动画帧决定，不叠加成长）
-        if (_effectEndFrame <= _effectStartFrame)
-            duration += (level - 1) * durationPerLevel;
+        // 仅当配置了帧动画精灵序列（_animationSprites 非空）时才用帧同步时长；
+        // 未配置帧动画（如溶栓灌注的纯 shader 视觉，_animationSprites=[]）时一律用 _duration，
+        // 否则 _effectEndFrame/_effectStartFrame 的默认值（8/6）会把 20 秒错误压缩到 0.25 秒。
+        bool useFrameSync = _animationSprites != null && _animationSprites.Length > 0
+            && _effectEndFrame > _effectStartFrame;
+
+        float duration;
+        if (useFrameSync)
+        {
+            float startTime = EffectStartDelay;
+            float endTime = (_effectEndFrame - 1) / Mathf.Max(_castAnimationFps, 1f);
+            duration = Mathf.Max(endTime - startTime, 0.1f);
+        }
+        else
+        {
+            duration = _duration + (level - 1) * durationPerLevel;   // 机制成长
+        }
         float actualRange = _range + (level - 1) * rangePerLevel;
 
         float animFps = _animationSprites != null && _animationSprites.Length > 0

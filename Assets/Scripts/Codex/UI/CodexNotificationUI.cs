@@ -81,25 +81,15 @@ public class CodexNotificationUI : MonoBehaviour
             var go = Instantiate(prefab);
             go.name = "CodexNotification";
 
-            // 查找根 Canvas（避免挂到弹窗的嵌套 Canvas 下）；若无则创建专用 Canvas
-            Canvas rootCanvas = null;
-            foreach (var c in FindObjectsOfType<Canvas>())
-            {
-                if (c.isRootCanvas)
-                {
-                    rootCanvas = c;
-                    break;
-                }
-            }
-            if (rootCanvas != null)
-            {
-                go.transform.SetParent(rootCanvas.transform, false);
-            }
-            else
+            // 提升为独立根画布（不挂到任意根 Canvas 下——SettingsUI 被提升为根画布后
+            // 会被 FindObjectsOfType<Canvas> 选中，导致通知条被设置界面包含、层级错乱）。
+            Canvas ownCanvas = go.GetComponentInChildren<Canvas>();
+            if (ownCanvas == null)
             {
                 var canvasGo = new GameObject("CodexNotificationCanvas");
                 var canvas = canvasGo.AddComponent<Canvas>();
                 canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+                canvas.sortingOrder = 900;
                 var scaler = canvasGo.AddComponent<CanvasScaler>();
                 scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
                 scaler.referenceResolution = new Vector2(1920, 1080);
@@ -107,6 +97,10 @@ public class CodexNotificationUI : MonoBehaviour
                 scaler.matchWidthOrHeight = 0.5f;
                 canvasGo.AddComponent<GraphicRaycaster>();
                 go.transform.SetParent(canvasGo.transform, false);
+            }
+            else
+            {
+                go.transform.SetParent(null);   // prefab 自带 Canvas → 独立根画布
             }
 
             _instance = go.GetComponent<CodexNotificationUI>();

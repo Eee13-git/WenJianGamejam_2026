@@ -36,6 +36,25 @@ public class SettingsUIController : MonoBehaviour
 
     private bool _isOpen = false;
 
+    private void Awake()
+    {
+        // 提升为独立根画布：嵌套在 UICanvas 下的子画布 sortingOrder 被 Unity 忽略，
+        // 必须 SetParent(null) 成为根画布后 sortingOrder 才真正生效——
+        // 保证设置界面显示在最上层，高于各类 UI 与弹窗（弹窗 sortingOrder=100）。
+        var canvas = GetComponent<Canvas>();
+        if (canvas != null)
+        {
+            // 无窗口/后台保存会重驱动为 WorldSpace，运行时强制 ScreenSpaceOverlay 并置顶
+            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            canvas.sortingOrder = 999;
+            if (transform.parent != null)
+            {
+                transform.SetParent(null);
+                transform.SetAsLastSibling();
+            }
+        }
+    }
+
     private void Start()
     {
         if (_settingsButton != null)

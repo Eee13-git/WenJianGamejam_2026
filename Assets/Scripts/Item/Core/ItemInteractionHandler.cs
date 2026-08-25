@@ -41,20 +41,14 @@ public class ItemInteractionHandler : MonoBehaviour
             _currencyManager = GetComponent<CurrencyManager>();
         if (_detailPopup == null)
             _detailPopup = FindObjectOfType<ItemDetailPopup>(true);
-        // 独立预制体懒加载：场景中没有详情面板实例时，从 prefab 实例化到根 UI 画布下
+        // 独立预制体懒加载：场景中没有详情面板实例时，从 prefab 实例化。
+        // prefab 根自带 Canvas(GraphicRaycaster, sortingOrder=100)，实例化为独立根画布（SetParent(null)），
+        // 避免被挂到任意根 Canvas 下（如设置界面 SettingsUI sort=999）导致层级错乱。
         if (_detailPopup == null && _detailPopupPrefab != null)
         {
-            Canvas canvas = null;
-            foreach (var c in FindObjectsOfType<Canvas>())
-            {
-                if (c.isRootCanvas)
-                {
-                    canvas = c;
-                    break;
-                }
-            }
-            var go = Instantiate(_detailPopupPrefab, canvas != null ? canvas.transform : null);
+            var go = Instantiate(_detailPopupPrefab);
             go.name = "ItemDetailPopup";
+            go.transform.SetParent(null);   // 提升为独立根画布，sortingOrder 生效
             _detailPopup = go;
         }
         if (_shopPurchasePopup == null)
