@@ -57,6 +57,8 @@ public class MapConfig : ScriptableObject
     public RoomConfig startRoom;
 
     [Header("关卡推进")]
+    [Tooltip("层显示名称（进入本层时屏幕大字显示的层名，如\"淋巴层\"）")]
+    public string layerDisplayName = "";
     [Tooltip("下一层出口预制体 (须挂载 NextLevelExit 脚本)")]
     public GameObject nextLevelExitPrefab;
 

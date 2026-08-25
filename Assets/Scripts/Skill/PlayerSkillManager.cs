@@ -75,11 +75,19 @@ public class PlayerSkillManager : MonoBehaviour, ISkillCaster
 
     private void EquipInitialSkills()
     {
-        var ids = new[] { _initialSkillId0, _initialSkillId1, _initialSkillId2, _initialSkillId3 };
-        for (int i = 0; i < ids.Length; i++)
+        // 槽位 0 固定装配侵蚀（核心起始技能）
+        if (!string.IsNullOrEmpty(_initialSkillId0))
+            EquipSkill(0, _initialSkillId0);
+
+        // 槽位 1~3 从技能库随机抽取 3 个不重复技能装配
+        if (_skillLibrary != null)
         {
-            if (!string.IsNullOrEmpty(ids[i]))
-                EquipSkill(i, ids[i]);
+            var randoms = _skillLibrary.GetRandomDistinct(3);
+            for (int i = 0; i < randoms.Count && i < 3; i++)
+            {
+                if (randoms[i] != null)
+                    EquipSkill(1 + i, randoms[i].skillId);
+            }
         }
     }
 

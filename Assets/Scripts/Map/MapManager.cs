@@ -141,6 +141,10 @@ public class MapManager : MonoBehaviour
         }
 
         Debug.Log($"MapManager: 地图生成完成 — {_roomGraph.nodes.Count} 个房间, Start={_roomGraph.startRoomId}");
+
+        // 进入本层：屏幕大字显示层名
+        if (_mapConfig != null && !string.IsNullOrEmpty(_mapConfig.layerDisplayName))
+            LayerAnnouncement.Show(_mapConfig.layerDisplayName);
     }
 
     /// <summary>实例化单个房间</summary>

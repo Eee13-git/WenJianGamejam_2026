@@ -35,6 +35,10 @@ public class BloodCostSummonBuff : BuffEffectBase
     [Tooltip("场上同时存活的本技能召唤物上限（0=无限制）。达到上限后跳过召唤，等场上减少后再补")]
     [Min(0)] public int maxActiveCount = 0;
 
+    [Header("存在时间上限")]
+    [Tooltip("召唤物存在时间上限（秒），到时死亡/销毁。0=无限制")]
+    [Min(0)] public float lifetime = 20f;
+
     /// <summary>本技能已召唤且仍存活的单位（死亡/同化自动移除）</summary>
     private readonly List<GameObject> _activeMinions = new List<GameObject>();
 
@@ -131,6 +135,10 @@ public class BloodCostSummonBuff : BuffEffectBase
             var go = Object.Instantiate(prefab, center + offset, Quaternion.identity, parent);
             go.name = $"Summon_{prefab.name}_{i}";
             go.tag = selfTag;
+
+            // 存在时间上限：召唤物统一挂载 SummonLifetime（到时死亡/销毁；被同化为随从自动解除）
+            if (lifetime > 0f)
+                go.AddComponent<SummonLifetime>().Init(lifetime);
 
             // 设置初始目标
             var core = go.GetComponent<EnemyCore>();

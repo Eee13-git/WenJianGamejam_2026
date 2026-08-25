@@ -287,6 +287,9 @@ public class EnemyFollower : MonoBehaviour
         _isActive = false;
         _isReviving = true;
 
+        // 触发死亡亡语（同化后 Health.OnDied 链已清，需手动触发；亡语效果按随从阵营=玩家方执行）
+        _core?.TriggerDeathEffects();
+
         // 停止状态机
         _followerSM?.ChangeState(null);
 

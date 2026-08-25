@@ -16,20 +16,36 @@ public class TutorialPanelController : MonoBehaviour
 
     private static TutorialPanelController _instance;
 
-    public static void Toggle()
+    /// <summary>获取单例（跨场景查找场景内实例；Start 菜单场景无此组件时返回 null）</summary>
+    private static TutorialPanelController ResolveInstance()
     {
         if (_instance == null)
         {
-            // 面板初始隐藏（inactive），须包含 inactive 对象查找
             var found = Object.FindObjectOfType<TutorialPanelController>(true);
             if (found == null)
             {
-                Debug.LogWarning("TutorialPanelController 未找到（Start 场景需配置）");
-                return;
+                Debug.LogWarning("TutorialPanelController 未找到（当前场景需配置）");
+                return null;
             }
             _instance = found;
         }
-        _instance.SetVisible(!_instance._panel.activeSelf);
+        return _instance;
+    }
+
+    /// <summary>呼出操作说明面板（进入第一层默认显示）</summary>
+    public static void Open()
+    {
+        var inst = ResolveInstance();
+        if (inst != null)
+            inst.SetVisible(true);
+    }
+
+    /// <summary>切换操作说明面板显隐</summary>
+    public static void Toggle()
+    {
+        var inst = ResolveInstance();
+        if (inst == null) return;
+        inst.SetVisible(!inst._panel.activeSelf);
     }
 
     private void Awake()
@@ -56,8 +72,18 @@ public class TutorialPanelController : MonoBehaviour
 
     public void SetVisible(bool visible)
     {
-        if (_panel != null)
-            _panel.SetActive(visible);
+        if (_panel == null) return;
+
+        if (visible)
+        {
+            // 面板可能嵌套在 inactive 容器（如 SettingsPanel）下导致激活无效——
+            // 提升为所属 Canvas 的直接子级并置顶，保证可见且不被遮挡。
+            var canvas = _panel.GetComponentInParent<Canvas>();
+            if (canvas != null && _panel.transform.parent != canvas.transform)
+                _panel.transform.SetParent(canvas.transform, false);
+            _panel.transform.SetAsLastSibling();
+        }
+        _panel.SetActive(visible);
     }
 
     /// <summary>手册内容（操作 + 核心机制说明）</summary>

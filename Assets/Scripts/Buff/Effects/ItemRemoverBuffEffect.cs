@@ -18,16 +18,14 @@ public class ItemRemoverBuffEffect : BuffEffectBase
         var itemManager = target.GetComponent<ItemManager>();
         var panel = FindObjectOfType<ItemRemoverPanel>(true);
 
-        // 独立 prefab 懒加载：场景中没有面板实例时，从 prefab 实例化到根 UI 画布下
+        // 独立 prefab 懒加载：场景中没有面板实例时，从 prefab 实例化。
+        // prefab 根自带 Canvas(GraphicRaycaster)，实例化为独立根画布（SetParent(null)），
+        // 避免被挂到其他根 Canvas（如 [LayerAnnouncement]，其 CanvasGroup alpha=0 且无 GraphicRaycaster）导致不可见/不可点。
         if (panel == null && _panelPrefab != null)
         {
-            Canvas canvas = null;
-            foreach (var c in FindObjectsOfType<Canvas>())
-            {
-                if (c.isRootCanvas) { canvas = c; break; }
-            }
-            panel = Instantiate(_panelPrefab, canvas != null ? canvas.transform : null);
+            panel = Instantiate(_panelPrefab);
             panel.name = "ItemRemoverPanel";
+            panel.transform.SetParent(null);   // 提升为独立根画布，sortingOrder 生效
         }
 
         if (itemManager == null || panel == null || panel.IsVisible) return;

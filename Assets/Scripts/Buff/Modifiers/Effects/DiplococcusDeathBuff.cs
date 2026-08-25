@@ -42,9 +42,8 @@ public class DiplococcusDeathBuff : BuffEffectBase
         handler = () =>
         {
             OnDeath(target);
-
-            // 触发后立即解除自身订阅
-            core.OnDied -= handler;
+            // 不在此取消订阅：随从死亡后复活再死应再次触发亡语；
+            // 订阅由 BuffManager.OnDestroy → OnRemove 在对象销毁时清理。
         };
 
         _handlers[buff] = handler;
@@ -74,10 +73,14 @@ public class DiplococcusDeathBuff : BuffEffectBase
         SpawnPoisonGas(pos, caster);
     }
 
-    /// <summary>爆出单球菌（继承敌方阵营，攻击玩家），并计入房间敌人计数</summary>
+    /// <summary>爆出单球菌（阵营跟随死亡者——随从死亡爆出玩家方小怪打敌人，敌人死亡爆出敌方小怪打玩家），并计入房间敌人计数</summary>
     private void SpawnCocci(GameObject caster)
     {
         if (singleCocciPrefabs == null || singleCocciPrefabs.Length == 0) return;
+
+        // 死亡者阵营
+        var core = caster.GetComponent<EnemyCore>();
+        bool playerSide = core != null && core.IsPlayerSide;
 
         // 找到原敌人所属的房间（门锁由 RoomManager._aliveEnemies 控制）
         var room = caster.transform.parent != null
@@ -96,19 +99,29 @@ public class DiplococcusDeathBuff : BuffEffectBase
             var go = Object.Instantiate(prefab, (Vector2)caster.transform.position + offset, Quaternion.identity, caster.transform.parent);
             go.name = $"Diplococcus_Spawn_{i}_{prefab.name}";
 
+            // 阵营跟随死亡者：随从死亡爆出的小球菌为玩家方（攻击敌人）
+            if (playerSide)
+                go.tag = "Player";
+
             // 计入房间敌人计数，避免房间门提前开启
             room?.RegisterEnemy(go);
             spawner?.RegisterEnemy(go);
         }
     }
 
-    /// <summary>生成毒气团（敌方阵营，伤害玩家）</summary>
+    /// <summary>生成毒气团（阵营跟随死亡者——随从死亡毒气伤害敌人，敌人死亡毒气伤害玩家）</summary>
     private void SpawnPoisonGas(Vector2 pos, GameObject caster)
     {
         if (poisonGasPrefab == null) return;
 
         var go = Object.Instantiate(poisonGasPrefab, pos, Quaternion.identity);
         go.name = "DiplococcusPoisonGas";
+
+        // 死亡者阵营：随从（玩家方）→ 毒气为玩家阵营（伤害敌人）；敌人 → 敌方毒气（伤害玩家）
+        var core = caster != null ? caster.GetComponent<EnemyCore>() : null;
+        Projectile.OwnerType ownerType = (core != null && core.IsPlayerSide)
+            ? Projectile.OwnerType.Player
+            : Projectile.OwnerType.Enemy;
 
         var zone = go.GetComponent<PoisonGasZone>();
         if (zone != null)
@@ -118,7 +131,7 @@ public class DiplococcusDeathBuff : BuffEffectBase
                 ? (caster.GetComponent<EnemyCore>()?.GetAttackStrength() ?? 0f)
                 : 0f;
 
-            zone.Initialize(Projectile.OwnerType.Enemy, poisonRadius, poisonDuration, poisonDebuff,
+            zone.Initialize(ownerType, poisonRadius, poisonDuration, poisonDebuff,
                 attackStrength, 1f);
         }
     }

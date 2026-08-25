@@ -53,6 +53,10 @@ public class DarkArtsSkillEffect : SkillEffectBase
     [Tooltip("命中辉光持续时间")]
     public float hitGlowDuration = 0.22f;
 
+    [Header("震屏（可选）")]
+    [Tooltip("最终伤害结算时的屏幕振动幅度倍率（0=关闭，0.6=中等）")]
+    public float cameraShakeMultiplier = 0.6f;
+
     public override void Execute(ISkillCaster caster, Vector2 direction,
                                   float damageMultiplier, Projectile.OwnerType ownerType, int level)
     {
@@ -71,7 +75,8 @@ public class DarkArtsSkillEffect : SkillEffectBase
             stealthAlpha,
             caster.GetAttackStrength() * damageMultiplier,
             arcMaterial, arcSegments, arcJitter, arcWidth, arcDuration, arcColor,
-            hitGlowSprite, hitGlowColor, hitGlowSize, hitGlowDuration
+            hitGlowSprite, hitGlowColor, hitGlowSize, hitGlowDuration,
+            cameraShakeMultiplier
         );
     }
 }

@@ -36,6 +36,10 @@ public class DarkArtsRuntime : MonoBehaviour
     private float _hitGlowSize;
     private float _hitGlowDuration;
 
+    // 震屏（最终伤害结算时触发）
+    private float _cameraShake;
+    private bool _dealtDamage;
+
     // 路径点（追击过的目标位置，用于终点闪电链）
     private readonly List<Vector3> _pathPoints = new List<Vector3>();
 
@@ -43,7 +47,8 @@ public class DarkArtsRuntime : MonoBehaviour
         int maxChains, float searchRadius, float jumpDelay,
         float stealthAlpha, float damage,
         Material arcMaterial, int arcSegments, float arcJitter, float arcWidth, float arcDuration, Color arcColor,
-        Sprite hitGlowSprite, Color hitGlowColor, float hitGlowSize, float hitGlowDuration)
+        Sprite hitGlowSprite, Color hitGlowColor, float hitGlowSize, float hitGlowDuration,
+        float cameraShake = 0f)
     {
         _caster = caster;
         _casterGO = caster.CasterTransform.gameObject;
@@ -64,6 +69,9 @@ public class DarkArtsRuntime : MonoBehaviour
         _hitGlowColor = hitGlowColor;
         _hitGlowSize = hitGlowSize;
         _hitGlowDuration = hitGlowDuration;
+
+        _cameraShake = cameraShake;
+        _dealtDamage = false;
 
         _casterSprite = _casterGO.GetComponentInChildren<SpriteRenderer>();
         _baseColor = _casterSprite != null ? _casterSprite.color : Color.white;
@@ -146,10 +154,15 @@ public class DarkArtsRuntime : MonoBehaviour
         }
 
         // 到达终点：统一结算全部目标伤害 + 清弹，再沿整条路径生成闪电链连接
+        _dealtDamage = false;
         foreach (var t in targets)
             HitTarget(t);
         for (int i = 0; i < _pathPoints.Count - 1; i++)
             SpawnArc(_pathPoints[i], _pathPoints[i + 1]);
+
+        // 最终伤害结算：造成过实际伤害（命中敌人/玩家）则触发屏幕振动
+        if (_dealtDamage && _cameraShake > 0f && CameraShake.Instance != null)
+            CameraShake.Instance.Shake(_cameraShake);
 
         // 结束：恢复透明度 + 音效 + 清理
         Restore();
@@ -214,6 +227,7 @@ public class DarkArtsRuntime : MonoBehaviour
         if (enemy != null)
         {
             enemy.Health?.TakeDamage(_damage);
+            _dealtDamage = true;
             SpawnHitGlow(target.position);
             return;
         }
@@ -223,6 +237,7 @@ public class DarkArtsRuntime : MonoBehaviour
         if (player != null)
         {
             player.TakeDamage(_damage);
+            _dealtDamage = true;
             SpawnHitGlow(target.position);
             return;
         }

@@ -31,6 +31,25 @@ public class EnemyCore : MonoBehaviour, IEnemy
     public bool IsDead => Health != null && Health.IsDead;
     public bool IsAssimilated { get; private set; }
 
+    /// <summary>
+    /// 是否玩家方单位（随从/玩家召唤物）：同化后 tag 已改为 Player，召唤物创建时 tag 也设为 Player。
+    /// 玩家方单位的目标是敌人（Tag=Enemy）；敌方单位的目标是玩家（Tag=Player）。
+    /// </summary>
+    public bool IsPlayerSide => IsAssimilated || gameObject.CompareTag("Player");
+
+    /// <summary>本方应攻击的目标 Tag：玩家方打敌人，敌方打玩家</summary>
+    public string TargetTag => IsPlayerSide ? "Enemy" : "Player";
+
+    /// <summary>
+    /// 触发死亡亡语（仅触发 OnDied 事件，供亡语 buff 使用）。
+    /// 不触发 OnAnyEnemyDied（避免噬菌体生成等全局副作用）也不切换 DeadState（随从由 EnemyFollower 复活机制接管）。
+    /// 随从被同化后 Health.OnDied 回调链被 ClearOnDied 清除，EnemyFollower.HandleDeath 需调用此方法让亡语生效。
+    /// </summary>
+    public void TriggerDeathEffects()
+    {
+        OnDied?.Invoke();
+    }
+
     /// <summary>是否可转向（跟随玩家翻转朝向）。Boss 站桩阶段为 false</summary>
     public bool CanTurn { get; set; } = true;
     /// <summary>是否可被击退（气浪/爆发等外力推动）。Boss 站桩阶段为 false</summary>
@@ -191,39 +210,38 @@ public class EnemyCore : MonoBehaviour, IEnemy
     }
 
     /// <summary>
-    /// 周期性动态索敌：初始查找玩家后，每 0.3s 扫描检测范围内最近的 "Player" 标签目标（含随从）。
-    /// 死亡或同化后自动停止。
+    /// 周期性动态索敌：初始查找本方目标后，每 0.3s 扫描检测范围内最近的目标。
+    /// 玩家方单位（随从/召唤物）找敌人；敌方单位找玩家。死亡或同化后自动停止。
+    /// 玩家召唤物找敌人目标 → 天然排除自身和玩家（两者都是 Tag=Player）。
     /// </summary>
     private System.Collections.IEnumerator TargetRefreshRoutine()
     {
-        // Phase 1: 初始查找（同原 LazyFindPlayer 逻辑）
+        string targetTag = TargetTag;
+
+        // Phase 1: 初始查找
         while (PlayerTarget == null)
         {
-            if (PlayerManager.Instance != null && PlayerManager.Instance.CurrentPlayer != null)
-                PlayerTarget = PlayerManager.Instance.CurrentPlayer.transform;
-            else
-                PlayerTarget = GameObject.FindGameObjectWithTag("Player")?.transform;
-
+            PlayerTarget = FindNearestTarget(targetTag);
             yield return new WaitForSeconds(0.3f);
         }
 
-        // Phase 2: 周期性动态刷新 — 扫描最近的 "Player" 标签目标（含随从）
+        // Phase 2: 周期性动态刷新
         while (true)
         {
             yield return new WaitForSeconds(0.3f);
             if (IsDead || IsAssimilated) yield break;
 
-            Transform nearest = FindNearestPlayerTarget();
+            Transform nearest = FindNearestTarget(targetTag);
             if (nearest != null)
                 PlayerTarget = nearest;
         }
     }
 
     /// <summary>
-    /// 在检测范围内查找最近的 "Player" 标签目标（含真实玩家和随从）。
-    /// 死亡随从的 Collider 已禁用，OverlapCircleAll 自然跳过。
+    /// 在检测范围内查找最近的指定 Tag 目标（玩家方→"Enemy"；敌方→"Player"）。
+    /// 排除自身与已死亡单位；死亡目标的 Collider 已禁用，OverlapCircleAll 自然跳过。
     /// </summary>
-    private Transform FindNearestPlayerTarget()
+    private Transform FindNearestTarget(string targetTag)
     {
         if (Health == null) return null;
 
@@ -236,10 +254,10 @@ public class EnemyCore : MonoBehaviour, IEnemy
 
         foreach (var hit in hits)
         {
-            if (!hit.CompareTag("Player")) continue;
+            if (!hit.CompareTag(targetTag)) continue;
             if (hit.transform == transform) continue;
 
-            // 跳过死亡的敌人/随从（Collider 已禁用，此为双保险）
+            // 跳过死亡的单位（Collider 已禁用，此为双保险）
             var core = hit.GetComponent<EnemyCore>();
             if (core != null && core.IsDead) continue;
 
@@ -299,7 +317,7 @@ public class EnemyCore : MonoBehaviour, IEnemy
     {
         if (IsDead || Health == null) return;
 
-        string targetTag = IsAssimilated ? "Enemy" : "Player";
+        string targetTag = TargetTag;
         if (!other.CompareTag(targetTag)) return;
 
         if (Time.time < _lastContactDamageTime + Health.ContactDamageCooldown) return;
@@ -319,8 +337,8 @@ public class EnemyCore : MonoBehaviour, IEnemy
 
         float dmg = Health.ContactDamage;
 
-        // 细胞骨架：非随从（敌人）对玩家的碰撞伤害减免
-        if (!IsAssimilated && PlayerCollisionReductionFactor < 1f)
+        // 细胞骨架：非玩家方（敌人）对玩家的碰撞伤害减免
+        if (!IsPlayerSide && PlayerCollisionReductionFactor < 1f)
             dmg *= PlayerCollisionReductionFactor;
 
         // 干扰素：随从攻击命中时给目标减速
@@ -365,7 +383,7 @@ public class EnemyCore : MonoBehaviour, IEnemy
     }
 
     public Projectile.OwnerType GetOwnerType() =>
-        IsAssimilated ? Projectile.OwnerType.Player : Projectile.OwnerType.Enemy;
+        IsPlayerSide ? Projectile.OwnerType.Player : Projectile.OwnerType.Enemy;
 
     public float GetSkillDamageModifier() => 1f;
 

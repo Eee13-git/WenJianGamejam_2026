@@ -32,7 +32,8 @@ public class ExplodeSplitBuff : BuffEffectBase
         handler = () =>
         {
             OnDeath(target);
-            core.OnDied -= handler;
+            // 不在此取消订阅：随从死亡后复活再死应再次触发亡语；
+            // 订阅由 BuffManager.OnDestroy → OnRemove 在对象销毁时清理。
         };
 
         _handlers[buff] = handler;
@@ -52,11 +53,15 @@ public class ExplodeSplitBuff : BuffEffectBase
         _handlers.Remove(buff);
     }
 
-    /// <summary>死亡瞬间：按配置爆出各组敌人（并计入房间敌人计数）</summary>
+    /// <summary>死亡瞬间：按配置爆出各组敌人（并计入房间敌人计数）。阵营跟随死亡者——随从（玩家方）爆出的小怪为玩家方（Tag=Player 打敌人），敌人爆出的小怪为敌方</summary>
     private void OnDeath(GameObject caster)
     {
         if (caster == null) return;
         Vector2 pos = caster.transform.position;
+
+        // 死亡者阵营：随从（同化/tag=Player）→ 玩家方
+        var core = caster.GetComponent<EnemyCore>();
+        bool playerSide = core != null && core.IsPlayerSide;
 
         // 找到原敌人所属的房间（原敌人由 RoomManager 生成，parent 即其 transform）
         var room = caster.transform.parent != null
@@ -75,6 +80,10 @@ public class ExplodeSplitBuff : BuffEffectBase
                 Vector2 offset = UnityEngine.Random.insideUnitCircle * spawnRadius;
                 var go = UnityEngine.Object.Instantiate(group.prefab, pos + offset, Quaternion.identity, caster.transform.parent);
                 go.name = $"Split_{group.prefab.name}_{i}";
+
+                // 阵营跟随死亡者：随从死亡爆出的小怪为玩家方（攻击敌人）
+                if (playerSide)
+                    go.tag = "Player";
 
                 // 计入房间敌人计数（门锁由 RoomManager._aliveEnemies 控制），避免房间门提前开启
                 room?.RegisterEnemy(go);

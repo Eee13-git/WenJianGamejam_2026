@@ -12,8 +12,14 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5223916dedf03ca4184b9508498e318e, type: 3}
   m_Name: SummonEffect
   m_EditorClassIdentifier: 
-  enemyPrefabs:
+  enemyMinionPrefabs:
+  - {fileID: 2633800766284816993, guid: f164b6a17b3542a4ca28580a82e33f3f, type: 3}
+  playerMinionPrefabs:
   - {fileID: 2633800766284816993, guid: f164b6a17b3542a4ca28580a82e33f3f, type: 3}
   count: 3
   spawnRadius: 4
   spawnInterval: 0.3
+  preferEnemySpawn: 0
+  enemySpawnChance: 0.9
+  maxActiveCount: 0
+  countPerLevel: 0

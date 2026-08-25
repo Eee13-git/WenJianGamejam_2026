@@ -49,11 +49,11 @@ public class WaveRuntime : MonoBehaviour
     private readonly HashSet<EnemyCore> _knockbackedEnemies = new();
     private readonly HashSet<PlayerController> _knockbackedPlayers = new();
 
-    // 冻结视觉：记录实体原色，冻结时染成冰蓝
+    // 冻结视觉：记录实体原色，冻结时染成冰蓝（深饱和，确保 Sprite-Lit 光照下仍明显）
     private readonly Dictionary<EnemyCore, Color> _enemyOriginalTints = new();
     private readonly Dictionary<PlayerController, Color> _playerOriginalTints = new();
     private readonly Dictionary<Projectile, Color> _projOriginalTints = new();
-    private static readonly Color FrozenTint = new Color(0.55f, 0.85f, 1.0f, 1f);
+    private static readonly Color FrozenTint = new Color(0.28f, 0.62f, 1.0f, 1f);
 
     // 玩家引用（取消监听）
     private PlayerCombat _playerCombat;

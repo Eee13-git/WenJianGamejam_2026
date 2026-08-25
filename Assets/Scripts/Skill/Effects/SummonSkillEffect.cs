@@ -36,12 +36,17 @@ public class SummonSkillEffect : SkillEffectBase
     [Tooltip("场上同时存活的本技能召唤物上限（0=无限制）。达到上限后停止召唤，等场上减少后再补")]
     [Min(0)] public int maxActiveCount = 0;
 
+    [Header("存在时间上限")]
+    [Tooltip("召唤物存在时间上限（秒），到时死亡/销毁。0=无限制（不推荐，所有召唤物都应有限期）")]
+    [Min(0)] public float lifetime = 20f;
+
     [Header("机制成长（升级可选）")]
     [Tooltip("每级额外召唤数量（0=不成长）")]
     public int countPerLevel = 0;
 
-    /// <summary>本技能已召唤且仍存活的单位（运行时追踪，死亡/同化自动移除）</summary>
-    private readonly List<GameObject> _activeMinions = new List<GameObject>();
+    /// <summary>本技能召唤且仍存活的单位，按阵营分开追踪（玩家/敌人上限互不相通）</summary>
+    private readonly List<GameObject> _playerMinions = new List<GameObject>();
+    private readonly List<GameObject> _enemyMinions = new List<GameObject>();
 
     public override void Execute(ISkillCaster caster, Vector2 direction,
                                   float damageMultiplier, Projectile.OwnerType ownerType, int level)
@@ -75,11 +80,12 @@ public class SummonSkillEffect : SkillEffectBase
 
         for (int i = 0; i < actualCount; i++)
         {
-            // 召唤上限：清理已销毁引用后，若达到上限则停止本次召唤
-            _activeMinions.RemoveAll(m => m == null);
-            if (maxActiveCount > 0 && _activeMinions.Count >= maxActiveCount)
+            // 召唤上限（按阵营分别计算，玩家/敌人互不相通）：清理已销毁引用后，若达到上限则停止本次召唤
+            var activeMinions = ownerType == Projectile.OwnerType.Player ? _playerMinions : _enemyMinions;
+            activeMinions.RemoveAll(m => m == null);
+            if (maxActiveCount > 0 && activeMinions.Count >= maxActiveCount)
             {
-                Debug.Log($"SummonSkillEffect: 场上召唤物已达上限 {maxActiveCount}，停止召唤");
+                Debug.Log($"SummonSkillEffect: {(ownerType == Projectile.OwnerType.Player ? "玩家" : "敌人")}召唤物已达上限 {maxActiveCount}，停止召唤");
                 yield break;
             }
 
@@ -106,6 +112,10 @@ public class SummonSkillEffect : SkillEffectBase
             // 阵营标记
             go.tag = selfTag;
 
+            // 存在时间上限：所有召唤物统一挂载 SummonLifetime（到时死亡/销毁；被同化为随从自动解除）
+            if (lifetime > 0f)
+                go.AddComponent<SummonLifetime>().Init(lifetime);
+
             // 光子光柱：初始化伤害参数（攻击力 + 技能倍率 + 技能等级）
             var beam = go.GetComponent<PhotonBeam>();
             if (beam != null)
@@ -126,22 +136,23 @@ public class SummonSkillEffect : SkillEffectBase
                 : null;
             room?.RegisterEnemy(go);
 
-            // 登记到上限追踪（死亡/同化时自动移除）
-            TrackMinion(go);
+            // 登记到阵营上限追踪（死亡/同化时自动移除）
+            TrackMinion(go, ownerType);
 
             yield return new WaitForSeconds(spawnInterval);
         }
     }
 
-    /// <summary>登记召唤物到存活列表，死亡/同化后自动移除</summary>
-    private void TrackMinion(GameObject go)
+    /// <summary>登记召唤物到对应阵营的存活列表，死亡/同化后自动移除</summary>
+    private void TrackMinion(GameObject go, Projectile.OwnerType ownerType)
     {
-        _activeMinions.Add(go);
+        var activeMinions = ownerType == Projectile.OwnerType.Player ? _playerMinions : _enemyMinions;
+        activeMinions.Add(go);
         var core = go.GetComponent<EnemyCore>();
         if (core != null)
         {
-            core.OnDied += () => _activeMinions.Remove(go);
-            core.OnAssimilated += (_) => _activeMinions.Remove(go);
+            core.OnDied += () => activeMinions.Remove(go);
+            core.OnAssimilated += (_) => activeMinions.Remove(go);
         }
     }
 

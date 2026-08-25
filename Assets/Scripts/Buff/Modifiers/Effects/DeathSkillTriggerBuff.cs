@@ -30,7 +30,8 @@ public class DeathSkillTriggerBuff : BuffEffectBase
         handler = () =>
         {
             ExecuteDeathSkill(target);
-            core.OnDied -= handler;
+            // 不在此取消订阅：随从死亡后复活再死应再次触发亡语；
+            // 订阅由 BuffManager.OnDestroy → OnRemove 在对象销毁时清理。
         };
 
         _handlers[buff] = handler;

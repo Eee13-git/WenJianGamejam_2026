@@ -190,6 +190,8 @@ public class RoomManager : MonoBehaviour
             case RoomType.Start:
                 TutorialManager.Instance.ShowTip("move_attack",
                     "WASD 移动 · 鼠标左键射击 · Q/E/Z/X 释放技能");
+                // 进入第一层（起始房）：默认呼出完整操作说明面板
+                TutorialPanelController.Open();
                 break;
 
             case RoomType.Normal:
