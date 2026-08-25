@@ -66,12 +66,33 @@ public class CodexNotificationUI : MonoBehaviour
         _currentRoutine = StartCoroutine(FadeRoutine());
     }
 
+    /// <summary>将实例从父级剥离到独立根画布，避免被父级 CanvasGroup alpha 吞掉</summary>
+    private static void DetachToRootCanvas(CodexNotificationUI instance)
+    {
+        var canvasGo = new GameObject("CodexNotificationCanvas");
+        var canvas = canvasGo.AddComponent<Canvas>();
+        canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+        canvas.sortingOrder = 999;
+        var scaler = canvasGo.AddComponent<CanvasScaler>();
+        scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+        scaler.referenceResolution = new Vector2(1920, 1080);
+        scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.Expand;
+        scaler.matchWidthOrHeight = 0.5f;
+        canvasGo.AddComponent<GraphicRaycaster>();
+
+        instance.transform.SetParent(canvasGo.transform, false);
+    }
+
     private static CodexNotificationUI GetInstance()
     {
         if (_instance != null) return _instance;
+
+        // 尝试在场景中找已有实例
         _instance = FindObjectOfType<CodexNotificationUI>(true);
+
         if (_instance == null)
         {
+            // 场景中没有 → 从预制体创建
             var prefab = Resources.Load<GameObject>("Codex/CodexNotification");
             if (prefab == null)
             {
@@ -80,39 +101,14 @@ public class CodexNotificationUI : MonoBehaviour
             }
             var go = Instantiate(prefab);
             go.name = "CodexNotification";
-
-            // 查找根 Canvas（避免挂到弹窗的嵌套 Canvas 下）；若无则创建专用 Canvas
-            Canvas rootCanvas = null;
-            foreach (var c in FindObjectsOfType<Canvas>())
-            {
-                if (c.isRootCanvas)
-                {
-                    rootCanvas = c;
-                    break;
-                }
-            }
-            if (rootCanvas != null)
-            {
-                go.transform.SetParent(rootCanvas.transform, false);
-            }
-            else
-            {
-                var canvasGo = new GameObject("CodexNotificationCanvas");
-                var canvas = canvasGo.AddComponent<Canvas>();
-                canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-                var scaler = canvasGo.AddComponent<CanvasScaler>();
-                scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-                scaler.referenceResolution = new Vector2(1920, 1080);
-                scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.Expand;
-                scaler.matchWidthOrHeight = 0.5f;
-                canvasGo.AddComponent<GraphicRaycaster>();
-                go.transform.SetParent(canvasGo.transform, false);
-            }
-
             _instance = go.GetComponent<CodexNotificationUI>();
             if (_instance == null)
                 _instance = go.AddComponent<CodexNotificationUI>();
         }
+
+        // 无论找到还是新建，都放到独立根画布上，避免被 LayerAnnouncement 等
+        // 父级 CanvasGroup 的 alpha 动画吞掉可见性
+        DetachToRootCanvas(_instance);
         return _instance;
     }
 

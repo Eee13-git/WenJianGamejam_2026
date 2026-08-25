@@ -70,6 +70,8 @@ public class ToggleFlagEffect : ItemEffectBase
                 break;
             case FlagType.RevealMap:
                 MinimapUI.RevealAllMap = true;
+                var minimap = FindObjectOfType<MinimapUI>();
+                minimap?.Refresh();
                 break;
             case FlagType.CooldownSkip:
                 SkillInstance.CooldownSkipChance = _floatValue;
@@ -130,6 +132,8 @@ public class ToggleFlagEffect : ItemEffectBase
                 break;
             case FlagType.RevealMap:
                 MinimapUI.RevealAllMap = false;
+                var minimapOff = FindObjectOfType<MinimapUI>();
+                minimapOff?.Refresh();
                 break;
             case FlagType.CooldownSkip:
                 SkillInstance.CooldownSkipChance = 0f;

@@ -233,15 +233,62 @@ public class CodexUIController : MonoBehaviour
             _detailIcon.gameObject.SetActive(_detailIcon.sprite != null);
         }
         if (_detailName != null)
+        {
             _detailName.text = entry.displayName;
+            _detailName.enableWordWrapping = true;
+        }
         if (_detailDescription != null)
+        {
             _detailDescription.text = entry.description;
+            _detailDescription.enableWordWrapping = true;
+            _detailDescription.overflowMode = TextOverflowModes.Overflow;
+            _detailDescription.alignment = TextAlignmentOptions.TopLeft;
+        }
 
         ClearStats();
 
         // 敌人额外显示属性
         if (entry is CodexEnemyEntrySO enemyEntry && enemyEntry.enemyConfig != null)
+        {
+            // 有属性表时：Description 区域上移，StatsContainer 扩大
+            if (_detailDescription != null)
+            {
+                var descRT = _detailDescription.GetComponent<RectTransform>();
+                descRT.anchorMin = new Vector2(0f, 1f);
+                descRT.anchorMax = new Vector2(1f, 1f);
+                descRT.pivot = new Vector2(0.5f, 1f);
+                descRT.sizeDelta = new Vector2(-20f, 180f);
+                descRT.anchoredPosition = new Vector2(0f, -140f);
+            }
+            if (_statsContainer != null)
+            {
+                var scRT = _statsContainer.GetComponent<RectTransform>();
+                scRT.anchorMin = new Vector2(0f, 0f);
+                scRT.anchorMax = new Vector2(1f, 0f);
+                scRT.pivot = new Vector2(0.5f, 0f);
+                scRT.sizeDelta = new Vector2(-20f, 220f);
+                scRT.anchoredPosition = new Vector2(0f, 10f);
+            }
             ShowEnemyStats(enemyEntry.enemyConfig);
+        }
+        else
+        {
+            // 非敌人条目：Description 填满，StatsContainer 收起
+            if (_detailDescription != null)
+            {
+                var descRT = _detailDescription.GetComponent<RectTransform>();
+                descRT.anchorMin = new Vector2(0f, 0f);
+                descRT.anchorMax = new Vector2(1f, 1f);
+                descRT.pivot = new Vector2(0.5f, 0.5f);
+                descRT.sizeDelta = new Vector2(-20f, -150f);
+                descRT.anchoredPosition = new Vector2(0f, -70f);
+            }
+            if (_statsContainer != null)
+            {
+                var scRT = _statsContainer.GetComponent<RectTransform>();
+                scRT.sizeDelta = new Vector2(-20f, 60f);
+            }
+        }
     }
 
     private void ShowEnemyStats(EnemyConfig cfg)
@@ -259,13 +306,33 @@ public class CodexUIController : MonoBehaviour
             ("攻击范围", cfg.attackRange),
         };
 
+        int index = 0;
         foreach (var (label, value) in stats)
         {
             var go = Instantiate(_statsLabelPrefab?.gameObject, _statsContainer);
             _spawnedStats.Add(go);
+
+            // 确保每个属性行有足够高度
+            var rt = go.GetComponent<RectTransform>();
+            if (rt != null)
+            {
+                rt.anchorMin = new Vector2(0f, 1f);
+                rt.anchorMax = new Vector2(1f, 1f);
+                rt.pivot = new Vector2(0.5f, 1f);
+                rt.sizeDelta = new Vector2(0f, 28f);
+                rt.anchoredPosition = new Vector2(0f, -index * 30f);
+            }
+
             var text = go.GetComponent<TMP_Text>();
             if (text != null)
+            {
                 text.text = $"{label}: {value}";
+                text.enableWordWrapping = false;
+                text.overflowMode = TextOverflowModes.Overflow;
+                text.alignment = TextAlignmentOptions.Left;
+                text.fontSize = 18;
+            }
+            index++;
         }
     }
 

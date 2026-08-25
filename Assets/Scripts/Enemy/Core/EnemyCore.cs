@@ -171,7 +171,12 @@ public class EnemyCore : MonoBehaviour, IEnemy
                 OnDied?.Invoke();
                 OnAnyEnemyDied?.Invoke(this);
                 if (StateMachine != null)
+                {
+                    // 强制启用状态机：技能（WaveRuntime/SlideRuntime/HoleTrap 等）可能
+                    // 禁用了 StateMachine，若死亡时仍禁用则 DeadState.Tick 永不执行 → 尸体残留
+                    StateMachine.enabled = true;
                     StateMachine.ChangeState(new DeadState(this));
+                }
             };
         }
 
