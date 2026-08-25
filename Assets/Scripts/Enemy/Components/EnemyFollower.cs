@@ -124,7 +124,10 @@ public class EnemyFollower : MonoBehaviour
         if (_core != null && _core.Health != null)
             _core.Health.OnDied -= HandleDeath;
         if (MapManager.Instance != null)
+        {
             MapManager.Instance.OnRoomSwitchStarted -= OnRoomSwitchStarted;
+            MapManager.Instance.OnRoomSwitchCompleted -= OnRoomSwitchCompletedForGrid;
+        }
         SceneManager.sceneLoaded -= OnSceneLoaded;
     }
 
@@ -308,7 +311,16 @@ public class EnemyFollower : MonoBehaviour
 
     private IEnumerator RespawnRoutine()
     {
-        yield return new WaitForSeconds(_respawnDelay);
+        // 用 unscaled 时间避免 Time.timeScale=0 时卡死
+        float elapsed = 0f;
+        while (elapsed < _respawnDelay)
+        {
+            elapsed += Time.unscaledDeltaTime;
+            yield return null;
+        }
+
+        // 场景切换期间协程可能被中断，检查自身是否仍有效
+        if (this == null || !_isReviving) yield break;
 
         // 复活
         if (_core?.Health != null)
@@ -349,16 +361,51 @@ public class EnemyFollower : MonoBehaviour
             _player = GameObject.FindGameObjectWithTag("Player")?.transform;
 
         // 更新寻路网格（场景重载后旧网格失效）
-        if (_movement != null)
+        // MapManager.Start 中 GenerateMap 可能尚未完成，延迟重试
+        StartCoroutine(DelayedGridUpdate());
+
+        // 跨场景后重启复活协程（旧协程可能被场景加载中断）
+        if (_isReviving)
         {
-            var roomMgr = UnityEngine.Object.FindObjectOfType<RoomManager>();
-            if (roomMgr != null && roomMgr.roomRoot != null && roomMgr.roomRoot.PathGrid != null)
-                _movement.SetRoomGrid(roomMgr.roomRoot.PathGrid);
+            StartCoroutine(RespawnRoutine());
         }
 
         // 传送到玩家身边（防止随从出现在旧位置）
         if (_player != null && _movement != null && !_isReviving)
             _movement.Teleport(_player.position);
+    }
+
+    private System.Collections.IEnumerator DelayedGridUpdate()
+    {
+        // 等待几帧让 MapManager.GenerateMap 完成
+        for (int i = 0; i < 5; i++)
+            yield return null;
+
+        if (_movement == null) yield break;
+
+        var roomMgr = UnityEngine.Object.FindObjectOfType<RoomManager>();
+        if (roomMgr != null && roomMgr.roomRoot != null && roomMgr.roomRoot.PathGrid != null)
+        {
+            _movement.SetRoomGrid(roomMgr.roomRoot.PathGrid);
+        }
+        else
+        {
+            // 仍找不到，监听房间切换完成事件（MapManager 生成完地图后会触发）
+            if (MapManager.Instance != null)
+                MapManager.Instance.OnRoomSwitchCompleted += OnRoomSwitchCompletedForGrid;
+        }
+    }
+
+    private void OnRoomSwitchCompletedForGrid(int newRoomId)
+    {
+        if (MapManager.Instance != null)
+            MapManager.Instance.OnRoomSwitchCompleted -= OnRoomSwitchCompletedForGrid;
+
+        if (_movement == null) return;
+
+        var roomMgr = UnityEngine.Object.FindObjectOfType<RoomManager>();
+        if (roomMgr != null && roomMgr.roomRoot != null && roomMgr.roomRoot.PathGrid != null)
+            _movement.SetRoomGrid(roomMgr.roomRoot.PathGrid);
     }
 
     // ── 槽位与升级 ──

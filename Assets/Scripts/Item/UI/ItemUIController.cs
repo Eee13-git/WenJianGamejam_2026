@@ -24,7 +24,9 @@ public class ItemUIController : MonoBehaviour
 
         if (_itemManager == null)
         {
-            Debug.LogError("ItemUIController: ItemManager 未赋值", this);
+            // 跨场景加载时 Player 可能尚未就绪，延迟到 OnPlayerReady
+            if (PlayerManager.Instance != null)
+                PlayerManager.Instance.OnPlayerReady += OnPlayerReady;
             return;
         }
         if (_panel == null)
@@ -41,8 +43,27 @@ public class ItemUIController : MonoBehaviour
         SyncAll();
     }
 
+    private void OnPlayerReady(GameObject player)
+    {
+        if (PlayerManager.Instance != null)
+            PlayerManager.Instance.OnPlayerReady -= OnPlayerReady;
+
+        _itemManager = player.GetComponent<ItemManager>();
+        if (_itemManager == null || _panel == null) return;
+
+        _panel.Initialize(_initialSlotCount);
+
+        _itemManager.OnItemAcquired += HandleItemAcquired;
+        _itemManager.OnItemRemoved += HandleItemRemoved;
+
+        SyncAll();
+    }
+
     private void OnDestroy()
     {
+        if (PlayerManager.Instance != null)
+            PlayerManager.Instance.OnPlayerReady -= OnPlayerReady;
+
         if (_itemManager != null)
         {
             _itemManager.OnItemAcquired -= HandleItemAcquired;

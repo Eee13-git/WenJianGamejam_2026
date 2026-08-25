@@ -129,6 +129,8 @@ public class RoomManager : MonoBehaviour
             if (_isFirstEnter)
             {
                 _isFirstEnter = false;
+                // 商店也需要寻路网格（随从需要）
+                roomRoot.BuildPathfindingGrid();
                 OpenShopRoom();
             }
             return;

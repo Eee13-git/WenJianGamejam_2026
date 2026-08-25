@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 /// <summary>
 /// 道具交互处理器 — 挂载在 Player 上。
@@ -39,16 +40,35 @@ public class ItemInteractionHandler : MonoBehaviour
             _itemManager = GetComponent<ItemManager>();
         if (_currencyManager == null)
             _currencyManager = GetComponent<CurrencyManager>();
+        ResolvePopups();
+    }
+
+    private void OnEnable()
+    {
+        SceneManager.sceneLoaded += OnSceneLoaded;
+    }
+
+    private void OnDisable()
+    {
+        SceneManager.sceneLoaded -= OnSceneLoaded;
+    }
+
+    private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
+    {
+        if (scene.name == "Start" || scene.name == "Result" || scene.name == "Winning") return;
+        // 跨场景后旧弹窗已销毁，重新查找
+        ResolvePopups();
+    }
+
+    private void ResolvePopups()
+    {
         if (_detailPopup == null)
             _detailPopup = FindObjectOfType<ItemDetailPopup>(true);
-        // 独立预制体懒加载：场景中没有详情面板实例时，从 prefab 实例化。
-        // prefab 根自带 Canvas(GraphicRaycaster, sortingOrder=100)，实例化为独立根画布（SetParent(null)），
-        // 避免被挂到任意根 Canvas 下（如设置界面 SettingsUI sort=999）导致层级错乱。
         if (_detailPopup == null && _detailPopupPrefab != null)
         {
             var go = Instantiate(_detailPopupPrefab);
             go.name = "ItemDetailPopup";
-            go.transform.SetParent(null);   // 提升为独立根画布，sortingOrder 生效
+            go.transform.SetParent(null);
             _detailPopup = go;
         }
         if (_shopPurchasePopup == null)
