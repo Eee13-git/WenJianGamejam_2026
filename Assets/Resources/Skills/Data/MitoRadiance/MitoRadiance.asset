@@ -13,12 +13,15 @@ MonoBehaviour:
   m_Name: MitoRadiance
   m_EditorClassIdentifier: 
   skillId: mito_radiance
-  skillName: "\u7EBF\u7C92\u4F53\u5149\u5B50\u8F90\u6563"
-  description: "\u968F\u673A\u91CA\u653E\u7EBF\u7C92\u4F53\u751F\u7269\u5149\u5B50\u8F90\u6563\uFF1A\u5728\u654C\u65B9\u5355\u4F4D\u5750\u6807\u751F\u62105\u9053\u5149\u67F1\u5E76\u7559\u4E0B\u8840\u6C60\u3002"
+  skillName: "\u7EBF\u7C92\u4F53\u8F90\u7167"
+  description: "\u968F\u673A\u91CA\u653E\u7EBF\u7C92\u4F53\u8F90\u7167\uFF1A\u5728\u654C\u65B9\u5355\u4F4D\u5750\u6807\u751F\u62105\u9053\u5149\u67F1\u5E76\u7559\u4E0B\u8840\u6C60\u3002"
   icon: {fileID: 21300000, guid: 3dcdf630d5a671f459a9a459a74d477e, type: 3}
   cooldown: 8
   castRange: 0
   damageMultiplier: 1
   maxLevel: 1
+  damageGrowthPerLevel: 0.15
+  cooldownReductionPerLevel: 0.1
   passive: 0
+  playCastAnimation: 1
   skillEffect: {fileID: 11400000, guid: 6e04b25369fcd5c4783eab85127ddff8, type: 2}

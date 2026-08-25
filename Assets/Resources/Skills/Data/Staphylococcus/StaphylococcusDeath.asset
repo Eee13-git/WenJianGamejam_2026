@@ -13,12 +13,15 @@ MonoBehaviour:
   m_Name: StaphylococcusDeath
   m_EditorClassIdentifier: 
   skillId: staphylococcus_death
-  skillName: "\u6BD2\u6DB2"
-  description: "\u88AB\u52A8\uFF1A\u6B7B\u4EA1\u65F6\u7206\u51FA\u4E00\u6EE9\u6709\u6BD2\u6DB2\u4F53\uFF0C\u6301\u7EED7\u79D2\u3002"
+  skillName: "\u8461\u8404\u7403\u83CC\u6BD2\u7206"
+  description: "\u88AB\u52A8\uFF1A\u6B7B\u4EA1\u65F6\u7206\u51FA\u4E00\u6EE9\u6709\u6BD2\u83CC\u6DB2\uFF0C\u6301\u7EED7\u79D2\u3002"
   icon: {fileID: 0}
   cooldown: 0
   castRange: 0
   damageMultiplier: 0
   maxLevel: 1
+  damageGrowthPerLevel: 0.15
+  cooldownReductionPerLevel: 0.1
   passive: 1
+  playCastAnimation: 1
   skillEffect: {fileID: 11400000, guid: 36c824fa782e6f94a9c58d9eb24a219e, type: 2}

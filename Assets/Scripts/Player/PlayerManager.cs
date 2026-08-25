@@ -154,6 +154,10 @@ public class PlayerManager : MonoBehaviour
         // 绑定 Player 到统计系统
         GameStatistics.Instance?.BindPlayer(CurrentPlayer);
 
+        // 进化倾向头顶指示器：玩家就绪时自动挂载（跨场景复用/重新生成均覆盖）
+        if (CurrentPlayer != null && CurrentPlayer.GetComponent<TendencyIndicator>() == null)
+            CurrentPlayer.AddComponent<TendencyIndicator>();
+
         OnPlayerReady?.Invoke(CurrentPlayer);
     }
 

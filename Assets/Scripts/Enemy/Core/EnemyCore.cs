@@ -168,6 +168,10 @@ public class EnemyCore : MonoBehaviour, IEnemy
             }
         }
 
+        // 脚下阵营指示器（敌人红/随从绿，Boss 无）——所有敌人自动挂载，含运行时动态生成的单位
+        if (GetComponent<FootIndicator>() == null)
+            gameObject.AddComponent<FootIndicator>();
+
         // 广播生成事件
         OnAnyEnemySpawned?.Invoke(this);
     }
